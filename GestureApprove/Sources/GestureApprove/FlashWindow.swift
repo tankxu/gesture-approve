@@ -15,7 +15,7 @@ final class ScriptRunner: ObservableObject {
         output = ""
         status = .running
         guard FileManager.default.fileExists(atPath: script) else {
-            output = "找不到脚本：\(script)\n"
+            output = L("script.notFound") + "\(script)\n"
             status = .failed
             return
         }
@@ -41,7 +41,7 @@ final class ScriptRunner: ObservableObject {
             }
         }
         do { try p.run(); process = p }
-        catch { output += "无法启动：\(error)\n"; status = .failed }
+        catch { output += L("script.cannotLaunch") + "\(error)\n"; status = .failed }
     }
 }
 
@@ -123,7 +123,7 @@ struct ScriptView: View {
 
     private var logText: String {
         if !runner.output.isEmpty { return runner.output }
-        return hasStarted ? "准备中…" : cfg.idleHint
+        return hasStarted ? L("script.preparing") : cfg.idleHint
     }
 
     @ViewBuilder private func stepRow(_ n: Int, _ text: String) -> some View {
@@ -138,7 +138,7 @@ struct ScriptView: View {
 
     @ViewBuilder private var statusBadge: some View {
         switch runner.status {
-        case .idle:    Label("空闲", systemImage: "circle").foregroundStyle(.secondary)
+        case .idle:    Label(L("script.idle"), systemImage: "circle").foregroundStyle(.secondary)
         case .running: HStack(spacing: 8) { ProgressView().controlSize(.small); Text(cfg.runningText).foregroundStyle(.orange) }
         case .success: Label(cfg.successText, systemImage: "checkmark.circle.fill").foregroundStyle(.green)
         case .failed:  Label(cfg.failedText, systemImage: "xmark.circle.fill").foregroundStyle(.red)

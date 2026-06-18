@@ -112,7 +112,7 @@ final class ApprovalController {
         inFlight = true
         self.completion = completion
 
-        vm.operation = operation.isEmpty ? "（未提供操作名）" : operation
+        vm.operation = operation.isEmpty ? L("card.noOperation") : operation
         vm.locked = nil
         vm.timeout = timeout
         vm.sessionID += 1
