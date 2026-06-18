@@ -1,0 +1,17 @@
+{
+  "_comment": "把 hooks 块合并进 ~/.claude/settings.json。需要 GestureApprove.app 在运行。超时/关闭/app未开都会回退终端正常审批(不自动拒绝)。审批时按 ⌃⇧Y 通过 / ⌃⇧N 拒绝，或比手势。timeout 要 >= HTTP_TIMEOUT(100) >= app 卡片超时(90)。",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 120,
+            "command": "/usr/bin/python3 '/绝对路径/gesture-approve/hooks/gesture_hook.py' claude"
+          }
+        ]
+      }
+    ]
+  }
+}

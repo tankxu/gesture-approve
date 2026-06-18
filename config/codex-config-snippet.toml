@@ -1,0 +1,12 @@
+# 把下面内容合并进 ~/.codex/config.toml。需要 GestureApprove.app 在运行。
+# matcher 是正则，匹配 tool_name。Codex 常见工具名：Bash、apply_patch。
+# timeout 要 >= hook 的 GESTURE_APPROVE_HTTP_TIMEOUT(默认 20s)。
+
+[[hooks.PermissionRequest]]
+matcher = "Bash|apply_patch"
+
+[[hooks.PermissionRequest.hooks]]
+type = "command"
+timeout = 120
+statusMessage = "审批：⌃⇧Y 通过 / ⌃⇧N 拒绝（或比手势）"
+command = '''/usr/bin/python3 "/绝对路径/gesture-approve/hooks/gesture_hook.py" codex'''

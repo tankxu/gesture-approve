@@ -1,0 +1,182 @@
+import SwiftUI
+
+/// 从刘海下方展开的黑色审批卡片。
+struct NotchCardView: View {
+    /// 操作名（如 "Bash: rm -rf build"）。
+    let operation: String
+    /// 当前即时识别到的手势，用于高亮对应图标。
+    let live: Gesture
+    /// 已锁定的判定（nil 表示尚未锁定）。
+    let locked: Gesture?
+    /// 摄像头当前画面（黑玻璃背景）。
+    var previewImage: CGImage? = nil
+    /// 手部包围盒（归一化，y 向下），用于按手大小/位置推近。
+    var handBox: CGRect? = nil
+    /// 倒计时环：超时时长 + 会话标识（每次审批变化以重启动画）。
+    var timeout: TimeInterval = 90
+    var sessionID: Int = 0
+    /// 点击图标的回调（通过/拒绝）。
+    var onApprove: (() -> Void)? = nil
+    var onDeny: (() -> Void)? = nil
+
+    private var approveActive: Bool { locked == .thumbUp || (locked == nil && live == .thumbUp) }
+    private var denyActive: Bool { locked == .openPalm || (locked == nil && live == .openPalm) }
+    /// 检测到手势时推近画面。
+    private var zoomedIn: Bool { locked != nil || live.isDecisive }
+
+    var body: some View {
+        VStack(spacing: 14) {
+            // 顶部留白，让卡片从刘海下沿“长出来”
+            Text("需要审批")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.55))
+                .tracking(2)
+                .padding(.top, 10)
+
+            Text(operation)
+                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.9))
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 18)
+
+            HStack(spacing: 28) {
+                gestureIcon(symbol: "hand.thumbsup.fill",
+                            label: "通过",
+                            tint: Color.green,
+                            active: approveActive,
+                            done: locked == .thumbUp,
+                            action: onApprove)
+                gestureIcon(symbol: "hand.raised.fill",
+                            label: "拒绝",
+                            tint: Color.red,
+                            active: denyActive,
+                            done: locked == .openPalm,
+                            action: onDeny)
+            }
+
+            Text(locked == nil ? "比手势，或按 ⌃⇧Y 通过 / ⌃⇧N 拒绝" : (locked == .thumbUp ? "已通过" : "已拒绝"))
+                .font(.system(size: 11))
+                .foregroundStyle(.white.opacity(0.4))
+                .padding(.bottom, 14)
+        }
+        .frame(width: 320)
+        .background(cardBackground)
+        .overlay(alignment: .topTrailing) {
+            if locked == nil {
+                CountdownRing(duration: timeout, sessionID: sessionID)
+                    .frame(width: 16, height: 16)
+                    .padding(14)
+            }
+        }
+    }
+
+    /// 黑玻璃卡片背景：黑底 → 实时画面(压暗/模糊/低透明) → 暗角渐变 → 描边。
+    private var cardBackground: some View {
+        let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
+        return ZStack {
+            shape.fill(Color.black)
+            if let previewImage {
+                GeometryReader { geo in
+                    // 按手部包围盒自适应：缩放使手占画面约 targetFrac，并居中到手；偏移夹紧防止露黑边
+                    let box = handBox
+                    let bw = box?.width ?? 1, bh = box?.height ?? 1
+                    let targetFrac: CGFloat = 0.75
+                    let fitZoom = box != nil ? targetFrac / max(max(bw, bh), 0.05) : 1.0
+                    let zoom: CGFloat = zoomedIn ? min(max(fitZoom, 1.0), 3.0) : 1.0
+                    let bcx = box.map { $0.midX } ?? 0.5
+                    let bcy = box.map { $0.midY } ?? 0.5
+                    let maxOffX = (zoom - 1) / 2 * geo.size.width
+                    let maxOffY = (zoom - 1) / 2 * geo.size.height
+                    let offX = zoomedIn ? min(max((0.5 - bcx) * geo.size.width * zoom, -maxOffX), maxOffX) : 0
+                    let offY = zoomedIn ? min(max((0.5 - bcy) * geo.size.height * zoom, -maxOffY), maxOffY) : 0
+                    Image(decorative: previewImage, scale: 1, orientation: .up)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .scaleEffect(zoom, anchor: .center)
+                        .offset(x: offX, y: offY)
+                        .scaleEffect(x: -1, y: 1)   // 水平镜像：像照镜子，手移动方向符合直觉
+                        .blur(radius: 1.5)
+                        .saturation(0.35)   // 降饱和，画面更低调不抢眼
+                        .opacity(0.7)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.85), value: zoom)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.85), value: offX)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.85), value: offY)
+                }
+                // 轻压暗，兼顾画面可见与文字清晰
+                LinearGradient(colors: [.black.opacity(0.3), .black.opacity(0.15)],
+                               startPoint: .top, endPoint: .bottom)
+            }
+            shape.strokeBorder(.white.opacity(0.08), lineWidth: 1)
+        }
+        .clipShape(shape)
+    }
+
+    @ViewBuilder
+    private func gestureIcon(symbol: String, label: String, tint: Color,
+                            active: Bool, done: Bool, action: (() -> Void)? = nil) -> some View {
+        Button(action: { action?() }) {
+            iconBody(symbol: symbol, label: label, tint: tint, active: active, done: done)
+        }
+        .buttonStyle(.plain)
+        .disabled(action == nil)
+    }
+
+    @ViewBuilder
+    private func iconBody(symbol: String, label: String, tint: Color,
+                          active: Bool, done: Bool) -> some View {
+        VStack(spacing: 8) {
+            ZStack {
+                Circle()
+                    .fill(active ? tint.opacity(0.22) : Color.white.opacity(0.05))
+                    .frame(width: 70, height: 70)
+                    .overlay(
+                        Circle().strokeBorder(active ? tint : .white.opacity(0.12),
+                                              lineWidth: active ? 2.5 : 1)
+                    )
+                Image(systemName: symbol)
+                    .font(.system(size: 30, weight: .medium))
+                    .foregroundStyle(active ? tint : .white.opacity(0.35))
+                if done {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundStyle(tint)
+                        .background(Circle().fill(.black))
+                        .offset(x: 26, y: -26)
+                }
+            }
+            .scaleEffect(active ? 1.08 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: active)
+
+            Text(label)
+                .font(.system(size: 12, weight: active ? .semibold : .regular))
+                .foregroundStyle(active ? tint : .white.opacity(0.5))
+        }
+    }
+}
+
+/// 倒计时圆环：随审批时长从满到空匀速走完。每次审批(sessionID 变化)重启。
+struct CountdownRing: View {
+    let duration: TimeInterval
+    let sessionID: Int
+    @State private var progress: CGFloat = 1
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(Color.white.opacity(0.15), lineWidth: 2)
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(Color.white.opacity(0.7),
+                        style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                .rotationEffect(.degrees(-90))   // 从 12 点方向开始
+        }
+        .onAppear { restart() }
+        .onChange(of: sessionID) { _, _ in restart() }
+    }
+
+    private func restart() {
+        progress = 1
+        withAnimation(.linear(duration: duration)) { progress = 0 }
+    }
+}
