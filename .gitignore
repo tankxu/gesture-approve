@@ -1,0 +1,17 @@
+# 构建产物 / build artifacts
+GestureApprove/.build/
+GestureApprove/build/
+*.xcodeproj
+# 运行时下载的依赖 / downloaded runtimes (re-creatable via setup.sh / flash)
+bridge/.venv/
+bridge/models/*.task
+firmware/.flashenv/
+firmware/.pio/
+# 训练大数据 / large training data (sample CSV kept)
+GestureApprove/train/landmarks_full.csv
+.DS_Store
+*.bak.*
+# 本地配置 / local-only config
+.claude/
+__pycache__/
+*.pyc
