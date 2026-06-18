@@ -27,7 +27,7 @@ struct NotchCardView: View {
     var body: some View {
         VStack(spacing: 14) {
             // 顶部留白，让卡片从刘海下沿“长出来”
-            Text("需要审批")
+            Text(L("card.needApproval"))
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.55))
                 .tracking(2)
@@ -42,20 +42,20 @@ struct NotchCardView: View {
 
             HStack(spacing: 28) {
                 gestureIcon(symbol: "hand.thumbsup.fill",
-                            label: "通过",
+                            label: L("card.approve"),
                             tint: Color.green,
                             active: approveActive,
                             done: locked == .thumbUp,
                             action: onApprove)
                 gestureIcon(symbol: "hand.raised.fill",
-                            label: "拒绝",
+                            label: L("card.deny"),
                             tint: Color.red,
                             active: denyActive,
                             done: locked == .openPalm,
                             action: onDeny)
             }
 
-            Text(locked == nil ? "比手势，或按 ⌃⇧Y 通过 / ⌃⇧N 拒绝" : (locked == .thumbUp ? "已通过" : "已拒绝"))
+            Text(locked == nil ? L("card.hint") : (locked == .thumbUp ? L("card.approved") : L("card.denied")))
                 .font(.system(size: 11))
                 .foregroundStyle(.white.opacity(0.4))
                 .padding(.bottom, 14)

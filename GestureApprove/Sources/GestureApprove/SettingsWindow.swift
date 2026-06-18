@@ -28,8 +28,8 @@ struct SettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // 接入：一键写入/移除 hook
-            Text("接入 AI 工具").font(.headline)
-            Toggle("接入 Claude Code", isOn: Binding(
+            Text(L("settings.section.connect")).font(.headline)
+            Toggle(L("settings.connectClaude"), isOn: Binding(
                 get: { claudeInstalled },
                 set: { on in
                     do {
@@ -37,7 +37,7 @@ struct SettingsView: View {
                         claudeInstalled = on
                     } catch { errorText = "\(error)" }
                 }))
-            Toggle("接入 Codex", isOn: Binding(
+            Toggle(L("settings.connectCodex"), isOn: Binding(
                 get: { codexInstalled },
                 set: { on in
                     do {
@@ -45,14 +45,14 @@ struct SettingsView: View {
                         codexInstalled = on
                     } catch { errorText = "\(error)" }
                 }))
-            Text("开启即自动写入对应配置（已自动备份原文件），新开 CC/Codex 会话生效；关闭即移除。")
+            Text(L("settings.connectDesc"))
                 .font(.caption).foregroundStyle(.secondary)
-            Text("审批时：⌃⇧Y 通过 · ⌃⇧N 拒绝（或比手势）；超时/未接入会回退到终端正常审批。")
+            Text(L("settings.hotkeyDesc"))
                 .font(.caption).foregroundStyle(.secondary)
 
             Divider()
 
-            Text("视频输入源").font(.headline)
+            Text(L("settings.section.video")).font(.headline)
 
             HStack(spacing: 6) {
                 Picker("", selection: $selectedID) {
@@ -62,7 +62,7 @@ struct SettingsView: View {
                 .fixedSize()
 
                 Button(action: reload) { Image(systemName: "arrow.clockwise") }
-                    .help("刷新设备列表")
+                    .help(L("settings.refresh.help"))
 
                 Spacer()
 
@@ -70,14 +70,14 @@ struct SettingsView: View {
                 Image(systemName: "rotate.right")
                     .foregroundStyle(.secondary)
                 Picker("", selection: $rotation) {
-                    Text("不旋转").tag(0)
+                    Text(L("settings.rotation.none")).tag(0)
                     Text("90°").tag(90)
                     Text("180°").tag(180)
                     Text("270°").tag(270)
                 }
                 .labelsHidden()
                 .fixedSize()
-                .help("画面整体旋转角度")
+                .help(L("settings.rotation.help"))
                 .onChange(of: rotation) { _, v in
                     UserDefaults.standard.set(v, forKey: "frameRotation")
                 }
@@ -93,8 +93,8 @@ struct SettingsView: View {
                 if selectedIsESP32 {
                     VStack(spacing: 10) {
                         Image(systemName: "cable.connector.horizontal").font(.system(size: 28))
-                        Text("ESP32-CAM 串口源 · 无实时预览")
-                        Text("刷好固件并接上后，用「测试审批卡片」验证")
+                        Text(L("settings.esp32.noPreview"))
+                        Text(L("settings.esp32.noPreviewHint"))
                             .font(.caption)
                     }
                     .foregroundStyle(.white.opacity(0.6))
@@ -108,10 +108,10 @@ struct SettingsView: View {
             Divider()
 
             // 识别引擎
-            Text("识别引擎").font(.headline)
+            Text(L("settings.section.engine")).font(.headline)
             Picker("", selection: $engine) {
-                Text("Apple Vision（内置 · 体积小）").tag("vision")
-                Text("MediaPipe（更准 · 需下载 ~300MB）").tag("mediapipe")
+                Text(L("settings.engine.vision")).tag("vision")
+                Text(L("settings.engine.mediapipe")).tag("mediapipe")
             }
             .pickerStyle(.radioGroup)
             .labelsHidden()
@@ -125,26 +125,26 @@ struct SettingsView: View {
                     if mpInstalled {
                         HStack(spacing: 4) {
                             Image(systemName: "checkmark.circle.fill")
-                            Text("已安装")
+                            Text(L("settings.engine.installed"))
                         }.foregroundStyle(.green)
                     } else {
                         HStack(spacing: 4) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                            Text("未安装（先下载才会生效）")
+                            Text(L("settings.engine.notInstalled"))
                         }.foregroundStyle(.orange)
                     }
-                    Button(mpInstalled ? "重新下载…" : "下载安装…") { openMediaPipeInstall() }
+                    Button(mpInstalled ? L("settings.engine.redownload") : L("settings.engine.download")) { openMediaPipeInstall() }
                 }
                 .font(.caption)
             }
-            Text("Vision 内置零依赖、准度一般；MediaPipe 需下载约 300MB 运行时，识别更准更稳。")
+            Text(L("settings.engine.desc"))
                 .font(.caption).foregroundStyle(.secondary)
 
             Divider()
 
             // 识别精准度（仅 MediaPipe 生效）
             HStack {
-                Text("识别精准度").font(.headline)
+                Text(L("settings.section.precision")).font(.headline)
                 Spacer()
                 Text(String(format: "%.0f%%", minConf * 100))
                     .font(.caption).foregroundStyle(.secondary).monospacedDigit()
@@ -152,16 +152,16 @@ struct SettingsView: View {
             Slider(value: $minConf, in: 0.3...0.9, step: 0.05)
                 .onChange(of: minConf) { _, v in UserDefaults.standard.set(v, forKey: "gestureMinConf") }
             HStack {
-                Text("宽松（易触发）").font(.caption).foregroundStyle(.secondary)
+                Text(L("settings.precision.loose")).font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                Text("严格（少误判）").font(.caption).foregroundStyle(.secondary)
+                Text(L("settings.precision.strict")).font(.caption).foregroundStyle(.secondary)
             }
 
             Divider()
 
             // 自动放行白名单
-            Text("自动放行规则").font(.headline)
-            Text("命中任一行(正则)的命令直接通过、不弹手势卡片。匹配「工具: 内容」，如 Bash: ls。")
+            Text(L("settings.section.allowlist")).font(.headline)
+            Text(L("settings.allowlist.desc"))
                 .font(.caption).foregroundStyle(.secondary)
             TextEditor(text: $allowlistText)
                 .font(.system(size: 11, design: .monospaced))
@@ -186,10 +186,10 @@ struct SettingsView: View {
                         .background(Color.primary.opacity(0.06),
                                     in: RoundedRectangle(cornerRadius: 10))
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("使用 ESP32-CAM 作为摄像头")
+                        Text(L("settings.esp32card.title"))
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(.primary)
-                        Text("没有合适的摄像头？用一块 ESP32-CAM 模块，刷入配套固件就能当审批摄像头。")
+                        Text(L("settings.esp32card.desc"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -212,9 +212,9 @@ struct SettingsView: View {
         }
         .padding(20)
         .frame(width: 480)
-        .alert("接入失败", isPresented: Binding(get: { errorText != nil },
+        .alert(L("settings.alert.title"), isPresented: Binding(get: { errorText != nil },
                                                 set: { if !$0 { errorText = nil } })) {
-            Button("好", role: .cancel) { errorText = nil }
+            Button(L("settings.alert.ok"), role: .cancel) { errorText = nil }
         } message: {
             Text(errorText ?? "")
         }
@@ -248,7 +248,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                 state: state, openFlash: openFlash, onPrimeESP32: onPrimeESP32,
                 onEngineChanged: onEngineChanged, openMediaPipeInstall: openMediaPipeInstall))
             let w = NSWindow(contentViewController: hosting)
-            w.title = "手势审批 · 设置"
+            w.title = L("settings.windowTitle")
             w.styleMask = [.titled, .closable, .miniaturizable]
             w.isReleasedWhenClosed = false   // ARC 管理，避免关闭崩溃/退出
             w.delegate = self

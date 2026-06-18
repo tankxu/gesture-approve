@@ -33,6 +33,7 @@ AI runs a tool ─► hook (tiny HTTP) ─► GestureApprove.app
 - **Respond fast**: gesture, **global hotkeys ⌃⇧Y / ⌃⇧N**, or click the card icons.
 - **Auto-allow list**: safe commands (e.g. `ls`, `git status`) pass without a card — editable regex rules.
 - **Notch card**: live camera behind "black glass", zooms toward the detected hand, countdown ring, sound + system-notification feedback.
+- **6 languages**: English, 简体中文, 日本語, 한국어, Español, Français (follows the system language).
 - **Launch at login**, one-click **enable/disable**, in-app **hook install** for Claude Code & Codex.
 - **ESP32-CAM** is optional: flash its firmware from inside the app (no PlatformIO needed) and use it as a dedicated approval camera.
 
@@ -100,6 +101,7 @@ AI 跑工具 ─► hook(轻量HTTP) ─► GestureApprove.app
 - **多种回应方式**：比手势、**全局热键 ⌃⇧Y / ⌃⇧N**、或点卡片图标。
 - **自动放行白名单**：安全命令（如 `ls`、`git status`）直接通过不弹卡片，规则可编辑（正则）。
 - **刘海卡片**：黑玻璃后透出实时画面、推近到手部、倒计时环、音效 + 系统通知反馈。
+- **6 国语言**：English、简体中文、日本語、한국어、Español、Français（跟随系统语言）。
 - **开机自启**、一键**开关**、设置里**一键接入** Claude Code / Codex 的 hook。
 - **ESP32-CAM** 可选：app 内一键刷固件（无需 PlatformIO），当作独立审批摄像头。
 

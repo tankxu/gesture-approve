@@ -17,7 +17,7 @@ enum VideoInputs {
         let types: [AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera, .external, .continuityCamera]
         let ds = AVCaptureDevice.DiscoverySession(deviceTypes: types, mediaType: .video, position: .unspecified)
         var list = ds.devices.map { VideoInput(id: $0.uniqueID, name: $0.localizedName) }
-        list.append(VideoInput(id: esp32ID, name: "ESP32-CAM（串口）"))
+        list.append(VideoInput(id: esp32ID, name: L("video.esp32")))
         return list
     }
 

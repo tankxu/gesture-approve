@@ -54,16 +54,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func startServer() {
         let server = ApprovalServer(port: port) { [weak self] operation, reply in
             DispatchQueue.main.async {
-                guard let self else { reply("ask", "服务未就绪"); return }
+                guard let self else { reply("ask", L("reply.notReady")); return }
                 // 总开关关闭 -> 直接交回终端正常审批，不弹卡片
-                guard self.approvalEnabled else { reply("ask", "审批拦截已关闭"); return }
+                guard self.approvalEnabled else { reply("ask", L("reply.gatingOff")); return }
                 // 白名单命中 -> 直接放行，不打扰
-                if Allowlist.matches(operation) { reply("allow", "白名单自动放行"); return }
+                if Allowlist.matches(operation) { reply("allow", L("reply.allowlist")); return }
                 self.controller.requestApproval(operation: operation, timeout: 90) { outcome in
                     switch outcome {
-                    case .approved: reply("allow", "👍 通过")
-                    case .denied:   reply("deny", "🖐 拒绝")
-                    case .timedOut: reply("ask", "超时，交回终端审批")   // 不再自动拒绝
+                    case .approved: reply("allow", L("reply.approved"))
+                    case .denied:   reply("deny", L("reply.denied"))
+                    case .timedOut: reply("ask", L("reply.timeout"))   // 不再自动拒绝
                     }
                 }
             }
@@ -89,20 +89,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             item.button?.image = img
         } else {
             item.button?.image = NSImage(systemSymbolName: "hand.thumbsup",
-                                         accessibilityDescription: "手势审批")
+                                         accessibilityDescription: L("app.name"))
         }
         let menu = NSMenu()
-        menu.addItem(withTitle: "手势审批 · 运行中", action: nil, keyEquivalent: "")
+        menu.addItem(withTitle: L("menu.running"), action: nil, keyEquivalent: "")
         menu.addItem(.separator())
 
-        let enabled = NSMenuItem(title: "启用审批拦截", action: #selector(toggleEnabled), keyEquivalent: "")
+        let enabled = NSMenuItem(title: L("menu.enable"), action: #selector(toggleEnabled), keyEquivalent: "")
         enabled.target = self
         enabled.state = approvalEnabled ? .on : .off
         enabled.image = NSImage(systemSymbolName: "lock.shield", accessibilityDescription: nil)
         menu.addItem(enabled)
         self.enabledItem = enabled
 
-        let login = NSMenuItem(title: "开机自启", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
+        let login = NSMenuItem(title: L("menu.launchAtLogin"), action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
         login.target = self
         login.state = (SMAppService.mainApp.status == .enabled) ? .on : .off
         login.image = NSImage(systemSymbolName: "power", accessibilityDescription: nil)
@@ -111,18 +111,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(.separator())
 
-        let settings = NSMenuItem(title: "设置…", action: #selector(openSettings), keyEquivalent: ",")
+        let settings = NSMenuItem(title: L("menu.settings"), action: #selector(openSettings), keyEquivalent: ",")
         settings.target = self
         settings.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: nil)
         menu.addItem(settings)
 
-        let test = NSMenuItem(title: "测试审批卡片", action: #selector(testApproval), keyEquivalent: "t")
+        let test = NSMenuItem(title: L("menu.test"), action: #selector(testApproval), keyEquivalent: "t")
         test.target = self
         test.image = NSImage(systemSymbolName: "hand.thumbsup", accessibilityDescription: nil)
         menu.addItem(test)
 
         menu.addItem(.separator())
-        let quit = NSMenuItem(title: "退出", action: #selector(quit), keyEquivalent: "q")
+        let quit = NSMenuItem(title: L("menu.quit"), action: #selector(quit), keyEquivalent: "q")
         quit.target = self
         quit.image = NSImage(systemSymbolName: "power", accessibilityDescription: nil)
         menu.addItem(quit)
@@ -158,42 +158,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mpInstallWC.show(script: MediaPipeInstaller.setupScript, cfg: cfg)
     }
 
-    static let firmwareConfig = ScriptUIConfig(
-        windowTitle: "刷写 ESP32-CAM 固件",
-        title: "把 ESP32-CAM 刷成审批摄像头",
-        intro: "ESP32-CAM 是一块很便宜的带摄像头的小模块。刷入配套固件后，它就能通过 USB 把画面传给电脑，代替自带摄像头识别手势。",
-        steps: ["用 USB-串口适配器把 ESP32-CAM 接到电脑",
-                "点「开始刷写」，等待出现「刷写成功」",
-                "回到设置，把视频输入源选成「ESP32-CAM（串口）」"],
-        runLabel: "开始刷写", rerunLabel: "重新刷写", runIcon: "bolt.fill",
-        footer: "无需安装 PlatformIO。首次会自动下载约 20MB 小工具。裸 FTDI 没自动复位：GPIO0 接 GND → 复位 → 重试。",
-        runningText: "正在刷写…", successText: "刷写成功", failedText: "刷写失败",
-        idleHint: "把设备接好后点「开始刷写」，这里实时显示进度。")
+    static var firmwareConfig: ScriptUIConfig {
+        ScriptUIConfig(
+            windowTitle: L("firmware.windowTitle"),
+            title: L("firmware.title"),
+            intro: L("firmware.intro"),
+            steps: [L("firmware.step1"), L("firmware.step2"), L("firmware.step3")],
+            runLabel: L("firmware.runLabel"), rerunLabel: L("firmware.rerunLabel"), runIcon: "bolt.fill",
+            footer: L("firmware.footer"),
+            runningText: L("firmware.running"), successText: L("firmware.success"), failedText: L("firmware.failed"),
+            idleHint: L("firmware.idleHint"))
+    }
 
-    static let mediapipeConfig = ScriptUIConfig(
-        windowTitle: "下载 MediaPipe 识别引擎",
-        title: "下载 MediaPipe（更准的手势识别）",
-        intro: "MediaPipe 是 Google 的预训练手势模型，识别更准、更耐受光线与角度。它需要一个约 300MB 的 Python 运行时（仅下载一次）。",
-        steps: ["点「开始下载」，自动建好 Python 环境并下载模型",
-                "完成后回到设置即自动启用 MediaPipe"],
-        runLabel: "开始下载", rerunLabel: "重新下载", runIcon: "arrow.down.circle.fill",
-        footer: "下载约 300MB，耗时取决于网速。完成后无需重启 app。",
-        runningText: "正在下载安装…", successText: "安装完成", failedText: "安装失败",
-        idleHint: "点「开始下载」开始安装，这里实时显示进度。")
+    static var mediapipeConfig: ScriptUIConfig {
+        ScriptUIConfig(
+            windowTitle: L("mp.windowTitle"),
+            title: L("mp.title"),
+            intro: L("mp.intro"),
+            steps: [L("mp.step1"), L("mp.step2")],
+            runLabel: L("mp.runLabel"), rerunLabel: L("mp.rerunLabel"), runIcon: "arrow.down.circle.fill",
+            footer: L("mp.footer"),
+            runningText: L("mp.running"), successText: L("mp.success"), failedText: L("mp.failed"),
+            idleHint: L("mp.idleHint"))
+    }
 
     private var testInFlight = false
     @objc private func testApproval() {
         if testInFlight { return }   // 防重入：一次测试未结束时忽略再次点击
         testInFlight = true
-        controller.requestApproval(operation: "测试手势识别", timeout: 15) { [weak self] outcome in
+        controller.requestApproval(operation: L("test.operation"), timeout: 15) { [weak self] outcome in
             self?.testInFlight = false
             let body: String
             switch outcome {
-            case .approved: body = "✅ 已通过（👍）"
-            case .denied:   body = "🛑 已拒绝（🖐）"
-            case .timedOut: body = "⌛️ 超时未操作（真实审批时会交回终端）"
+            case .approved: body = L("test.approved")
+            case .denied:   body = L("test.denied")
+            case .timedOut: body = L("test.timeout")
             }
-            Notifier.post(title: "手势审批 · 测试结果", body: body)
+            Notifier.post(title: L("test.notifyTitle"), body: body)
         }
     }
 
@@ -252,6 +253,16 @@ if let i = CommandLine.arguments.firstIndex(of: "--extract-landmarks"),
     }
     try? rows.joined(separator: "\n").write(toFile: outPath, atomically: true, encoding: .utf8)
     print("写出 \(rows.count) 条样本 -> \(outPath)")
+    exit(0)
+}
+
+// 语言诊断模式：--lang，打印解析到的界面语言与几条样例文案后退出。
+if CommandLine.arguments.contains("--lang") {
+    print("preferredLanguages: \(Locale.preferredLanguages)")
+    print("resolved: \(I18n.lang)")
+    for k in ["menu.running", "card.needApproval", "settings.section.engine"] {
+        print("  \(k) = \(L(k))")
+    }
     exit(0)
 }
 
