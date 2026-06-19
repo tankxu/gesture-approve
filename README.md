@@ -64,7 +64,15 @@ Then from the menu-bar 👍 icon → **Settings** to pick a camera, choose an en
 
 ## License
 
-MIT (see `LICENSE`). The bundled Vision model derives from [HaGRID](https://github.com/hukenovs/hagrid) (CC BY-SA 4.0).
+**GNU AGPLv3** (see [`LICENSE`](LICENSE)). Copyleft: if you modify and
+distribute it — or run a modified version as a network service — you must
+release your complete source under the AGPLv3. Commercial use is allowed under
+those terms.
+
+The **GestureApprove** name and logo are reserved and are **not** covered by the
+AGPL — forks must rename and re-brand (see [`TRADEMARK.md`](TRADEMARK.md)).
+
+The bundled Vision model derives from [HaGRID](https://github.com/hukenovs/hagrid) (CC BY-SA 4.0).
 
 ---
 
@@ -132,4 +140,10 @@ cd GestureApprove
 
 ## 许可
 
-MIT（见 `LICENSE`）。内置 Vision 模型派生自 [HaGRID](https://github.com/hukenovs/hagrid)（CC BY-SA 4.0）。
+**GNU AGPLv3**（见 [`LICENSE`](LICENSE)）。Copyleft：你修改后分发——或把修改版做成网络服务
+对外提供——都必须以 AGPLv3 公开完整源代码。在此前提下**允许商用**。
+
+**GestureApprove** 名称与图标为保留标识，**不**在 AGPL 授权范围内——fork 必须改名换品牌
+（见 [`TRADEMARK.md`](TRADEMARK.md)）。
+
+内置 Vision 模型派生自 [HaGRID](https://github.com/hukenovs/hagrid)（CC BY-SA 4.0）。

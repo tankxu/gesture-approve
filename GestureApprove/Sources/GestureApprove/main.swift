@@ -57,8 +57,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 guard let self else { reply("ask", L("reply.notReady")); return }
                 // 总开关关闭 -> 直接交回终端正常审批，不弹卡片
                 guard self.approvalEnabled else { reply("ask", L("reply.gatingOff")); return }
-                // 白名单命中 -> 直接放行，不打扰
-                if Allowlist.matches(operation) { reply("allow", L("reply.allowlist")); return }
+                // 白名单命中且整条安全 -> 直接放行，不打扰（危险/拼接命令仍要手势）
+                if Allowlist.autoAllows(operation) { reply("allow", L("reply.allowlist")); return }
                 self.controller.requestApproval(operation: operation, timeout: 90) { outcome in
                     switch outcome {
                     case .approved: reply("allow", L("reply.approved"))
@@ -186,7 +186,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func testApproval() {
         if testInFlight { return }   // 防重入：一次测试未结束时忽略再次点击
         testInFlight = true
-        controller.requestApproval(operation: L("test.operation"), timeout: 15) { [weak self] outcome in
+        controller.requestApproval(operation: L("test.operation"), timeout: 15,
+                                   offerAlwaysAllow: false) { [weak self] outcome in
             self?.testInFlight = false
             let body: String
             switch outcome {
@@ -263,6 +264,56 @@ if CommandLine.arguments.contains("--lang") {
     for k in ["menu.running", "card.needApproval", "settings.section.engine"] {
         print("  \(k) = \(L(k))")
     }
+    exit(0)
+}
+
+// 实时识别诊断：--vision-cam，开默认摄像头跑 Vision ~10 秒，逐帧打印分类器内部值。
+// 必须用 .app 内的二进制运行才有相机权限：
+//   /Applications/GestureApprove.app/Contents/MacOS/GestureApprove --vision-cam
+if CommandLine.arguments.contains("--vision-cam") {
+    final class Probe: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
+        let ctx = CIContext(options: nil)
+        var n = 0
+        func captureOutput(_ o: AVCaptureOutput, didOutput sb: CMSampleBuffer, from c: AVCaptureConnection) {
+            guard let pb = CMSampleBufferGetImageBuffer(sb) else { return }
+            n += 1
+            if n % 8 != 0 { return }   // 约每 8 帧打印一次
+            let ci = CIImage(cvPixelBuffer: pb)
+            guard let cg = ctx.createCGImage(ci, from: ci.extent) else { return }
+            let req = VNDetectHumanHandPoseRequest(); req.maximumHandCount = 1
+            try? VNImageRequestHandler(cgImage: cg, orientation: .up, options: [:]).perform([req])
+            guard let obs = req.results?.first, let lms = VisionClassifier.landmarks(obs) else {
+                print("帧\(n): 未检测到手"); return
+            }
+            let chir: String = obs.chirality == .right ? "右" : (obs.chirality == .left ? "左" : "未知")
+            let (ext, tr) = VisionClassifier.geomFeatures(lms, extMargin: 1.0)
+            let ang = VisionClassifier.uprightAngle(lms)
+            let palmF = VisionClassifier.isPalmFacing(lms, chirality: obs.chirality)
+            let (g, _) = VisionClassifier.classify(landmarks: lms, chirality: obs.chirality)
+            print(String(format: "帧%d: 左右手=%@ 伸展指=%d 拇指比=%.2f 朝上角=%.0f° 手掌正面=%@ → 判定=%@",
+                         n, chir, ext, tr, ang, palmF ? "是" : "否", g.rawValue))
+        }
+    }
+    let probe = Probe()
+    let session = AVCaptureSession()
+    session.sessionPreset = .high
+    let ds = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInWideAngleCamera, .external, .continuityCamera],
+                                              mediaType: .video, position: .unspecified)
+    guard let dev = ds.devices.first(where: { $0.deviceType == .builtInWideAngleCamera }) ?? ds.devices.first,
+          let input = try? AVCaptureDeviceInput(device: dev) else {
+        print("无法打开摄像头"); exit(1)
+    }
+    session.addInput(input)
+    let out = AVCaptureVideoDataOutput()
+    out.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
+    out.alwaysDiscardsLateVideoFrames = true
+    out.setSampleBufferDelegate(probe, queue: DispatchQueue(label: "probe"))
+    session.addOutput(out)
+    print("用摄像头 \(dev.localizedName)，举手测试 10 秒…\n")
+    session.startRunning()
+    RunLoop.current.run(until: Date().addingTimeInterval(10))
+    session.stopRunning()
+    print("\n诊断结束")
     exit(0)
 }
 

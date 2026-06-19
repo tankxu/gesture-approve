@@ -10,6 +10,7 @@ final class ApprovalViewModel: ObservableObject {
     @Published var visible: Bool = false
     @Published var timeout: TimeInterval = 90   // 倒计时环时长
     @Published var sessionID: Int = 0           // 每次审批 +1，用于重启环动画
+    @Published var canAlwaysAllow: Bool = false // 是否在卡片上提供“总是允许”
 }
 
 /// SwiftUI 根视图：组合操作信息(vm)与即时手势(engine)，并处理展开/收起动画。
@@ -18,6 +19,7 @@ struct RootCardView: View {
     @ObservedObject var engine: GestureEngine
     let onApprove: () -> Void
     let onDeny: () -> Void
+    let onAlwaysAllow: () -> Void
 
     var body: some View {
         VStack {
@@ -30,7 +32,9 @@ struct RootCardView: View {
                               timeout: vm.timeout,
                               sessionID: vm.sessionID,
                               onApprove: onApprove,
-                              onDeny: onDeny)
+                              onDeny: onDeny,
+                              canAlwaysAllow: vm.canAlwaysAllow,
+                              onAlwaysAllow: onAlwaysAllow)
                     .transition(.asymmetric(
                         insertion: .scale(scale: 0.7, anchor: .top).combined(with: .opacity),
                         removal: .scale(scale: 0.85, anchor: .top).combined(with: .opacity)))
@@ -78,7 +82,8 @@ final class ApprovalController {
 
         let root = RootCardView(vm: vm, engine: engine,
                                 onApprove: { [weak self] in self?.resolveByHotkey(approve: true) },
-                                onDeny: { [weak self] in self?.resolveByHotkey(approve: false) })
+                                onDeny: { [weak self] in self?.resolveByHotkey(approve: false) },
+                                onAlwaysAllow: { [weak self] in self?.resolveAlwaysAllow() })
         let host = NSHostingView(rootView: root)
         host.frame = NSRect(origin: .zero, size: size)
         host.autoresizingMask = [.width, .height]
@@ -104,7 +109,10 @@ final class ApprovalController {
     }
 
     /// 发起一次审批。`completion(true)` 表示通过。线程：主线程。
-    func requestApproval(operation: String, timeout: TimeInterval = 15, completion: @escaping (ApprovalOutcome) -> Void) {
+    /// `offerAlwaysAllow`：是否在卡片上提供“总是允许”（测试审批时传 false，避免把测试操作写进白名单）。
+    func requestApproval(operation: String, timeout: TimeInterval = 15,
+                         offerAlwaysAllow: Bool = true,
+                         completion: @escaping (ApprovalOutcome) -> Void) {
         if inFlight {
             completion(.denied)  // 同一时刻只处理一个请求；并发请求直接拒绝
             return
@@ -113,6 +121,8 @@ final class ApprovalController {
         self.completion = completion
 
         vm.operation = operation.isEmpty ? L("card.noOperation") : operation
+        // 危险/空操作、或调用方关闭时不提供“总是允许”（危险命令永不自动放行）
+        vm.canAlwaysAllow = offerAlwaysAllow && !operation.isEmpty && !Allowlist.isDangerous(operation)
         vm.locked = nil
         vm.timeout = timeout
         vm.sessionID += 1
@@ -168,6 +178,14 @@ final class ApprovalController {
     func resolveByHotkey(approve: Bool) {
         guard inFlight else { return }
         finish(with: approve ? .thumbUp : .openPalm)
+    }
+
+    /// 点“总是允许”：把这条命令写成精确放行规则，本次通过，以后同样命令免审。
+    func resolveAlwaysAllow() {
+        guard inFlight, vm.canAlwaysAllow else { return }
+        Allowlist.addAlwaysAllow(vm.operation)
+        Notifier.post(title: L("alwaysAllow.notifyTitle"), body: vm.operation)
+        finish(with: .thumbUp)
     }
 
     private func finish(with gesture: Gesture) {
