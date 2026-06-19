@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="GestureApprove/Assets/AppIcon-readme.png" alt="GestureApprove" width="160" height="160">
+</p>
+
 # GestureApprove · 手势审批
 
 Approve or reject **Claude Code / Codex** tool calls with a **hand gesture**. When the AI wants to run something with side effects, a black card slides out from the **notch**; you show a gesture to the camera:
