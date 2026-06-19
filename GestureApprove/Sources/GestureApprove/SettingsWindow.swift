@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import ServiceManagement
 
 @MainActor
 final class SettingsState: ObservableObject {
@@ -18,57 +19,161 @@ struct SettingsView: View {
     @State private var mpInstalled = MediaPipeInstaller.isInstalled()
     @State private var rotation: Int = (UserDefaults.standard.object(forKey: "frameRotation") as? Int) ?? 0
     @State private var allowlistText: String = Allowlist.patterns().joined(separator: "\n")
+    @State private var trusted: [String] = Allowlist.trustedCommands()
+    @State private var launchAtLogin: Bool = (SMAppService.mainApp.status == .enabled)
+    @State private var appLang: String = UserDefaults.standard.string(forKey: I18n.langKey) ?? "system"
+    @State private var confirmRestore = false
     let openFlash: () -> Void
     let onPrimeESP32: () -> Void
     let onEngineChanged: () -> Void
     let openMediaPipeInstall: () -> Void
 
+    // 统一的视觉节奏：分区之间 / 分区内元素之间
+    private let sectionSpacing: CGFloat = 14
+    private let itemSpacing: CGFloat = 6
+    private let columnWidth: CGFloat = 448
+
     private var selectedIsESP32: Bool { selectedID == VideoInputs.esp32ID }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // 接入：一键写入/移除 hook
-            Text(L("settings.section.connect")).font(.headline)
-            Toggle(L("settings.connectClaude"), isOn: Binding(
-                get: { claudeInstalled },
-                set: { on in
-                    do {
-                        try on ? HookInstaller.installClaude() : HookInstaller.uninstallClaude()
-                        claudeInstalled = on
-                    } catch { errorText = "\(error)" }
-                }))
-            Toggle(L("settings.connectCodex"), isOn: Binding(
-                get: { codexInstalled },
-                set: { on in
-                    do {
-                        try on ? HookInstaller.installCodex() : HookInstaller.uninstallCodex()
-                        codexInstalled = on
-                    } catch { errorText = "\(error)" }
-                }))
-            Text(L("settings.connectDesc"))
-                .font(.caption).foregroundStyle(.secondary)
-            Text(L("settings.hotkeyDesc"))
-                .font(.caption).foregroundStyle(.secondary)
+        HStack(alignment: .top, spacing: 20) {
+            leftColumn.frame(width: columnWidth, alignment: .topLeading)
+            Divider()
+            rightColumn.frame(width: columnWidth, alignment: .topLeading)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(18)
+        .alert(L("settings.alert.title"), isPresented: Binding(get: { errorText != nil },
+                                                set: { if !$0 { errorText = nil } })) {
+            Button(L("settings.alert.ok"), role: .cancel) { errorText = nil }
+        } message: {
+            Text(errorText ?? "")
+        }
+        .onAppear {
+            mpInstalled = MediaPipeInstaller.isInstalled()
+            engine = UserDefaults.standard.string(forKey: MediaPipeInstaller.engineKey) ?? "vision"
+            trusted = Allowlist.trustedCommands()
+            launchAtLogin = (SMAppService.mainApp.status == .enabled)
+            // 旧的连续值（如 0.55）吸附到最近的档位，否则分段控件不高亮
+            let snapped = [0.3, 0.6, 0.9].min(by: { abs($0 - minConf) < abs($1 - minConf) }) ?? 0.6
+            if snapped != minConf { minConf = snapped; UserDefaults.standard.set(snapped, forKey: "gestureMinConf") }
+        }
+    }
+
+    // MARK: 左栏 — 通用与权限
+
+    private var leftColumn: some View {
+        VStack(alignment: .leading, spacing: sectionSpacing) {
+            // 通用
+            header("settings.section.general")
+            VStack(alignment: .leading, spacing: itemSpacing) {
+                Toggle(L("menu.launchAtLogin"), isOn: Binding(
+                    get: { launchAtLogin },
+                    set: { setLaunchAtLogin($0) }))
+                HStack(spacing: 8) {
+                    Text(L("settings.language"))
+                    Picker("", selection: Binding(
+                        get: { appLang },
+                        set: { v in
+                            UserDefaults.standard.set(v, forKey: I18n.langKey)   // 先写偏好，重渲染即读到新语言
+                            appLang = v
+                        })) {
+                        Text(L("settings.language.system")).tag("system")
+                        Text("English").tag("en")
+                        Text("简体中文").tag("zh")
+                        Text("日本語").tag("ja")
+                        Text("한국어").tag("ko")
+                        Text("Español").tag("es")
+                        Text("Français").tag("fr")
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                    Spacer()
+                }
+                caption("settings.language.note")
+            }
 
             Divider()
 
-            Text(L("settings.section.video")).font(.headline)
+            // 接入 AI 工具
+            header("settings.section.connect")
+            VStack(alignment: .leading, spacing: itemSpacing) {
+                Toggle(L("settings.connectClaude"), isOn: Binding(
+                    get: { claudeInstalled },
+                    set: { on in
+                        do {
+                            try on ? HookInstaller.installClaude() : HookInstaller.uninstallClaude()
+                            claudeInstalled = on
+                        } catch { errorText = "\(error)" }
+                    }))
+                Toggle(L("settings.connectCodex"), isOn: Binding(
+                    get: { codexInstalled },
+                    set: { on in
+                        do {
+                            try on ? HookInstaller.installCodex() : HookInstaller.uninstallCodex()
+                            codexInstalled = on
+                        } catch { errorText = "\(error)" }
+                    }))
+                caption("settings.connectDesc")
+                caption("settings.hotkeyDesc")
+            }
 
+            Divider()
+
+            // 自动放行规则（正则）
+            HStack(alignment: .firstTextBaseline) {
+                Text(L("settings.section.allowlist")).font(.headline)
+                Spacer()
+                Button(L("settings.allowlist.restore")) { confirmRestore = true }
+                .buttonStyle(.link)
+                .font(.caption)
+                .confirmationDialog(L("settings.allowlist.restoreConfirm"),
+                                    isPresented: $confirmRestore, titleVisibility: .visible) {
+                    Button(L("settings.allowlist.restore"), role: .destructive) {
+                        allowlistText = Allowlist.defaultPatterns.joined(separator: "\n")
+                        Allowlist.setPatterns(Allowlist.defaultPatterns)
+                    }
+                    Button(L("settings.cancel"), role: .cancel) { }
+                }
+            }
+            caption("settings.allowlist.desc")
+            TextEditor(text: $allowlistText)
+                .font(.system(size: 11, design: .monospaced))
+                .frame(height: 56)
+                .padding(4)
+                .background(Color(nsColor: .textBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.primary.opacity(0.1)))
+                .onChange(of: allowlistText) { _, v in
+                    Allowlist.setPatterns(v.split(separator: "\n", omittingEmptySubsequences: false).map(String.init))
+                }
+
+            // 信任的命令（点“总是允许”写入，可逐条删除）
+            header("settings.section.trusted")
+            caption("settings.trusted.desc")
+            trustedList
+
+            Spacer(minLength: 0)
+        }
+    }
+
+    // MARK: 右栏 — 摄像头与识别
+
+    private var rightColumn: some View {
+        VStack(alignment: .leading, spacing: sectionSpacing) {
+            // 视频输入源
+            header("settings.section.video")
             HStack(spacing: 6) {
                 Picker("", selection: $selectedID) {
                     ForEach(inputs) { Text($0.name).tag($0.id) }
                 }
                 .labelsHidden()
-                .fixedSize()
-
+                .onChange(of: selectedID) { _, newValue in
+                    VideoInputs.setCurrentID(newValue)
+                    if newValue == VideoInputs.esp32ID { onPrimeESP32() }   // 选中 ESP32 即复位预热
+                }
                 Button(action: reload) { Image(systemName: "arrow.clockwise") }
                     .help(L("settings.refresh.help"))
-
-                Spacer()
-
-                // 画面旋转（相机被装歪/倒置时用）
-                Image(systemName: "rotate.right")
-                    .foregroundStyle(.secondary)
                 Picker("", selection: $rotation) {
                     Text(L("settings.rotation.none")).tag(0)
                     Text("90°").tag(90)
@@ -82,10 +187,6 @@ struct SettingsView: View {
                     UserDefaults.standard.set(v, forKey: "frameRotation")
                 }
             }
-            .onChange(of: selectedID) { _, newValue in
-                VideoInputs.setCurrentID(newValue)
-                if newValue == VideoInputs.esp32ID { onPrimeESP32() }   // 选中 ESP32 即复位预热
-            }
 
             // 预览
             ZStack {
@@ -98,85 +199,67 @@ struct SettingsView: View {
                             .font(.caption)
                     }
                     .foregroundStyle(.white.opacity(0.6))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 12)
                 } else if state.active {
-                    CameraPreview(deviceUniqueID: selectedID)
+                    CameraPreview(deviceUniqueID: selectedID, rotation: rotation)
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
             }
-            .frame(height: 230)
+            .frame(height: 200)
 
             Divider()
 
             // 识别引擎
-            Text(L("settings.section.engine")).font(.headline)
-            Picker("", selection: $engine) {
-                Text(L("settings.engine.vision")).tag("vision")
-                Text(L("settings.engine.mediapipe")).tag("mediapipe")
-            }
-            .pickerStyle(.radioGroup)
-            .labelsHidden()
-            .onChange(of: engine) { _, v in
-                UserDefaults.standard.set(v, forKey: MediaPipeInstaller.engineKey)
-                if v == "mediapipe" && !mpInstalled { openMediaPipeInstall() }
-                onEngineChanged()
-            }
-            if engine == "mediapipe" {
-                HStack(spacing: 8) {
-                    if mpInstalled {
-                        HStack(spacing: 4) {
-                            Image(systemName: "checkmark.circle.fill")
-                            Text(L("settings.engine.installed"))
-                        }.foregroundStyle(.green)
-                    } else {
-                        HStack(spacing: 4) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                            Text(L("settings.engine.notInstalled"))
-                        }.foregroundStyle(.orange)
+            header("settings.section.engine")
+            VStack(alignment: .leading, spacing: itemSpacing) {
+                Picker("", selection: $engine) {
+                    Text(L("settings.engine.vision")).tag("vision")
+                    Text(L("settings.engine.mediapipe")).tag("mediapipe")
+                }
+                .pickerStyle(.radioGroup)
+                .labelsHidden()
+                .onChange(of: engine) { _, v in
+                    UserDefaults.standard.set(v, forKey: MediaPipeInstaller.engineKey)
+                    if v == "mediapipe" && !mpInstalled { openMediaPipeInstall() }
+                    onEngineChanged()
+                }
+                if engine == "mediapipe" {
+                    HStack(spacing: 8) {
+                        if mpInstalled {
+                            HStack(spacing: 4) {
+                                Image(systemName: "checkmark.circle.fill")
+                                Text(L("settings.engine.installed"))
+                            }.foregroundStyle(.green)
+                        } else {
+                            HStack(spacing: 4) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                Text(L("settings.engine.notInstalled"))
+                            }.foregroundStyle(.orange)
+                        }
+                        Button(mpInstalled ? L("settings.engine.redownload") : L("settings.engine.download")) { openMediaPipeInstall() }
                     }
-                    Button(mpInstalled ? L("settings.engine.redownload") : L("settings.engine.download")) { openMediaPipeInstall() }
+                    .font(.caption)
                 }
-                .font(.caption)
-            }
-            Text(L("settings.engine.desc"))
-                .font(.caption).foregroundStyle(.secondary)
-
-            Divider()
-
-            // 识别精准度（仅 MediaPipe 生效）
-            HStack {
-                Text(L("settings.section.precision")).font(.headline)
-                Spacer()
-                Text(String(format: "%.0f%%", minConf * 100))
-                    .font(.caption).foregroundStyle(.secondary).monospacedDigit()
-            }
-            Slider(value: $minConf, in: 0.3...0.9, step: 0.05)
-                .onChange(of: minConf) { _, v in UserDefaults.standard.set(v, forKey: "gestureMinConf") }
-            HStack {
-                Text(L("settings.precision.loose")).font(.caption).foregroundStyle(.secondary)
-                Spacer()
-                Text(L("settings.precision.strict")).font(.caption).foregroundStyle(.secondary)
+                caption("settings.engine.desc")
             }
 
             Divider()
 
-            // 自动放行白名单
-            Text(L("settings.section.allowlist")).font(.headline)
-            Text(L("settings.allowlist.desc"))
-                .font(.caption).foregroundStyle(.secondary)
-            TextEditor(text: $allowlistText)
-                .font(.system(size: 11, design: .monospaced))
-                .frame(height: 64)
-                .padding(4)
-                .background(Color(nsColor: .textBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.primary.opacity(0.1)))
-                .onChange(of: allowlistText) { _, v in
-                    Allowlist.setPatterns(v.split(separator: "\n", omittingEmptySubsequences: false).map(String.init))
-                }
+            // 识别精准度：三档，控制几何判定的松紧
+            header("settings.section.precision")
+            Picker("", selection: $minConf) {
+                Text(L("settings.precision.loose")).tag(0.3)
+                Text(L("settings.precision.standard")).tag(0.6)
+                Text(L("settings.precision.strict")).tag(0.9)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .onChange(of: minConf) { _, v in UserDefaults.standard.set(v, forKey: "gestureMinConf") }
 
             Divider()
 
-            // 新手入口：横条卡片，点击打开刷写弹窗
+            // ESP32-CAM 入口：横条卡片，点击打开刷写弹窗
             Button(action: openFlash) {
                 HStack(spacing: 14) {
                     Image(systemName: "camera.aperture")
@@ -209,19 +292,64 @@ struct SettingsView: View {
                 .contentShape(RoundedRectangle(cornerRadius: 12))
             }
             .buttonStyle(.plain)
+
+            Spacer(minLength: 0)
         }
-        .padding(20)
-        .frame(width: 480)
-        .alert(L("settings.alert.title"), isPresented: Binding(get: { errorText != nil },
-                                                set: { if !$0 { errorText = nil } })) {
-            Button(L("settings.alert.ok"), role: .cancel) { errorText = nil }
-        } message: {
-            Text(errorText ?? "")
+    }
+
+    // MARK: 复用小部件
+
+    @ViewBuilder private func header(_ key: String) -> some View {
+        Text(L(key)).font(.headline)
+    }
+
+    @ViewBuilder private func caption(_ key: String) -> some View {
+        Text(L(key))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder private var trustedList: some View {
+        if trusted.isEmpty {
+            Text(L("settings.trusted.empty"))
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        } else {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(trusted, id: \.self) { cmd in
+                    HStack(spacing: 6) {
+                        Text(cmd)
+                            .font(.system(size: 11, design: .monospaced))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer(minLength: 4)
+                        Button {
+                            Allowlist.removeTrustedCommand(cmd)
+                            trusted = Allowlist.trustedCommands()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.tertiary)
+                        }
+                        .buttonStyle(.plain)
+                        .help(L("settings.trusted.remove"))
+                    }
+                    .padding(.vertical, 3)
+                    .padding(.horizontal, 8)
+                    .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 6))
+                }
+            }
         }
-        .onAppear {
-            mpInstalled = MediaPipeInstaller.isInstalled()
-            engine = UserDefaults.standard.string(forKey: MediaPipeInstaller.engineKey) ?? "vision"
+    }
+
+    private func setLaunchAtLogin(_ on: Bool) {
+        let svc = SMAppService.mainApp
+        do {
+            if on { try svc.register() } else { try svc.unregister() }
+        } catch {
+            errorText = "\(error)"
         }
+        launchAtLogin = (svc.status == .enabled)
     }
 
     private func reload() {

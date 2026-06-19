@@ -4,10 +4,20 @@ import Foundation
 /// 支持 6 种语言：en / zh-Hans / ja / ko / es / fr。
 /// 因为本 app 是手动组装的 .app（非 Xcode 工程），用代码内字典比 .lproj 资源更省心。
 enum I18n {
-    /// 启动时解析一次的当前语言代码（"en"/"zh"/"ja"/"ko"/"es"/"fr"）。
-    static let lang: String = resolveLang()
+    /// 手动语言覆盖的存储键；值为语言代码或 "system"（跟随系统）。
+    static let langKey = "appLanguage"
+    /// 可选界面语言（首项 "system" 表示跟随系统）。
+    static let supported = ["system", "en", "zh", "ja", "ko", "es", "fr"]
+
+    /// 当前语言代码（"en"/"zh"/"ja"/"ko"/"es"/"fr"）。手动覆盖优先，否则跟随系统。
+    /// 用计算属性而非常量：在设置里改语言后，新渲染的文案立即生效。
+    static var lang: String { resolveLang() }
 
     private static func resolveLang() -> String {
+        if let override = UserDefaults.standard.string(forKey: langKey),
+           override != "system", supported.contains(override) {
+            return override
+        }
         for pref in Locale.preferredLanguages {
             let p = pref.lowercased()
             if p.hasPrefix("zh") { return "zh" }
@@ -309,6 +319,16 @@ private let table: [String: [String: String]] = [
         "en": "Denied", "zh": "已拒绝", "ja": "拒否しました",
         "ko": "거부됨", "es": "Rechazado", "fr": "Refusé",
     ],
+    "card.alwaysAllow": [
+        "en": "Always allow this", "zh": "总是允许这条",
+        "ja": "今後は自動許可", "ko": "항상 허용",
+        "es": "Permitir siempre", "fr": "Toujours autoriser",
+    ],
+    "alwaysAllow.notifyTitle": [
+        "en": "Added to auto-allow", "zh": "已加入自动放行",
+        "ja": "自動許可に追加しました", "ko": "자동 허용에 추가됨",
+        "es": "Añadido a auto-permitir", "fr": "Ajouté à l'autorisation auto",
+    ],
     "card.noOperation": [
         "en": "(no operation name)", "zh": "（未提供操作名）",
         "ja": "（操作名なし）", "ko": "(작업 이름 없음)",
@@ -427,14 +447,16 @@ private let table: [String: [String: String]] = [
         "ko": "인식 엄격도", "es": "Rigor del reconocimiento", "fr": "Rigueur de la reconnaissance",
     ],
     "settings.precision.loose": [
-        "en": "Loose (easy to trigger)", "zh": "宽松（易触发）",
-        "ja": "緩い（反応しやすい）", "ko": "느슨함 (쉽게 인식)",
-        "es": "Flexible (se activa fácil)", "fr": "Souple (se déclenche facilement)",
+        "en": "Loose", "zh": "宽松", "ja": "緩い", "ko": "느슨함",
+        "es": "Flexible", "fr": "Souple",
+    ],
+    "settings.precision.standard": [
+        "en": "Standard", "zh": "标准", "ja": "標準", "ko": "표준",
+        "es": "Estándar", "fr": "Standard",
     ],
     "settings.precision.strict": [
-        "en": "Strict (fewer false positives)", "zh": "严格（少误判）",
-        "ja": "厳しい（誤判定が少ない）", "ko": "엄격 (오인식 적음)",
-        "es": "Estricto (menos falsos positivos)", "fr": "Strict (moins de faux positifs)",
+        "en": "Strict", "zh": "严格", "ja": "厳しい", "ko": "엄격",
+        "es": "Estricto", "fr": "Strict",
     ],
     "settings.section.allowlist": [
         "en": "Auto-allow rules", "zh": "自动放行规则", "ja": "自動承認ルール",
@@ -447,6 +469,66 @@ private let table: [String: [String: String]] = [
         "ko": "어느 한 줄(정규식)에 일치하는 명령은 카드 없이 통과합니다. \"도구: 내용\"(예: Bash: ls)에 대해 매칭합니다.",
         "es": "Los comandos que coincidan con cualquier línea (regex) pasan sin tarjeta. Se compara con «herramienta: contenido», p. ej. Bash: ls.",
         "fr": "Les commandes correspondant à une ligne (regex) passent sans carte. Comparé à « outil : contenu », p. ex. Bash: ls.",
+    ],
+    "settings.language": [
+        "en": "Language", "zh": "语言", "ja": "言語",
+        "ko": "언어", "es": "Idioma", "fr": "Langue",
+    ],
+    "settings.language.system": [
+        "en": "System", "zh": "跟随系统", "ja": "システムに従う",
+        "ko": "시스템 설정", "es": "Sistema", "fr": "Système",
+    ],
+    "settings.language.note": [
+        "en": "The menu bar and window title update after restart.",
+        "zh": "菜单栏与窗口标题在重启后更新。",
+        "ja": "メニューバーとウィンドウタイトルは再起動後に更新されます。",
+        "ko": "메뉴 막대와 창 제목은 재시작 후 갱신됩니다.",
+        "es": "La barra de menús y el título de la ventana se actualizan al reiniciar.",
+        "fr": "La barre de menus et le titre de la fenêtre se mettent à jour après redémarrage.",
+    ],
+    "settings.allowlist.restore": [
+        "en": "Restore defaults", "zh": "恢复默认", "ja": "初期設定に戻す",
+        "ko": "기본값 복원", "es": "Restaurar valores", "fr": "Rétablir",
+    ],
+    "settings.allowlist.restoreConfirm": [
+        "en": "Restore the auto-allow rules to defaults? Your edits to the regex list will be replaced.",
+        "zh": "把自动放行规则恢复为默认？你对正则列表的修改将被覆盖。",
+        "ja": "自動承認ルールを初期設定に戻しますか？ 正規表現リストへの変更は置き換えられます。",
+        "ko": "자동 통과 규칙을 기본값으로 복원할까요? 정규식 목록의 수정 내용이 대체됩니다.",
+        "es": "¿Restaurar las reglas de auto-aprobación a sus valores por defecto? Tus cambios en la lista de regex se reemplazarán.",
+        "fr": "Rétablir les règles d'auto-autorisation par défaut ? Vos modifications de la liste regex seront remplacées.",
+    ],
+    "settings.cancel": [
+        "en": "Cancel", "zh": "取消", "ja": "キャンセル",
+        "ko": "취소", "es": "Cancelar", "fr": "Annuler",
+    ],
+    "settings.section.general": [
+        "en": "General", "zh": "通用", "ja": "一般",
+        "ko": "일반", "es": "General", "fr": "Général",
+    ],
+    "settings.section.trusted": [
+        "en": "Trusted commands", "zh": "信任的命令", "ja": "信頼済みコマンド",
+        "ko": "신뢰한 명령", "es": "Comandos de confianza", "fr": "Commandes de confiance",
+    ],
+    "settings.trusted.desc": [
+        "en": "Exact commands you approved with \"Always allow\". They pass without a card — but dangerous ones still always need a gesture.",
+        "zh": "你在卡片上点「总是允许」信任的整条命令，之后免手势直接通过；但危险命令仍始终要手势。",
+        "ja": "「今後は自動許可」で信頼した完全一致のコマンド。カードなしで通過しますが、危険なコマンドは常にジェスチャーが必要です。",
+        "ko": "\"항상 허용\"으로 신뢰한 정확한 명령. 카드 없이 통과하지만 위험한 명령은 항상 제스처가 필요합니다.",
+        "es": "Comandos exactos que aprobaste con «Permitir siempre». Pasan sin tarjeta, pero los peligrosos siempre requieren un gesto.",
+        "fr": "Commandes exactes approuvées via « Toujours autoriser ». Elles passent sans carte, mais les commandes dangereuses exigent toujours un geste.",
+    ],
+    "settings.trusted.empty": [
+        "en": "None yet — tap \"Always allow\" on a card to add one.",
+        "zh": "暂无——在卡片上点「总是允许」即可添加。",
+        "ja": "まだありません — カードの「今後は自動許可」で追加できます。",
+        "ko": "아직 없음 — 카드에서 \"항상 허용\"을 눌러 추가하세요.",
+        "es": "Aún ninguno: pulsa «Permitir siempre» en una tarjeta para añadir.",
+        "fr": "Aucune pour l'instant — appuyez sur « Toujours autoriser » sur une carte pour en ajouter.",
+    ],
+    "settings.trusted.remove": [
+        "en": "Remove", "zh": "移除", "ja": "削除",
+        "ko": "제거", "es": "Quitar", "fr": "Retirer",
     ],
     "settings.esp32card.title": [
         "en": "Use an ESP32-CAM as your camera", "zh": "使用 ESP32-CAM 作为摄像头",

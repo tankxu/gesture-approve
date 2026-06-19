@@ -18,6 +18,9 @@ struct NotchCardView: View {
     /// 点击图标的回调（通过/拒绝）。
     var onApprove: (() -> Void)? = nil
     var onDeny: (() -> Void)? = nil
+    /// 是否可“总是允许”（危险/空操作时不提供），及其回调。
+    var canAlwaysAllow: Bool = false
+    var onAlwaysAllow: (() -> Void)? = nil
 
     private var approveActive: Bool { locked == .thumbUp || (locked == nil && live == .thumbUp) }
     private var denyActive: Bool { locked == .openPalm || (locked == nil && live == .openPalm) }
@@ -55,10 +58,25 @@ struct NotchCardView: View {
                             action: onDeny)
             }
 
-            Text(locked == nil ? L("card.hint") : (locked == .thumbUp ? L("card.approved") : L("card.denied")))
-                .font(.system(size: 11))
-                .foregroundStyle(.white.opacity(0.4))
-                .padding(.bottom, 14)
+            VStack(spacing: 7) {
+                Text(locked == nil ? L("card.hint") : (locked == .thumbUp ? L("card.approved") : L("card.denied")))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.4))
+                if locked == nil, canAlwaysAllow, let onAlwaysAllow {
+                    Button(action: onAlwaysAllow) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.seal")
+                            Text(L("card.alwaysAllow"))
+                        }
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.6))
+                        .padding(.horizontal, 10).padding(.vertical, 4)
+                        .background(Capsule().fill(.white.opacity(0.08)))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.bottom, 14)
         }
         .frame(width: 320)
         .background(cardBackground)
