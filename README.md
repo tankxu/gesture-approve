@@ -12,6 +12,10 @@ Approve or reject **Claude Code / Codex** tool calls with a **hand gesture**. Wh
 
 A native macOS menu-bar app. Recognition runs on-device. No cloud.
 
+<p align="center">
+  <img src="demo.gif" alt="GestureApprove demo" width="640">
+</p>
+
 [中文说明见下方](#中文) ↓
 
 ---
