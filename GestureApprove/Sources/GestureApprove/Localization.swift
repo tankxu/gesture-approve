@@ -352,9 +352,17 @@ private let table: [String: [String: String]] = [
         "es": "Conectar Claude Code", "fr": "Connecter Claude Code",
     ],
     "settings.connectCodex": [
-        "en": "Connect Codex", "zh": "接入 Codex",
-        "ja": "Codex と連携", "ko": "Codex 연결",
-        "es": "Conectar Codex", "fr": "Connecter Codex",
+        "en": "Connect Codex CLI", "zh": "接入 Codex CLI",
+        "ja": "Codex CLI と連携", "ko": "Codex CLI 연결",
+        "es": "Conectar Codex CLI", "fr": "Connecter Codex CLI",
+    ],
+    "settings.connectCodexNote": [
+        "en": "Codex hooks run only in the terminal CLI (not the desktop app). After enabling, run /hooks in Codex and trust the gesture-approve hook.",
+        "zh": "Codex 的 hook 仅在终端 CLI 生效（桌面版不支持）。开启后，在 Codex 里执行 /hooks 并信任 gesture-approve 这条 hook。",
+        "ja": "Codex のフックはターミナル CLI でのみ動作します（デスクトップ版は非対応）。有効化後、Codex で /hooks を実行し gesture-approve フックを信頼してください。",
+        "ko": "Codex 후크는 터미널 CLI에서만 작동합니다(데스크톱 앱 미지원). 활성화 후 Codex에서 /hooks를 실행해 gesture-approve 후크를 신뢰하세요.",
+        "es": "Los hooks de Codex solo funcionan en la CLI de terminal (no en la app de escritorio). Tras activarlo, ejecuta /hooks en Codex y confía en el hook gesture-approve.",
+        "fr": "Les hooks Codex ne fonctionnent que dans la CLI du terminal (pas l'app de bureau). Après activation, exécutez /hooks dans Codex et faites confiance au hook gesture-approve.",
     ],
     "settings.connectDesc": [
         "en": "Turning it on writes the matching config (your original is backed up) and applies to new CC/Codex sessions; turning it off removes it.",

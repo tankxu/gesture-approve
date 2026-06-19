@@ -114,6 +114,7 @@ struct SettingsView: View {
                             codexInstalled = on
                         } catch { errorText = "\(error)" }
                     }))
+                caption("settings.connectCodexNote")
                 caption("settings.connectDesc")
                 caption("settings.hotkeyDesc")
             }
