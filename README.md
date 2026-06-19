@@ -50,7 +50,9 @@ cd GestureApprove
 ./install.sh          # build + sign + install to /Applications + launch
 ```
 
-Then from the menu-bar 👍 icon → **Settings** to pick a camera, choose an engine, and connect Claude Code / Codex. Turn on **Enable approval gating** when you want gestures to actually gate tools.
+Then from the menu-bar 👍 icon → **Settings** to pick a camera, choose an engine, and connect Claude Code / Codex CLI. Turn on **Enable approval gating** when you want gestures to actually gate tools.
+
+> **Codex is CLI-only.** Codex hooks run in the **terminal `codex` CLI**, not the desktop/IDE app (which uses its own approval UI and doesn't read `config.toml` hooks). After enabling "Connect Codex CLI", run `/hooks` inside Codex and **trust** the gesture-approve hook — untrusted command hooks are skipped. Claude Code works on every surface because its hooks are part of the core runtime.
 
 > The app is signed with a local Apple Development cert and depends on this repo (the Vision model is bundled; MediaPipe/ESP32 paths reference the repo). It is **not** a notarized public distribution.
 
@@ -126,7 +128,9 @@ cd GestureApprove
 ./install.sh          # 构建 + 签名 + 装到 /Applications + 启动
 ```
 
-然后从菜单栏 👍 图标 →「设置」选摄像头、选引擎、接入 Claude Code / Codex。想让手势真正拦工具时，勾上「**启用审批拦截**」。
+然后从菜单栏 👍 图标 →「设置」选摄像头、选引擎、接入 Claude Code / Codex CLI。想让手势真正拦工具时，勾上「**启用审批拦截**」。
+
+> **Codex 仅限 CLI。** Codex 的 hook 只在**终端 `codex` CLI** 生效，桌面/IDE 版不支持（它用自带审批 UI，不读 `config.toml` 的 hook）。勾上「接入 Codex CLI」后，需在 Codex 里执行 `/hooks` 并**信任** gesture-approve 这条 hook——未信任的命令 hook 会被跳过。Claude Code 各端都生效，因为它的 hook 是核心运行时的一部分。
 
 > app 用本机 Apple Development 证书签名，且依赖本仓库（Vision 模型已内置；MediaPipe/ESP32 路径引用仓库）。**不是**经过公证的对外分发版。
 
