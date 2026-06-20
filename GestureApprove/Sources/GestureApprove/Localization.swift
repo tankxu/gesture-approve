@@ -518,6 +518,37 @@ private let table: [String: [String: String]] = [
         "en": "Cancel", "zh": "取消", "ja": "キャンセル",
         "ko": "취소", "es": "Cancelar", "fr": "Annuler",
     ],
+    "settings.version": [
+        "en": "Version", "zh": "版本", "ja": "バージョン",
+        "ko": "버전", "es": "Versión", "fr": "Version",
+    ],
+    "settings.checkUpdate": [
+        "en": "Check for updates", "zh": "检查更新", "ja": "アップデートを確認",
+        "ko": "업데이트 확인", "es": "Buscar actualizaciones", "fr": "Vérifier les mises à jour",
+    ],
+    "settings.checking": [
+        "en": "Checking…", "zh": "检查中…", "ja": "確認中…",
+        "ko": "확인 중…", "es": "Comprobando…", "fr": "Vérification…",
+    ],
+    "settings.upToDate": [
+        "en": "You're on the latest version", "zh": "已是最新版本",
+        "ja": "最新バージョンです", "ko": "최신 버전입니다",
+        "es": "Tienes la última versión", "fr": "Vous avez la dernière version",
+    ],
+    "settings.updateAvailable": [
+        "en": "New version available:", "zh": "有新版本：",
+        "ja": "新しいバージョンがあります：", "ko": "새 버전 있음:",
+        "es": "Nueva versión disponible:", "fr": "Nouvelle version disponible :",
+    ],
+    "settings.updateFailed": [
+        "en": "Check failed (network?)", "zh": "检查失败（网络？）",
+        "ja": "確認に失敗（ネットワーク？）", "ko": "확인 실패 (네트워크?)",
+        "es": "Error al comprobar (¿red?)", "fr": "Échec de la vérification (réseau ?)",
+    ],
+    "settings.download": [
+        "en": "Download", "zh": "下载", "ja": "ダウンロード",
+        "ko": "다운로드", "es": "Descargar", "fr": "Télécharger",
+    ],
     "settings.section.general": [
         "en": "General", "zh": "通用", "ja": "一般",
         "ko": "일반", "es": "General", "fr": "Général",

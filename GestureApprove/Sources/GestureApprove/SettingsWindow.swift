@@ -23,6 +23,9 @@ struct SettingsView: View {
     @State private var launchAtLogin: Bool = LaunchAtLogin.isEnabled
     @State private var appLang: String = UserDefaults.standard.string(forKey: I18n.langKey) ?? "system"
     @State private var confirmRestore = false
+    @State private var checkingUpdate = false
+    @State private var updateText = ""
+    @State private var updateURL: URL? = nil
     let openFlash: () -> Void
     let onPrimeESP32: () -> Void
     let onEngineChanged: () -> Void
@@ -91,6 +94,24 @@ struct SettingsView: View {
                     Spacer()
                 }
                 caption("settings.language.note")
+
+                // 版本 + 检查更新（走 GitHub Releases）
+                HStack(spacing: 8) {
+                    Text("\(L("settings.version")) \(Updater.current)")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    if let url = updateURL {
+                        Button(L("settings.download")) { NSWorkspace.shared.open(url) }
+                    }
+                    Button(checkingUpdate ? L("settings.checking") : L("settings.checkUpdate")) {
+                        checkUpdate()
+                    }
+                    .disabled(checkingUpdate)
+                }
+                .font(.caption)
+                if !updateText.isEmpty {
+                    Text(updateText).font(.caption).foregroundStyle(.secondary)
+                }
             }
 
             Divider()
@@ -345,6 +366,24 @@ struct SettingsView: View {
                 .padding(.trailing, 4)   // 给滚动条留位
             }
             .frame(maxHeight: 156)       // 约 6 条；再多则内部滚动，窗口高度不变
+        }
+    }
+
+    private func checkUpdate() {
+        checkingUpdate = true
+        updateText = ""
+        updateURL = nil
+        Updater.check { outcome in
+            checkingUpdate = false
+            switch outcome {
+            case .upToDate:
+                updateText = L("settings.upToDate")
+            case .updateAvailable(let version, let url):
+                updateText = "\(L("settings.updateAvailable")) \(version)"
+                updateURL = url
+            case .failed:
+                updateText = L("settings.updateFailed")
+            }
         }
     }
 
