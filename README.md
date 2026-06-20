@@ -16,7 +16,7 @@ A native macOS menu-bar app. Recognition runs on-device. No cloud.
   <img src="demo.gif" alt="GestureApprove demo" width="640">
 </p>
 
-[中文说明见下方](#中文) ↓
+**[Changelog](CHANGELOG.md)** · [中文说明见下方](#中文) ↓
 
 ---
 
