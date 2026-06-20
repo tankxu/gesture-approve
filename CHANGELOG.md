@@ -2,6 +2,10 @@
 
 All notable changes to GestureApprove. Versions follow the GitHub releases.
 
+## v0.3.4
+
+- **Version display + update check.** Settings → General now shows the current version and a **Check for updates** button that queries the GitHub Releases API. When a newer release exists it shows the version and a **Download** link; otherwise "you're on the latest version."
+
 ## v0.3.3
 
 - **Settings window refreshes on every open.** The window is reused (closing only hides it), so its state was a stale snapshot — a command you'd just approved with "Always allow" wouldn't show up. It now rebuilds on each open and re-reads the latest data (trusted commands, launch-at-login, engine, etc.).
