@@ -18,15 +18,51 @@ final class ApprovalServer {
     }
 
     func start() throws {
+        try startListener()
+    }
+
+    /// 主动重启监听（睡眠唤醒后调用）。串行到 queue，幂等。
+    func restart() {
+        queue.async { [weak self] in
+            guard let self else { return }
+            self.listener?.cancel()
+            self.listener = nil
+            do { try self.startListener() }
+            catch { self.scheduleRestart() }
+        }
+    }
+
+    private func startListener() throws {
         let params = NWParameters.tcp
+        // 重启（唤醒/自愈）时旧 listener 端口可能还没释放，允许复用避免 "Address already in use"。
+        params.allowLocalEndpointReuse = true
         params.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: NWEndpoint.Port(rawValue: port)!)
         let listener = try NWListener(using: params)
+        listener.stateUpdateHandler = { [weak self] state in
+            // 睡眠/网络栈重置后 listener 可能静默 .failed —— 自动重建，否则端口悄悄死掉、approve 不再走 app。
+            // .cancelled 只在我们主动 restart 时出现，不重启（避免循环）。
+            if case .failed(let err) = state {
+                GALog.log("监听失败(\(err))，准备自愈重启")
+                self?.scheduleRestart()
+            }
+        }
         listener.newConnectionHandler = { [weak self] conn in
             self?.handle(conn)
         }
         listener.start(queue: queue)
         self.listener = listener
-        NSLog("GestureApprove: 审批服务已监听 127.0.0.1:\(port)")
+        GALog.log("审批服务已监听 127.0.0.1:\(port)")
+    }
+
+    /// 延迟重启（带退避，避免端口未释放时疯狂重试）。
+    private func scheduleRestart() {
+        queue.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            guard let self else { return }
+            self.listener?.cancel()
+            self.listener = nil
+            do { try self.startListener() }
+            catch { self.scheduleRestart() }
+        }
     }
 
     private func handle(_ conn: NWConnection) {

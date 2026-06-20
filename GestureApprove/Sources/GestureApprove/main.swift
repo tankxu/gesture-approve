@@ -25,9 +25,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         set { UserDefaults.standard.set(newValue, forKey: "approvalEnabled") }
     }
     private var enabledItem: NSMenuItem?
-    private var loginItem: NSMenuItem?
+
+    /// 屏幕锁定 / 系统睡眠期间用户无法比手势 → 审批直接回退终端，避免弹无人操作的卡片卡住后台。
+    /// 用两个独立标志组合：唤醒(didWake)时屏幕往往仍锁定，必须等真正解锁(screenIsUnlocked)才恢复，
+    /// 否则会在锁屏界面误弹卡片。systemSuspended = 锁屏中 或 睡眠中。
+    private var screenLocked = false
+    private var asleep = false
+    private var systemSuspended: Bool { screenLocked || asleep }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // 单实例：新实例接管、终止其它同 bundle 实例。配合 launchd KeepAlive，
+        // 确保「受 launchd 管理的实例」胜出（崩溃自愈才有意义），也避免双菜单栏图标/端口冲突。
+        let myPID = ProcessInfo.processInfo.processIdentifier
+        if let bid = Bundle.main.bundleIdentifier {
+            for other in NSRunningApplication.runningApplications(withBundleIdentifier: bid)
+                where other.processIdentifier != myPID {
+                other.terminate()
+            }
+        }
         UserDefaults.standard.register(defaults: [
             "gestureMinConf": 0.6,   // 默认识别精准度 60%
             // 默认引擎：已装 MediaPipe 则用它，否则用内置 Vision
@@ -38,6 +53,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusItem()
         registerHotkeys()
         startServer()
+        observeSystemState()
+    }
+
+    /// 监听屏幕锁定/解锁、系统睡眠/唤醒：
+    ///   · 锁屏/睡眠 → 暂停审批（approve 直接回退终端，不弹无人能操作的卡片）；
+    ///   · 解锁/唤醒 → 各自清除对应标志；只有锁屏与睡眠都解除才真正恢复审批；
+    ///   · 唤醒/解锁都顺带重启监听（NWListener 可能在睡眠期间静默失效）。
+    private func observeSystemState() {
+        let ws = NSWorkspace.shared.notificationCenter
+        ws.addObserver(self, selector: #selector(onSystemEvent(_:)),
+                       name: NSWorkspace.willSleepNotification, object: nil)
+        ws.addObserver(self, selector: #selector(onSystemEvent(_:)),
+                       name: NSWorkspace.didWakeNotification, object: nil)
+        // 锁屏/解锁没有 NSWorkspace 通知，走 DistributedNotificationCenter 的私有事件名。
+        let dc = DistributedNotificationCenter.default()
+        dc.addObserver(self, selector: #selector(onSystemEvent(_:)),
+                       name: NSNotification.Name("com.apple.screenIsLocked"), object: nil)
+        dc.addObserver(self, selector: #selector(onSystemEvent(_:)),
+                       name: NSNotification.Name("com.apple.screenIsUnlocked"), object: nil)
+    }
+
+    @objc private func onSystemEvent(_ note: Notification) {
+        switch note.name.rawValue {
+        case "com.apple.screenIsLocked":            screenLocked = true
+        case "com.apple.screenIsUnlocked":          screenLocked = false; server?.restart()
+        case NSWorkspace.willSleepNotification.rawValue: asleep = true
+        case NSWorkspace.didWakeNotification.rawValue:   asleep = false; server?.restart()
+        default: return
+        }
+        // restart() 只是复活监听（与手势开关无关，hook 始终需要能连上拿到 ask）；
+        // 是否真正弹手势卡片仍由 approve 流程里的 approvalEnabled + systemSuspended 把关，这里不强开用户关掉的审批。
+        GALog.log("系统事件 \(note.name.rawValue) → 锁屏=\(screenLocked) 睡眠=\(asleep) 审批\(systemSuspended ? "暂停" : "恢复")")
     }
 
     private func registerHotkeys() {
@@ -57,6 +104,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 guard let self else { reply("ask", L("reply.notReady")); return }
                 // 总开关关闭 -> 直接交回终端正常审批，不弹卡片
                 guard self.approvalEnabled else { reply("ask", L("reply.gatingOff")); return }
+                // 屏幕锁定/睡眠 -> 用户无法比手势，直接交回终端，不弹无人操作的卡片
+                guard !self.systemSuspended else { reply("ask", L("reply.suspended")); return }
                 // 白名单命中且整条安全 -> 直接放行，不打扰（危险/拼接命令仍要手势）
                 if Allowlist.autoAllows(operation) { reply("allow", L("reply.allowlist")); return }
                 self.controller.requestApproval(operation: operation, timeout: 90) { outcome in
@@ -102,14 +151,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(enabled)
         self.enabledItem = enabled
 
-        let login = NSMenuItem(title: L("menu.launchAtLogin"), action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
-        login.target = self
-        login.state = (SMAppService.mainApp.status == .enabled) ? .on : .off
-        login.image = NSImage(systemSymbolName: "power", accessibilityDescription: nil)
-        menu.addItem(login)
-        self.loginItem = login
-
         menu.addItem(.separator())
+
+        // 开机自启移到「设置」窗（避免两处状态不一致）。
 
         let settings = NSMenuItem(title: L("menu.settings"), action: #selector(openSettings), keyEquivalent: ",")
         settings.target = self
@@ -129,16 +173,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         item.menu = menu
         self.statusItem = item
-    }
-
-    @objc private func toggleLaunchAtLogin() {
-        let svc = SMAppService.mainApp
-        do {
-            if svc.status == .enabled { try svc.unregister() } else { try svc.register() }
-        } catch {
-            NSLog("GestureApprove: 开机自启切换失败 \(error)")
-        }
-        loginItem?.state = (svc.status == .enabled) ? .on : .off
     }
 
     @objc private func openSettings() {

@@ -86,6 +86,14 @@ private let table: [String: [String: String]] = [
         "ja": "承認ゲートは無効です", "ko": "승인 게이트가 꺼져 있음",
         "es": "Control de aprobación desactivado", "fr": "Contrôle d'approbation désactivé",
     ],
+    "reply.suspended": [
+        "en": "Screen locked / asleep — back to terminal prompt",
+        "zh": "屏幕锁定/睡眠中，交回终端审批",
+        "ja": "画面ロック/スリープ中 — ターミナルに戻します",
+        "ko": "화면 잠금/절전 중 — 터미널로 되돌림",
+        "es": "Pantalla bloqueada / en reposo — vuelve al terminal",
+        "fr": "Écran verrouillé / en veille — retour au terminal",
+    ],
     "reply.allowlist": [
         "en": "Auto-allowed by allowlist", "zh": "白名单自动放行",
         "ja": "許可リストにより自動承認", "ko": "허용 목록으로 자동 통과",

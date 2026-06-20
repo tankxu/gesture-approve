@@ -80,9 +80,12 @@ def main() -> int:
         decision, reason = ask_app(op)
         reason = f"手势审批: {reason}"
     except Exception as e:
-        # app 没开/不可达：回退到终端正常审批（而非硬性拒绝）
+        # app 没开/不可达：回退到终端正常审批（而非硬性拒绝），并在终端提示一行，
+        # 避免用户误以为「手势审批静默失效是 bug」。stderr 不影响 hook 的 stdout 协议。
         decision = "ask"
         reason = f"手势审批不可用，交回终端: {e}"
+        print("⚠️  GestureApprove 离线（未运行或端口不可达），本次交回终端正常审批。",
+              file=sys.stderr)
 
     (emit_codex if target == "codex" else emit_claude)(decision, reason)
     return 0
