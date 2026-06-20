@@ -39,9 +39,9 @@ def operation_label(payload: dict) -> str:
     return label[:140]  # 卡片显示截断
 
 
-def ask_app(operation: str) -> tuple[str, str]:
+def ask_app(operation: str, cwd: str = "", tool: str = "") -> tuple[str, str]:
     """返回 (decision, reason)，decision ∈ {"allow","deny","ask"}。"""
-    body = json.dumps({"operation": operation}).encode()
+    body = json.dumps({"operation": operation, "cwd": cwd, "tool": tool}).encode()
     req = urllib.request.Request(URL, data=body,
                                 headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:
@@ -75,9 +75,11 @@ def main() -> int:
     target = sys.argv[1] if len(sys.argv) > 1 else "claude"
     payload = read_input()
     op = operation_label(payload)
+    cwd = payload.get("cwd", "") or ""
+    tool = payload.get("tool_name", "") or ""
 
     try:
-        decision, reason = ask_app(op)
+        decision, reason = ask_app(op, cwd, tool)
         reason = f"手势审批: {reason}"
     except Exception as e:
         # app 没开/不可达：回退到终端正常审批（而非硬性拒绝），并在终端提示一行，

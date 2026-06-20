@@ -4,6 +4,10 @@ import SwiftUI
 struct NotchCardView: View {
     /// 操作名（如 "Bash: rm -rf build"）。
     let operation: String
+    /// 发起项目的工作目录（显示其末段作为项目名）。
+    var cwd: String = ""
+    /// 工具名（Bash/Edit/…）。
+    var tool: String = ""
     /// 当前即时识别到的手势，用于高亮对应图标。
     let live: Gesture
     /// 已锁定的判定（nil 表示尚未锁定）。
@@ -22,6 +26,36 @@ struct NotchCardView: View {
     var canAlwaysAllow: Bool = false
     var onAlwaysAllow: (() -> Void)? = nil
 
+    /// "📁 项目名 · 工具"：cwd 取末段目录名，与 tool 组合；都为空则不显示。
+    private var contextLabel: String {
+        let project = cwd.isEmpty ? "" : (cwd as NSString).lastPathComponent
+        let parts = [project, tool].filter { !$0.isEmpty }
+        return parts.isEmpty ? "" : "📁 " + parts.joined(separator: " · ")
+    }
+
+    /// 卡片里要显示的命令：若 operation 形如 "Bash: cmd" 且 tool 已单独显示，去掉前缀只留命令体。
+    private var displayCommand: String {
+        if !tool.isEmpty, operation.hasPrefix(tool + ": ") {
+            return String(operation.dropFirst(tool.count + 2))
+        }
+        return operation
+    }
+
+    /// 命令文本，危险片段标红加粗。
+    private var styledOperation: AttributedString {
+        let cmd = displayCommand
+        var s = AttributedString(cmd)
+        s.foregroundColor = .white.opacity(0.9)
+        for r in Allowlist.dangerRanges(in: cmd) {
+            if let lo = AttributedString.Index(r.lowerBound, within: s),
+               let hi = AttributedString.Index(r.upperBound, within: s) {
+                s[lo..<hi].foregroundColor = Color(red: 1.0, green: 0.42, blue: 0.42)  // 柔和红，黑底可读
+                s[lo..<hi].inlinePresentationIntent = .stronglyEmphasized
+            }
+        }
+        return s
+    }
+
     private var approveActive: Bool { locked == .thumbUp || (locked == nil && live == .thumbUp) }
     private var denyActive: Bool { locked == .openPalm || (locked == nil && live == .openPalm) }
     /// 检测到手势时推近画面。
@@ -36,9 +70,19 @@ struct NotchCardView: View {
                 .tracking(2)
                 .padding(.top, 10)
 
-            Text(operation)
+            // 上下文：📁 项目名 · 工具（有信息才显示，让你知道是哪个会话/项目在请求）
+            if !contextLabel.isEmpty {
+                Text(contextLabel)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.5))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .padding(.horizontal, 18)
+            }
+
+            // 命令本身：危险片段(rm -rf / |sh / sudo …)标红加粗
+            Text(styledOperation)
                 .font(.system(size: 13, weight: .medium, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.9))
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 18)
