@@ -20,7 +20,7 @@ struct SettingsView: View {
     @State private var rotation: Int = (UserDefaults.standard.object(forKey: "frameRotation") as? Int) ?? 0
     @State private var allowlistText: String = Allowlist.patterns().joined(separator: "\n")
     @State private var trusted: [String] = Allowlist.trustedCommands()
-    @State private var launchAtLogin: Bool = (SMAppService.mainApp.status == .enabled)
+    @State private var launchAtLogin: Bool = LaunchAtLogin.isEnabled
     @State private var appLang: String = UserDefaults.standard.string(forKey: I18n.langKey) ?? "system"
     @State private var confirmRestore = false
     let openFlash: () -> Void
@@ -53,7 +53,7 @@ struct SettingsView: View {
             mpInstalled = MediaPipeInstaller.isInstalled()
             engine = UserDefaults.standard.string(forKey: MediaPipeInstaller.engineKey) ?? "vision"
             trusted = Allowlist.trustedCommands()
-            launchAtLogin = (SMAppService.mainApp.status == .enabled)
+            launchAtLogin = LaunchAtLogin.isEnabled
             // 旧的连续值（如 0.55）吸附到最近的档位，否则分段控件不高亮
             let snapped = [0.3, 0.6, 0.9].min(by: { abs($0 - minConf) < abs($1 - minConf) }) ?? 0.6
             if snapped != minConf { minConf = snapped; UserDefaults.standard.set(snapped, forKey: "gestureMinConf") }
@@ -344,13 +344,12 @@ struct SettingsView: View {
     }
 
     private func setLaunchAtLogin(_ on: Bool) {
-        let svc = SMAppService.mainApp
         do {
-            if on { try svc.register() } else { try svc.unregister() }
+            try LaunchAtLogin.set(on)
         } catch {
             errorText = "\(error)"
         }
-        launchAtLogin = (svc.status == .enabled)
+        launchAtLogin = LaunchAtLogin.isEnabled
     }
 
     private func reload() {
