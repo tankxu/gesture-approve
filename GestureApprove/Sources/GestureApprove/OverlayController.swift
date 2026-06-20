@@ -6,6 +6,8 @@ import Combine
 @MainActor
 final class ApprovalViewModel: ObservableObject {
     @Published var operation: String = ""
+    @Published var cwd: String = ""           // 发起项目的工作目录（卡片显示项目名）
+    @Published var tool: String = ""          // 工具名 Bash/Edit/…
     @Published var locked: Gesture? = nil
     @Published var visible: Bool = false
     @Published var timeout: TimeInterval = 90   // 倒计时环时长
@@ -25,6 +27,8 @@ struct RootCardView: View {
         VStack {
             if vm.visible {
                 NotchCardView(operation: vm.operation,
+                              cwd: vm.cwd,
+                              tool: vm.tool,
                               live: engine.live,
                               locked: vm.locked,
                               previewImage: engine.previewImage,
@@ -110,7 +114,8 @@ final class ApprovalController {
 
     /// 发起一次审批。`completion(true)` 表示通过。线程：主线程。
     /// `offerAlwaysAllow`：是否在卡片上提供“总是允许”（测试审批时传 false，避免把测试操作写进白名单）。
-    func requestApproval(operation: String, timeout: TimeInterval = 15,
+    func requestApproval(operation: String, cwd: String = "", tool: String = "",
+                         timeout: TimeInterval = 15,
                          offerAlwaysAllow: Bool = true,
                          completion: @escaping (ApprovalOutcome) -> Void) {
         if inFlight {
@@ -121,6 +126,8 @@ final class ApprovalController {
         self.completion = completion
 
         vm.operation = operation.isEmpty ? L("card.noOperation") : operation
+        vm.cwd = cwd
+        vm.tool = tool
         // 危险/空操作、或调用方关闭时不提供“总是允许”（危险命令永不自动放行）
         vm.canAlwaysAllow = offerAlwaysAllow && !operation.isEmpty && !Allowlist.isDangerous(operation)
         vm.locked = nil

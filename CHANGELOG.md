@@ -2,6 +2,12 @@
 
 All notable changes to GestureApprove. Versions follow the GitHub releases.
 
+## v0.4.0 — approval context & risk highlighting
+
+- **Approval context on the card.** The card now shows which **project** (the originating `cwd`) and which **tool** is requesting — so when multiple agent sessions run at once, you know what you're approving.
+- **Risk highlighting.** Dangerous fragments in the command (`rm -rf`, `… | sh`, `sudo`, force-push, `mkfs`/`dd`, …) are highlighted in red so they catch your eye before you wave a 👍.
+- **Works for both Claude Code and Codex CLI** — the shared hook forwards `cwd`/`tool_name`, whose field names match across both, so context shows up everywhere the hook runs.
+
 ## v0.3.4
 
 - **Version display + update check.** Settings → General now shows the current version and a **Check for updates** button that queries the GitHub Releases API. When a newer release exists it shows the version and a **Download** link; otherwise "you're on the latest version."

@@ -53,6 +53,19 @@ enum Allowlist {
 
     static func isDangerous(_ op: String) -> Bool { matchesAny(op, dangerPatterns) }
 
+    /// 命令里命中危险模式的片段位置（供卡片高亮标红）。返回合并后的字符范围。
+    static func dangerRanges(in op: String) -> [Range<String.Index>] {
+        let ns = NSRange(op.startIndex..., in: op)
+        var ranges: [Range<String.Index>] = []
+        for pat in dangerPatterns {
+            guard let re = try? NSRegularExpression(pattern: pat, options: [.caseInsensitive]) else { continue }
+            re.enumerateMatches(in: op, range: ns) { m, _, _ in
+                if let m, let r = Range(m.range, in: op) { ranges.append(r) }
+            }
+        }
+        return ranges
+    }
+
     static func isCompound(_ op: String) -> Bool { compoundTokens.contains { op.contains($0) } }
 
     /// 是否自动放行（不弹手势）。

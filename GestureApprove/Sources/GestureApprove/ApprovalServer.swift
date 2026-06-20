@@ -3,16 +3,23 @@ import Network
 
 /// 极简本地 HTTP 服务，监听 127.0.0.1:<port>。
 /// hook 脚本 POST /approve {"operation":"..."}，阻塞直到返回 {"decision":"allow|deny","reason":"..."}。
+/// 一次审批请求的上下文：操作串 + 发起项目目录 + 工具名（cwd/tool 可空）。
+struct ApprovalRequest {
+    let operation: String
+    let cwd: String
+    let tool: String
+}
+
 final class ApprovalServer {
     private let port: UInt16
     private var listener: NWListener?
     private let queue = DispatchQueue(label: "com.tankxu.gestureapprove.server")
 
-    /// (operation) -> 异步回调 (decision, reason)。decision ∈ {"allow","deny","ask"}。
+    /// (request) -> 异步回调 (decision, reason)。decision ∈ {"allow","deny","ask"}。
     /// 实现方负责切到主线程跑 UI。
-    private let onApprove: (String, @escaping (String, String) -> Void) -> Void
+    private let onApprove: (ApprovalRequest, @escaping (String, String) -> Void) -> Void
 
-    init(port: UInt16, onApprove: @escaping (String, @escaping (String, String) -> Void) -> Void) {
+    init(port: UInt16, onApprove: @escaping (ApprovalRequest, @escaping (String, String) -> Void) -> Void) {
         self.port = port
         self.onApprove = onApprove
     }
@@ -89,12 +96,12 @@ final class ApprovalServer {
     }
 
     private func process(_ conn: NWConnection, body: Data) {
-        var operation = ""
-        if let obj = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
-           let op = obj["operation"] as? String {
-            operation = op
-        }
-        onApprove(operation) { [weak self] decision, reason in
+        let obj = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any]
+        let req = ApprovalRequest(
+            operation: obj?["operation"] as? String ?? "",
+            cwd: obj?["cwd"] as? String ?? "",
+            tool: obj?["tool"] as? String ?? "")
+        onApprove(req) { [weak self] decision, reason in
             self?.respond(conn, decision: decision, reason: reason)
         }
     }

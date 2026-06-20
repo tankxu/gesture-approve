@@ -99,7 +99,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func startServer() {
-        let server = ApprovalServer(port: port) { [weak self] operation, reply in
+        let server = ApprovalServer(port: port) { [weak self] req, reply in
             DispatchQueue.main.async {
                 guard let self else { reply("ask", L("reply.notReady")); return }
                 // 总开关关闭 -> 直接交回终端正常审批，不弹卡片
@@ -107,8 +107,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // 屏幕锁定/睡眠 -> 用户无法比手势，直接交回终端，不弹无人操作的卡片
                 guard !self.systemSuspended else { reply("ask", L("reply.suspended")); return }
                 // 白名单命中且整条安全 -> 直接放行，不打扰（危险/拼接命令仍要手势）
-                if Allowlist.autoAllows(operation) { reply("allow", L("reply.allowlist")); return }
-                self.controller.requestApproval(operation: operation, timeout: 90) { outcome in
+                if Allowlist.autoAllows(req.operation) { reply("allow", L("reply.allowlist")); return }
+                self.controller.requestApproval(operation: req.operation, cwd: req.cwd, tool: req.tool, timeout: 90) { outcome in
                     switch outcome {
                     case .approved: reply("allow", L("reply.approved"))
                     case .denied:   reply("deny", L("reply.denied"))
