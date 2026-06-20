@@ -317,29 +317,34 @@ struct SettingsView: View {
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         } else {
-            VStack(alignment: .leading, spacing: 4) {
-                ForEach(trusted, id: \.self) { cmd in
-                    HStack(spacing: 6) {
-                        Text(cmd)
-                            .font(.system(size: 11, design: .monospaced))
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        Spacer(minLength: 4)
-                        Button {
-                            Allowlist.removeTrustedCommand(cmd)
-                            trusted = Allowlist.trustedCommands()
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(.tertiary)
+            // 信任命令是唯一会无限增长的列表 -> 封顶高度，超出内部滚动，避免把窗口撑过屏幕。
+            ScrollView {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(trusted, id: \.self) { cmd in
+                        HStack(spacing: 6) {
+                            Text(cmd)
+                                .font(.system(size: 11, design: .monospaced))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Spacer(minLength: 4)
+                            Button {
+                                Allowlist.removeTrustedCommand(cmd)
+                                trusted = Allowlist.trustedCommands()
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .buttonStyle(.plain)
+                            .help(L("settings.trusted.remove"))
                         }
-                        .buttonStyle(.plain)
-                        .help(L("settings.trusted.remove"))
+                        .padding(.vertical, 3)
+                        .padding(.horizontal, 8)
+                        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 6))
                     }
-                    .padding(.vertical, 3)
-                    .padding(.horizontal, 8)
-                    .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 6))
                 }
+                .padding(.trailing, 4)   // 给滚动条留位
             }
+            .frame(maxHeight: 156)       // 约 6 条；再多则内部滚动，窗口高度不变
         }
     }
 
@@ -371,16 +376,20 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
               onPrimeESP32: @escaping () -> Void,
               onEngineChanged: @escaping () -> Void,
               openMediaPipeInstall: @escaping () -> Void) {
+        // 每次打开都重建视图：设置窗是复用的（关闭只隐藏），若沿用旧视图，其 @State 快照（信任命令、
+        // 开机自启等）停留在上次打开时的值——比如刚在卡片上点的「总是允许」就不会显示。重建则重读最新。
+        let hosting = NSHostingController(rootView: SettingsView(
+            state: state, openFlash: openFlash, onPrimeESP32: onPrimeESP32,
+            onEngineChanged: onEngineChanged, openMediaPipeInstall: openMediaPipeInstall))
         if window == nil {
-            let hosting = NSHostingController(rootView: SettingsView(
-                state: state, openFlash: openFlash, onPrimeESP32: onPrimeESP32,
-                onEngineChanged: onEngineChanged, openMediaPipeInstall: openMediaPipeInstall))
             let w = NSWindow(contentViewController: hosting)
             w.title = L("settings.windowTitle")
             w.styleMask = [.titled, .closable, .miniaturizable]
             w.isReleasedWhenClosed = false   // ARC 管理，避免关闭崩溃/退出
             w.delegate = self
             window = w
+        } else {
+            window?.contentViewController = hosting   // 复用窗口但换新视图，刷新所有 @State
         }
         state.active = true              // 重新打开 -> 恢复预览
         NSApp.activate(ignoringOtherApps: true)
