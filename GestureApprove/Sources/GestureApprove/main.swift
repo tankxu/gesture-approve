@@ -196,7 +196,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func openMediaPipeInstall() {
         var cfg = Self.mediapipeConfig
-        cfg.onSuccess = { [weak self] in self?.controller.applyEngine() }
+        cfg.onSuccess = { [weak self] in
+            self?.controller.applyEngine()
+            NotificationCenter.default.post(name: .gaMediaPipeInstalled, object: nil)   // 通知设置窗刷新状态
+        }
         mpInstallWC.show(script: MediaPipeInstaller.setupScript, cfg: cfg)
     }
 
@@ -266,6 +269,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func flashScript() -> String {
         AppPaths.resource("firmware/flash.sh")   // bundle 内（回退仓库）
     }
+}
+
+// 命令行 hook：GestureApprove --hook <claude|codex|gemini|kimi>。尽早处理、不初始化 GUI。
+// 取代 gesture_hook.py，让核心审批零 Python 依赖（同一二进制兼当 hook）。
+if let i = CommandLine.arguments.firstIndex(of: "--hook"),
+   CommandLine.arguments.count > i + 1 {
+    HookCLI.run(target: CommandLine.arguments[i + 1])
 }
 
 // 训练数据提取：--extract-landmarks <imagesDir> <out.csv>

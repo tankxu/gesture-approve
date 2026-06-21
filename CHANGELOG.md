@@ -2,6 +2,11 @@
 
 All notable changes to GestureApprove. Versions follow the GitHub releases.
 
+## v0.5.1
+
+- **Core approval hook is now Python-free.** The hook used to be `gesture_hook.py` (run via `/usr/bin/python3`), which meant a machine without Python couldn't gate tools at all. The hook is now the app binary itself — `GestureApprove --hook <claude|codex|gemini|kimi>` (new `HookCLI`). Re-toggle a CLI in Settings to switch to it (old python commands are still recognized for clean uninstall). MediaPipe still needs Python, but that's an opt-in extra.
+- **Fix: MediaPipe still showed "Not installed" after a successful install.** The install runs in a separate window; the Settings pane now refreshes its state when the install finishes (via a notification) instead of staying on the stale value.
+
 ## v0.5.0 — download-and-run (no repo required)
 
 - **The .app is now self-contained.** Previously the app resolved the hook script, MediaPipe, and firmware from the *repo directory* — so a release download (no checkout) had a broken hook path and the whole approval flow silently fell back to the terminal. Now everything ships inside the bundle: `hooks/gesture_hook.py`, `bridge/*` (daemon, setup, requirements), `firmware/flash.sh` + prebuilt binaries, plus the Vision model. Writable data — the MediaPipe venv, the downloaded model, the esptool environment — goes to `~/Library/Application Support/GestureApprove/` (bundles are read-only/signed). New `AppPaths` resolves bundle-first, falling back to the repo for source builds. Hook scripts and Python read their paths from env vars (`GESTURE_MODEL`, `FLASH_VENV`, `GA_*`) so they work in either layout.
