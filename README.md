@@ -60,7 +60,7 @@ Then from the menu-bar 👍 icon → **Settings** to pick a camera, choose an en
 
 > ⚠️ **Gemini CLI & Kimi CLI support is experimental and untested.** The wiring is in place (Gemini `BeforeTool` in `~/.gemini/settings.json`, Kimi `PreToolUse` in `~/.kimi/config.toml`; enable them in Settings), derived from each tool's docs/source but **not yet verified end-to-end** — feedback welcome. Both are terminal-CLI only; Kimi may require `/hooks` trust like Codex.
 
-> The app is signed with a local Apple Development cert and depends on this repo (the Vision model is bundled; MediaPipe/ESP32 paths reference the repo). It is **not** a notarized public distribution.
+> **Download-and-run:** the .app bundles everything it needs (hook script, MediaPipe/firmware scripts, Vision model); writable data (MediaPipe venv, model download, esptool env) goes to `~/Library/Application Support/GestureApprove/`. No repo checkout required. It's signed with a local Apple Development cert and is **not** notarized, so Gatekeeper warns on first open (right-click → Open).
 
 ## Repo layout
 
@@ -140,7 +140,7 @@ cd GestureApprove
 
 > ⚠️ **Gemini CLI 与 Kimi CLI 的支持为实验性、未经测试。** 接入已接好（Gemini 的 `BeforeTool` 写入 `~/.gemini/settings.json`，Kimi 的 `PreToolUse` 写入 `~/.kimi/config.toml`，在设置里开启），依据各自文档/源码实现，但**尚未端到端验证过**——欢迎反馈。两者均仅限终端 CLI；Kimi 可能和 Codex 一样需要 `/hooks` 信任。
 
-> app 用本机 Apple Development 证书签名，且依赖本仓库（Vision 模型已内置；MediaPipe/ESP32 路径引用仓库）。**不是**经过公证的对外分发版。
+> **下载即用：** .app 自带运行所需的一切（hook 脚本、MediaPipe/固件脚本、Vision 模型）；可写数据（MediaPipe venv、模型下载、esptool 环境）放到 `~/Library/Application Support/GestureApprove/`，无需 clone 仓库。用本机 Apple Development 证书签名、**未公证**，首次打开 Gatekeeper 会拦（右键 → 打开）。
 
 ## 目录结构
 

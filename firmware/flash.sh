@@ -7,8 +7,9 @@
 set -uo pipefail
 
 FW_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PREBUILT="$FW_DIR/prebuilt"
-VENV="$FW_DIR/.flashenv"
+PREBUILT="$FW_DIR/prebuilt"   # 只读取，放 bundle 里也没问题
+# venv 不能建在只读 bundle：app 通过 FLASH_VENV 指向 Application Support，回退脚本旁（源码开发）。
+VENV="${FLASH_VENV:-$FW_DIR/.flashenv}"
 PYBIN="$VENV/bin/python"
 
 # 1) 准备 esptool（首次自动安装）

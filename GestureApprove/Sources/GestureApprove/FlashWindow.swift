@@ -10,7 +10,7 @@ final class ScriptRunner: ObservableObject {
     @Published var status: Status = .idle
     private var process: Process?
 
-    func run(script: String) {
+    func run(script: String, extraEnv: [String: String] = [:]) {
         guard status != .running else { return }
         output = ""
         status = .running
@@ -24,6 +24,7 @@ final class ScriptRunner: ObservableObject {
         p.arguments = [script]
         var env = ProcessInfo.processInfo.environment
         env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+        for (k, v) in extraEnv { env[k] = v }
         p.environment = env
         let pipe = Pipe()
         p.standardOutput = pipe
@@ -59,6 +60,7 @@ struct ScriptUIConfig {
     var successText: String
     var failedText: String
     var idleHint: String
+    var extraEnv: [String: String] = [:]
     var onSuccess: (() -> Void)? = nil
 }
 
@@ -86,7 +88,7 @@ struct ScriptView: View {
                 .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
             }
             HStack(spacing: 12) {
-                Button(action: { runner.run(script: script) }) {
+                Button(action: { runner.run(script: script, extraEnv: cfg.extraEnv) }) {
                     Label(hasStarted ? cfg.rerunLabel : cfg.runLabel, systemImage: cfg.runIcon)
                         .frame(minWidth: 90)
                 }

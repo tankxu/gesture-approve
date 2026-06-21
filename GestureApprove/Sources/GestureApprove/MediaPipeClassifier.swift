@@ -20,9 +20,8 @@ final class MediaPipeClassifier {
     private let scriptPath: String
 
     init() {
-        let root = HookInstaller.repoRoot()
-        pythonPath = (root as NSString).appendingPathComponent("bridge/.venv/bin/python")
-        scriptPath = (root as NSString).appendingPathComponent("bridge/gesture_daemon.py")
+        pythonPath = MediaPipeInstaller.venvPython     // Application Support 的 venv
+        scriptPath = MediaPipeInstaller.daemonScript   // bundle 内 daemon（回退仓库）
     }
 
     func start() {
@@ -39,6 +38,9 @@ final class MediaPipeClassifier {
         started = true
         process.executableURL = URL(fileURLWithPath: pythonPath)
         process.arguments = [scriptPath]
+        var env = ProcessInfo.processInfo.environment
+        env["GESTURE_MODEL"] = MediaPipeInstaller.modelFile   // 模型在 Application Support
+        process.environment = env
         process.standardInput = inPipe
         process.standardOutput = outPipe
         process.standardError = errPipe

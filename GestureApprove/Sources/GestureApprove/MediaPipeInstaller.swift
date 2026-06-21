@@ -4,11 +4,14 @@ import Foundation
 enum MediaPipeInstaller {
     static let engineKey = "recognitionEngine"   // "vision" | "mediapipe"
 
-    private static var root: String { HookInstaller.repoRoot() }
-    static var venvPython: String { (root as NSString).appendingPathComponent("bridge/.venv/bin/python") }
-    static var daemonScript: String { (root as NSString).appendingPathComponent("bridge/gesture_daemon.py") }
-    static var modelFile: String { (root as NSString).appendingPathComponent("bridge/models/gesture_recognizer.task") }
-    static var setupScript: String { (root as NSString).appendingPathComponent("setup.sh") }
+    // 只读脚本 → bundle（回退仓库）；可写产物(venv/模型) → Application Support。
+    static var daemonScript: String { AppPaths.resource("bridge/gesture_daemon.py") }
+    static var bridgeDir: String { AppPaths.resource("bridge") }
+    static var setupScript: String { AppPaths.resource("bridge/setup_mediapipe.sh") }
+    static var venvDir: String { AppPaths.supportPath("mediapipe/.venv") }
+    static var venvPython: String { (venvDir as NSString).appendingPathComponent("bin/python") }
+    static var modelDir: String { AppPaths.supportPath("mediapipe/models") }
+    static var modelFile: String { (modelDir as NSString).appendingPathComponent("gesture_recognizer.task") }
 
     /// 已安装 = venv 解释器 + daemon 脚本 + 模型文件都在。
     static func isInstalled() -> Bool {

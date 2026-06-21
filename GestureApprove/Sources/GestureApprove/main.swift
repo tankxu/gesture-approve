@@ -209,7 +209,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             runLabel: L("firmware.runLabel"), rerunLabel: L("firmware.rerunLabel"), runIcon: "bolt.fill",
             footer: L("firmware.footer"),
             runningText: L("firmware.running"), successText: L("firmware.success"), failedText: L("firmware.failed"),
-            idleHint: L("firmware.idleHint"))
+            idleHint: L("firmware.idleHint"),
+            extraEnv: ["FLASH_VENV": AppPaths.supportPath("flashenv")])   // esptool venv 装到 Application Support
     }
 
     static var mediapipeConfig: ScriptUIConfig {
@@ -221,7 +222,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             runLabel: L("mp.runLabel"), rerunLabel: L("mp.rerunLabel"), runIcon: "arrow.down.circle.fill",
             footer: L("mp.footer"),
             runningText: L("mp.running"), successText: L("mp.success"), failedText: L("mp.failed"),
-            idleHint: L("mp.idleHint"))
+            idleHint: L("mp.idleHint"),
+            extraEnv: [
+                "GA_BRIDGE": MediaPipeInstaller.bridgeDir,    // bundle 内 bridge（requirements/download_model 源）
+                "GA_VENV": MediaPipeInstaller.venvDir,        // venv 装到 Application Support
+                "GA_MODELDIR": MediaPipeInstaller.modelDir,   // 模型下载到 Application Support
+            ])
     }
 
     private var testInFlight = false
@@ -258,7 +264,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func flashScript() -> String {
-        (repoRoot() as NSString).appendingPathComponent("firmware/flash.sh")
+        AppPaths.resource("firmware/flash.sh")   // bundle 内（回退仓库）
     }
 }
 

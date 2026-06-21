@@ -2,6 +2,10 @@
 
 All notable changes to GestureApprove. Versions follow the GitHub releases.
 
+## v0.5.0 — download-and-run (no repo required)
+
+- **The .app is now self-contained.** Previously the app resolved the hook script, MediaPipe, and firmware from the *repo directory* — so a release download (no checkout) had a broken hook path and the whole approval flow silently fell back to the terminal. Now everything ships inside the bundle: `hooks/gesture_hook.py`, `bridge/*` (daemon, setup, requirements), `firmware/flash.sh` + prebuilt binaries, plus the Vision model. Writable data — the MediaPipe venv, the downloaded model, the esptool environment — goes to `~/Library/Application Support/GestureApprove/` (bundles are read-only/signed). New `AppPaths` resolves bundle-first, falling back to the repo for source builds. Hook scripts and Python read their paths from env vars (`GESTURE_MODEL`, `FLASH_VENV`, `GA_*`) so they work in either layout.
+
 ## v0.4.2
 
 - **Gemini CLI and Kimi CLI support** (experimental, untested). The shared hook now emits for four targets — Gemini uses a top-level `{"decision":"allow|deny"}` via `BeforeTool`; Kimi reuses the Claude `hookSpecificOutput.permissionDecision` format via `PreToolUse`. Enable them in Settings → Connect AI tools (writes `~/.gemini/settings.json` / `~/.kimi/config.toml`, originals backed up). Derived from each tool's docs/source but **not yet verified end-to-end** — feedback welcome. Both are terminal-CLI only; Kimi may need `/hooks` trust like Codex. Claude Code / Codex paths are unchanged.

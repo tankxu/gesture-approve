@@ -8,7 +8,8 @@ URL = (
     "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/"
     "gesture_recognizer/float16/latest/gesture_recognizer.task"
 )
-DEST_DIR = os.path.join(os.path.dirname(__file__), "models")
+# 输出目录：优先环境变量（app 指向 Application Support），回退脚本旁 models/（源码开发）。
+DEST_DIR = os.environ.get("GESTURE_MODEL_DIR") or os.path.join(os.path.dirname(__file__), "models")
 DEST = os.path.join(DEST_DIR, "gesture_recognizer.task")
 
 
