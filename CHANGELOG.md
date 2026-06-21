@@ -2,9 +2,10 @@
 
 All notable changes to GestureApprove. Versions follow the GitHub releases.
 
-## v0.5.0 — more CLIs: Gemini & Kimi (experimental)
+## v0.4.2
 
 - **Gemini CLI and Kimi CLI support** (experimental, untested). The shared hook now emits for four targets — Gemini uses a top-level `{"decision":"allow|deny"}` via `BeforeTool`; Kimi reuses the Claude `hookSpecificOutput.permissionDecision` format via `PreToolUse`. Enable them in Settings → Connect AI tools (writes `~/.gemini/settings.json` / `~/.kimi/config.toml`, originals backed up). Derived from each tool's docs/source but **not yet verified end-to-end** — feedback welcome. Both are terminal-CLI only; Kimi may need `/hooks` trust like Codex. Claude Code / Codex paths are unchanged.
+- **Long-command card layout.** The command is shown smaller, left-aligned, up to 4 lines; **click the command text to expand/collapse** the full command (hover tooltips don't fire on the borderless panel). The hook no longer truncates at 140 chars (raised to 600) so dangerous fragments hidden at the tail of a long command aren't dropped before the risk highlighting can flag them.
 
 ## v0.4.1
 
