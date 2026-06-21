@@ -2,6 +2,11 @@ import SwiftUI
 import AppKit
 import ServiceManagement
 
+extension Notification.Name {
+    /// MediaPipe 安装窗安装成功后发出，设置窗据此刷新「已安装」状态。
+    static let gaMediaPipeInstalled = Notification.Name("gaMediaPipeInstalled")
+}
+
 @MainActor
 final class SettingsState: ObservableObject {
     @Published var active = true   // 窗口可见时为 true；关闭时置 false 以停止摄像头预览
@@ -53,6 +58,9 @@ struct SettingsView: View {
             Button(L("settings.alert.ok"), role: .cancel) { errorText = nil }
         } message: {
             Text(errorText ?? "")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .gaMediaPipeInstalled)) { _ in
+            mpInstalled = MediaPipeInstaller.isInstalled()   // 安装窗装完后刷新「已安装」状态
         }
         .onAppear {
             mpInstalled = MediaPipeInstaller.isInstalled()

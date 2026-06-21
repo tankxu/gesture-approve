@@ -20,6 +20,15 @@ enum HookInstaller {
         AppPaths.resource("hooks/gesture_hook.py")
     }
 
+    /// hook 命令 = app 二进制自己 `--hook <target>`（零 Python 依赖，见 HookCLI）。
+    private static var execPath: String { Bundle.main.executablePath ?? "" }
+    private static func jsonHookCommand(_ target: String) -> String { "'\(execPath)' --hook \(target)" }       // JSON(Claude/Gemini)
+    private static func tomlHookCommand(_ target: String) -> String { "\"\(execPath)\" --hook \(target)" }      // TOML(Codex/Kimi，放进 ''' 内)
+    /// 兼容旧的 gesture_hook.py 写法，便于卸载/重装识别。
+    private static func isOurHook(_ cmd: String) -> Bool {
+        cmd.contains("--hook") || cmd.contains("gesture_hook.py")
+    }
+
     private static var claudeSettings: URL {
         URL(fileURLWithPath: (NSHomeDirectory() as NSString).appendingPathComponent(".claude/settings.json"))
     }
@@ -40,9 +49,7 @@ enum HookInstaller {
 
     // MARK: Claude Code（JSON）
 
-    private static func claudeCommand() -> String {
-        "/usr/bin/python3 '\(hookScript())' claude"
-    }
+    private static func claudeCommand() -> String { jsonHookCommand("claude") }
 
     static func isClaudeInstalled() -> Bool {
         guard let data = try? Data(contentsOf: claudeSettings),
@@ -51,7 +58,7 @@ enum HookInstaller {
               let pre = hooks["PreToolUse"] as? [[String: Any]] else { return false }
         for entry in pre {
             for h in (entry["hooks"] as? [[String: Any]] ?? []) {
-                if let c = h["command"] as? String, c.contains("gesture_hook.py") { return true }
+                if let c = h["command"] as? String, isOurHook(c) { return true }
             }
         }
         return false
@@ -68,7 +75,7 @@ enum HookInstaller {
         var pre = hooks["PreToolUse"] as? [[String: Any]] ?? []
         pre.removeAll { entry in
             (entry["hooks"] as? [[String: Any]] ?? []).contains {
-                ($0["command"] as? String)?.contains("gesture_hook.py") == true
+                isOurHook($0["command"] as? String ?? "")
             }
         }
         pre.append([
@@ -91,7 +98,7 @@ enum HookInstaller {
         var pre = hooks["PreToolUse"] as? [[String: Any]] ?? []
         pre.removeAll { entry in
             (entry["hooks"] as? [[String: Any]] ?? []).contains {
-                ($0["command"] as? String)?.contains("gesture_hook.py") == true
+                isOurHook($0["command"] as? String ?? "")
             }
         }
         if pre.isEmpty { hooks.removeValue(forKey: "PreToolUse") } else { hooks["PreToolUse"] = pre }
@@ -106,7 +113,7 @@ enum HookInstaller {
     private static var geminiSettings: URL {
         URL(fileURLWithPath: (NSHomeDirectory() as NSString).appendingPathComponent(".gemini/settings.json"))
     }
-    private static func geminiCommand() -> String { "/usr/bin/python3 '\(hookScript())' gemini" }
+    private static func geminiCommand() -> String { jsonHookCommand("gemini") }
 
     static func isGeminiInstalled() -> Bool {
         guard let data = try? Data(contentsOf: geminiSettings),
@@ -115,7 +122,7 @@ enum HookInstaller {
               let arr = hooks["BeforeTool"] as? [[String: Any]] else { return false }
         for entry in arr {
             for h in (entry["hooks"] as? [[String: Any]] ?? []) {
-                if let c = h["command"] as? String, c.contains("gesture_hook.py") { return true }
+                if let c = h["command"] as? String, isOurHook(c) { return true }
             }
         }
         return false
@@ -130,7 +137,7 @@ enum HookInstaller {
         var arr = hooks["BeforeTool"] as? [[String: Any]] ?? []
         arr.removeAll { entry in
             (entry["hooks"] as? [[String: Any]] ?? []).contains {
-                ($0["command"] as? String)?.contains("gesture_hook.py") == true
+                isOurHook($0["command"] as? String ?? "")
             }
         }
         arr.append([
@@ -153,7 +160,7 @@ enum HookInstaller {
         var arr = hooks["BeforeTool"] as? [[String: Any]] ?? []
         arr.removeAll { entry in
             (entry["hooks"] as? [[String: Any]] ?? []).contains {
-                ($0["command"] as? String)?.contains("gesture_hook.py") == true
+                isOurHook($0["command"] as? String ?? "")
             }
         }
         if arr.isEmpty { hooks.removeValue(forKey: "BeforeTool") } else { hooks["BeforeTool"] = arr }
@@ -177,7 +184,7 @@ enum HookInstaller {
         [[hooks.PermissionRequest.hooks]]
         type = "command"
         timeout = 120
-        command = '''/usr/bin/python3 "\(hookScript())" codex'''
+        command = '''\(tomlHookCommand("codex"))'''
         \(codexEnd)
         """
     }
@@ -223,7 +230,7 @@ enum HookInstaller {
         event = "PreToolUse"
         matcher = "Shell|WriteFile|StrReplaceFile"
         timeout = 120
-        command = '''/usr/bin/python3 "\(hookScript())" kimi'''
+        command = '''\(tomlHookCommand("kimi"))'''
         \(codexEnd)
         """
     }
