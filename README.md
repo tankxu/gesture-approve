@@ -58,6 +58,8 @@ Then from the menu-bar 👍 icon → **Settings** to pick a camera, choose an en
 
 > **Codex is CLI-only.** Codex hooks run in the **terminal `codex` CLI**, not the desktop/IDE app (which uses its own approval UI and doesn't read `config.toml` hooks). After enabling "Connect Codex CLI", run `/hooks` inside Codex and **trust** the gesture-approve hook — untrusted command hooks are skipped. Claude Code works on every surface because its hooks are part of the core runtime.
 
+> ⚠️ **Gemini CLI & Kimi CLI support is experimental and untested.** The wiring is in place (Gemini `BeforeTool` in `~/.gemini/settings.json`, Kimi `PreToolUse` in `~/.kimi/config.toml`; enable them in Settings), derived from each tool's docs/source but **not yet verified end-to-end** — feedback welcome. Both are terminal-CLI only; Kimi may require `/hooks` trust like Codex.
+
 > The app is signed with a local Apple Development cert and depends on this repo (the Vision model is bundled; MediaPipe/ESP32 paths reference the repo). It is **not** a notarized public distribution.
 
 ## Repo layout
@@ -135,6 +137,8 @@ cd GestureApprove
 然后从菜单栏 👍 图标 →「设置」选摄像头、选引擎、接入 Claude Code / Codex CLI。想让手势真正拦工具时，勾上「**启用审批拦截**」。
 
 > **Codex 仅限 CLI。** Codex 的 hook 只在**终端 `codex` CLI** 生效，桌面/IDE 版不支持（它用自带审批 UI，不读 `config.toml` 的 hook）。勾上「接入 Codex CLI」后，需在 Codex 里执行 `/hooks` 并**信任** gesture-approve 这条 hook——未信任的命令 hook 会被跳过。Claude Code 各端都生效，因为它的 hook 是核心运行时的一部分。
+
+> ⚠️ **Gemini CLI 与 Kimi CLI 的支持为实验性、未经测试。** 接入已接好（Gemini 的 `BeforeTool` 写入 `~/.gemini/settings.json`，Kimi 的 `PreToolUse` 写入 `~/.kimi/config.toml`，在设置里开启），依据各自文档/源码实现，但**尚未端到端验证过**——欢迎反馈。两者均仅限终端 CLI；Kimi 可能和 Codex 一样需要 `/hooks` 信任。
 
 > app 用本机 Apple Development 证书签名，且依赖本仓库（Vision 模型已内置；MediaPipe/ESP32 路径引用仓库）。**不是**经过公证的对外分发版。
 

@@ -71,6 +71,25 @@ def emit_codex(decision: str, reason: str) -> None:
     print(json.dumps({"hookSpecificOutput": out}))
 
 
+def emit_gemini(decision: str, reason: str) -> None:
+    # Gemini CLI BeforeTool：stdout 顶层 {"decision":"allow"|"deny"}。
+    # ask -> 不返回 decision 字段，让 Gemini 走它自己的工具确认流程。
+    if decision == "allow":
+        print(json.dumps({"decision": "allow"}))
+    elif decision == "deny":
+        print(json.dumps({"decision": "deny", "reason": reason}))
+
+
+# Kimi CLI(PreToolUse) 解析 hookSpecificOutput.permissionDecision == "deny" 来拦截，
+# 其余视为放行——与 Claude Code 的输出格式兼容，直接复用 emit_claude。
+EMITTERS = {
+    "claude": emit_claude,
+    "codex": emit_codex,
+    "gemini": emit_gemini,
+    "kimi": emit_claude,
+}
+
+
 def main() -> int:
     target = sys.argv[1] if len(sys.argv) > 1 else "claude"
     payload = read_input()
@@ -89,7 +108,7 @@ def main() -> int:
         print("⚠️  GestureApprove 离线（未运行或端口不可达），本次交回终端正常审批。",
               file=sys.stderr)
 
-    (emit_codex if target == "codex" else emit_claude)(decision, reason)
+    EMITTERS.get(target, emit_claude)(decision, reason)
     return 0
 
 
