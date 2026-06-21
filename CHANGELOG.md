@@ -2,6 +2,10 @@
 
 All notable changes to GestureApprove. Versions follow the GitHub releases.
 
+## v0.5.0 — more CLIs: Gemini & Kimi (experimental)
+
+- **Gemini CLI and Kimi CLI support** (experimental, untested). The shared hook now emits for four targets — Gemini uses a top-level `{"decision":"allow|deny"}` via `BeforeTool`; Kimi reuses the Claude `hookSpecificOutput.permissionDecision` format via `PreToolUse`. Enable them in Settings → Connect AI tools (writes `~/.gemini/settings.json` / `~/.kimi/config.toml`, originals backed up). Derived from each tool's docs/source but **not yet verified end-to-end** — feedback welcome. Both are terminal-CLI only; Kimi may need `/hooks` trust like Codex. Claude Code / Codex paths are unchanged.
+
 ## v0.4.1
 
 - **Fix: approvals could stay stuck on the terminal after overnight sleep.** Lock state was cached from the `screenIsUnlocked` notification, which `DistributedNotificationCenter` can drop or delay when resuming from long sleep / Power Nap. A missed unlock left `screenLocked` stuck `true`, so the gesture card never took over and every approval silently fell back to the CLI prompt (showing up as "sometimes CLI, sometimes gesture"). Lock state is now **queried live via `CGSession` on every approval** instead of cached — a dropped notification can no longer wedge it.
