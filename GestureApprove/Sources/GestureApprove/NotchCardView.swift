@@ -26,6 +26,9 @@ struct NotchCardView: View {
     var canAlwaysAllow: Bool = false
     var onAlwaysAllow: (() -> Void)? = nil
 
+    /// 点击命令文字展开/收起完整命令——浮层 panel 上 .help tooltip 不触发，改用点击。
+    @State private var commandExpanded = false
+
     /// "📁 项目名 · 工具"：cwd 取末段目录名，与 tool 组合；都为空则不显示。
     private var contextLabel: String {
         let project = cwd.isEmpty ? "" : (cwd as NSString).lastPathComponent
@@ -80,12 +83,16 @@ struct NotchCardView: View {
                     .padding(.horizontal, 18)
             }
 
-            // 命令本身：危险片段(rm -rf / |sh / sudo …)标红加粗
+            // 命令本身：危险片段(rm -rf / |sh / sudo …)标红加粗。小字号 + 多行 + 左对齐，长命令更易读；
+            // hover 显示完整命令（长命令仍可能尾部省略，但危险片段尽量可见，悬停可看全）。
             Text(styledOperation)
-                .font(.system(size: 13, weight: .medium, design: .monospaced))
-                .lineLimit(2)
-                .multilineTextAlignment(.center)
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .lineLimit(commandExpanded ? nil : 4)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 18)
+                .contentShape(Rectangle())
+                .onTapGesture { commandExpanded.toggle() }
 
             HStack(spacing: 28) {
                 gestureIcon(symbol: "hand.thumbsup.fill",

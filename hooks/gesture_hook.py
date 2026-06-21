@@ -36,7 +36,7 @@ def operation_label(payload: dict) -> str:
     ti = payload.get("tool_input", {}) or {}
     detail = ti.get("command") or ti.get("file_path") or ti.get("description") or ""
     label = f"{tool}: {detail}".strip(": ").strip()
-    return label[:140]  # 卡片显示截断
+    return label[:600]  # 放宽截断：长命令尾部可能藏危险操作，别轻易丢（卡片再做行数/hover 处理）
 
 
 def ask_app(operation: str, cwd: str = "", tool: str = "") -> tuple[str, str]:
