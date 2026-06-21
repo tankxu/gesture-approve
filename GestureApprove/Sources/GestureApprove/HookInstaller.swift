@@ -1,6 +1,7 @@
 import Foundation
 
-/// 自动接入/移除 Claude Code 与 Codex 的 hook，免用户手敲命令。
+/// 自动接入/移除 Claude Code / Codex / Gemini CLI / Kimi CLI 的 hook，免用户手敲命令。
+/// 四家 hook 的 stdin 字段名(tool_name/tool_input/cwd)一致，输出格式各异，由 hooks/gesture_hook.py 适配。
 enum HookInstaller {
     // MARK: 路径
 
@@ -99,6 +100,68 @@ enum HookInstaller {
         try out.write(to: claudeSettings)
     }
 
+    // MARK: Gemini CLI（JSON，BeforeTool）
+
+    private static var geminiSettings: URL {
+        URL(fileURLWithPath: (NSHomeDirectory() as NSString).appendingPathComponent(".gemini/settings.json"))
+    }
+    private static func geminiCommand() -> String { "/usr/bin/python3 '\(hookScript())' gemini" }
+
+    static func isGeminiInstalled() -> Bool {
+        guard let data = try? Data(contentsOf: geminiSettings),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let hooks = obj["hooks"] as? [String: Any],
+              let arr = hooks["BeforeTool"] as? [[String: Any]] else { return false }
+        for entry in arr {
+            for h in (entry["hooks"] as? [[String: Any]] ?? []) {
+                if let c = h["command"] as? String, c.contains("gesture_hook.py") { return true }
+            }
+        }
+        return false
+    }
+
+    static func installGemini() throws {
+        var dict: [String: Any] = [:]
+        if let data = try? Data(contentsOf: geminiSettings),
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] { dict = obj }
+        backup(geminiSettings)
+        var hooks = dict["hooks"] as? [String: Any] ?? [:]
+        var arr = hooks["BeforeTool"] as? [[String: Any]] ?? []
+        arr.removeAll { entry in
+            (entry["hooks"] as? [[String: Any]] ?? []).contains {
+                ($0["command"] as? String)?.contains("gesture_hook.py") == true
+            }
+        }
+        arr.append([
+            "matcher": "run_shell_command|write_file|replace",          // 有副作用的 Gemini 工具
+            "hooks": [["type": "command", "timeout": 120000, "command": geminiCommand()]],  // Gemini timeout 单位毫秒
+        ])
+        hooks["BeforeTool"] = arr
+        dict["hooks"] = hooks
+        try ensureDir(geminiSettings)
+        let out = try JSONSerialization.data(withJSONObject: dict,
+                                             options: [.prettyPrinted, .withoutEscapingSlashes])
+        try out.write(to: geminiSettings)
+    }
+
+    static func uninstallGemini() throws {
+        guard let data = try? Data(contentsOf: geminiSettings),
+              var dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+        backup(geminiSettings)
+        guard var hooks = dict["hooks"] as? [String: Any] else { return }
+        var arr = hooks["BeforeTool"] as? [[String: Any]] ?? []
+        arr.removeAll { entry in
+            (entry["hooks"] as? [[String: Any]] ?? []).contains {
+                ($0["command"] as? String)?.contains("gesture_hook.py") == true
+            }
+        }
+        if arr.isEmpty { hooks.removeValue(forKey: "BeforeTool") } else { hooks["BeforeTool"] = arr }
+        if hooks.isEmpty { dict.removeValue(forKey: "hooks") } else { dict["hooks"] = hooks }
+        let out = try JSONSerialization.data(withJSONObject: dict,
+                                             options: [.prettyPrinted, .withoutEscapingSlashes])
+        try out.write(to: geminiSettings)
+    }
+
     // MARK: Codex（TOML，用标记块管理）
 
     private static let codexBegin = "# >>> gesture-approve (managed) >>>"
@@ -144,5 +207,44 @@ enum HookInstaller {
         guard let content = try? String(contentsOf: codexConfig, encoding: .utf8) else { return }
         backup(codexConfig)
         try stripCodexBlock(content).write(to: codexConfig, atomically: true, encoding: .utf8)
+    }
+
+    // MARK: Kimi CLI（TOML，PreToolUse，复用同一 managed 标记块）
+
+    private static var kimiConfig: URL {
+        URL(fileURLWithPath: (NSHomeDirectory() as NSString).appendingPathComponent(".kimi/config.toml"))
+    }
+
+    private static func kimiBlock() -> String {
+        """
+        \(codexBegin)
+        [[hooks]]
+        event = "PreToolUse"
+        matcher = "Shell|WriteFile|StrReplaceFile"
+        timeout = 120
+        command = '''/usr/bin/python3 "\(hookScript())" kimi'''
+        \(codexEnd)
+        """
+    }
+
+    static func isKimiInstalled() -> Bool {
+        guard let s = try? String(contentsOf: kimiConfig, encoding: .utf8) else { return false }
+        return s.contains(codexBegin)
+    }
+
+    static func installKimi() throws {
+        var content = (try? String(contentsOf: kimiConfig, encoding: .utf8)) ?? ""
+        backup(kimiConfig)
+        content = stripCodexBlock(content)
+        if !content.isEmpty && !content.hasSuffix("\n") { content += "\n" }
+        content += "\n" + kimiBlock() + "\n"
+        try ensureDir(kimiConfig)
+        try content.write(to: kimiConfig, atomically: true, encoding: .utf8)
+    }
+
+    static func uninstallKimi() throws {
+        guard let content = try? String(contentsOf: kimiConfig, encoding: .utf8) else { return }
+        backup(kimiConfig)
+        try stripCodexBlock(content).write(to: kimiConfig, atomically: true, encoding: .utf8)
     }
 }

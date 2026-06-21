@@ -13,6 +13,8 @@ struct SettingsView: View {
     @State private var selectedID: String = VideoInputs.currentID()
     @State private var claudeInstalled = HookInstaller.isClaudeInstalled()
     @State private var codexInstalled = HookInstaller.isCodexInstalled()
+    @State private var geminiInstalled = HookInstaller.isGeminiInstalled()
+    @State private var kimiInstalled = HookInstaller.isKimiInstalled()
     @State private var minConf: Double = (UserDefaults.standard.object(forKey: "gestureMinConf") as? Double) ?? 0.6
     @State private var errorText: String?
     @State private var engine: String = UserDefaults.standard.string(forKey: MediaPipeInstaller.engineKey) ?? "vision"
@@ -133,6 +135,22 @@ struct SettingsView: View {
                         do {
                             try on ? HookInstaller.installCodex() : HookInstaller.uninstallCodex()
                             codexInstalled = on
+                        } catch { errorText = "\(error)" }
+                    }))
+                Toggle(L("settings.connectGemini"), isOn: Binding(
+                    get: { geminiInstalled },
+                    set: { on in
+                        do {
+                            try on ? HookInstaller.installGemini() : HookInstaller.uninstallGemini()
+                            geminiInstalled = on
+                        } catch { errorText = "\(error)" }
+                    }))
+                Toggle(L("settings.connectKimi"), isOn: Binding(
+                    get: { kimiInstalled },
+                    set: { on in
+                        do {
+                            try on ? HookInstaller.installKimi() : HookInstaller.uninstallKimi()
+                            kimiInstalled = on
                         } catch { errorText = "\(error)" }
                     }))
                 caption("settings.connectCodexNote")

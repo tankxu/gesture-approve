@@ -354,6 +354,16 @@ private let table: [String: [String: String]] = [
         "ja": "AI ツールと連携", "ko": "AI 도구 연결",
         "es": "Conectar herramientas de IA", "fr": "Connecter les outils d'IA",
     ],
+    "settings.connectGemini": [
+        "en": "Connect Gemini CLI", "zh": "接入 Gemini CLI",
+        "ja": "Gemini CLI と連携", "ko": "Gemini CLI 연결",
+        "es": "Conectar Gemini CLI", "fr": "Connecter Gemini CLI",
+    ],
+    "settings.connectKimi": [
+        "en": "Connect Kimi CLI", "zh": "接入 Kimi CLI",
+        "ja": "Kimi CLI と連携", "ko": "Kimi CLI 연결",
+        "es": "Conectar Kimi CLI", "fr": "Connecter Kimi CLI",
+    ],
     "settings.connectClaude": [
         "en": "Connect Claude Code", "zh": "接入 Claude Code",
         "ja": "Claude Code と連携", "ko": "Claude Code 연결",
