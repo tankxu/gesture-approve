@@ -26,11 +26,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     private var enabledItem: NSMenuItem?
 
-    /// 屏幕锁定 / 系统睡眠期间用户无法比手势 → 审批直接回退终端，避免弹无人操作的卡片卡住后台。
-    /// 用两个独立标志组合：唤醒(didWake)时屏幕往往仍锁定，必须等真正解锁(screenIsUnlocked)才恢复，
-    /// 否则会在锁屏界面误弹卡片。systemSuspended = 锁屏中 或 睡眠中。
-    private var screenLocked = false
+    /// 系统睡眠：靠 willSleep/didWake 维护（didWake 必达，可靠）。
     private var asleep = false
+    /// 屏幕是否锁定——**每次实时查询，不缓存**。
+    /// 锁屏/解锁走 DistributedNotificationCenter，从长时间睡眠/Power Nap 恢复时通知可能丢失或延迟；
+    /// 一旦“解锁”通知丢了，缓存标志会永久卡在锁定态，手势再不接管、approve 一直回退 CLI（过夜唤醒的 bug）。
+    /// 实时查 CGSession 则通知丢了也无所谓——每次审批都问一次真实状态。
+    private var screenLocked: Bool {
+        guard let info = CGSessionCopyCurrentDictionary() as? [String: Any] else { return false }
+        if let b = info["CGSSessionScreenIsLocked"] as? Bool { return b }
+        if let i = info["CGSSessionScreenIsLocked"] as? Int { return i != 0 }
+        return false
+    }
     private var systemSuspended: Bool { screenLocked || asleep }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -54,6 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         registerHotkeys()
         startServer()
         observeSystemState()
+        GALog.log("启动：screenLocked=\(screenLocked) asleep=\(asleep)")
     }
 
     /// 监听屏幕锁定/解锁、系统睡眠/唤醒：
@@ -76,8 +84,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func onSystemEvent(_ note: Notification) {
         switch note.name.rawValue {
-        case "com.apple.screenIsLocked":            screenLocked = true
-        case "com.apple.screenIsUnlocked":          screenLocked = false; server?.restart()
+        case "com.apple.screenIsLocked":            break   // 锁屏状态由 screenLocked 实时查询反映，无需缓存
+        case "com.apple.screenIsUnlocked":          server?.restart()
         case NSWorkspace.willSleepNotification.rawValue: asleep = true
         case NSWorkspace.didWakeNotification.rawValue:   asleep = false; server?.restart()
         default: return
