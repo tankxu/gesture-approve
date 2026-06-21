@@ -19,7 +19,7 @@ import mediapipe as mp
 from mediapipe.tasks import python as mp_python
 from mediapipe.tasks.python import vision
 
-MODEL = os.path.join(os.path.dirname(__file__), "models", "gesture_recognizer.task")
+MODEL = os.environ.get("GESTURE_MODEL") or os.path.join(os.path.dirname(__file__), "models", "gesture_recognizer.task")
 GESTURE_MAP = {"Thumb_Up": "thumbUp", "Open_Palm": "openPalm"}
 MIN_CONF = 0.70   # 手势置信度门槛，调高=更严格、更少误判
 

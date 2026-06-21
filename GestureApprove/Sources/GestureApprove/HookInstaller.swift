@@ -16,7 +16,8 @@ enum HookInstaller {
     }
 
     static func hookScript() -> String {
-        (repoRoot() as NSString).appendingPathComponent("hooks/gesture_hook.py")
+        // 优先用打包进 .app 的脚本（release 下载即用，零仓库依赖）；源码开发回退仓库。
+        AppPaths.resource("hooks/gesture_hook.py")
     }
 
     private static var claudeSettings: URL {

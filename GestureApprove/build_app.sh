@@ -19,6 +19,17 @@ cp Assets/TrayIcon.png "$APP/Contents/Resources/TrayIcon.png"
 # 内置手势模型（Vision 引擎用）
 cp -R Assets/HandGesture.mlmodelc "$APP/Contents/Resources/HandGesture.mlmodelc"
 
+# 打包脚本/固件进 bundle，让 release 下载即用（零仓库依赖）。
+# 只拷只读资源；venv/模型/esptool 环境等可写产物运行时落到 ~/Library/Application Support/GestureApprove。
+RES="$APP/Contents/Resources"
+mkdir -p "$RES/hooks" "$RES/bridge" "$RES/firmware"
+cp ../hooks/gesture_hook.py "$RES/hooks/"
+for f in ../bridge/*.py ../bridge/requirements.txt ../bridge/setup_mediapipe.sh; do
+    [ -e "$f" ] && cp "$f" "$RES/bridge/"
+done
+cp ../firmware/flash.sh "$RES/firmware/"
+cp -R ../firmware/prebuilt "$RES/firmware/prebuilt"
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -31,8 +42,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleExecutable</key><string>GestureApprove</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>0.4.2</string>
-    <key>CFBundleVersion</key><string>10</string>
+    <key>CFBundleShortVersionString</key><string>0.5.0</string>
+    <key>CFBundleVersion</key><string>11</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSUIElement</key><true/>
     <key>CFBundleDevelopmentRegion</key><string>en</string>
