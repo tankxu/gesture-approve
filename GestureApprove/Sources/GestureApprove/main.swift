@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let settingsWC = SettingsWindowController()
     private let flashWC = ScriptWindowController()
     private let mpInstallWC = ScriptWindowController()
+    private let gkInstallWC = ScriptWindowController()
 
     private var port: UInt16 {
         if let s = ProcessInfo.processInfo.environment["GESTURE_APPROVE_PORT"],
@@ -60,8 +61,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusItem()
         registerHotkeys()
         startServer()
+        Gatekeeper.shared.startIfNeeded()   // 智能放行守门员 daemon（仅开关开+已装才起；会先清残留）
         observeSystemState()
         GALog.log("启动：screenLocked=\(screenLocked) asleep=\(asleep)")
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        Gatekeeper.shared.stop()            // 退出时收掉 daemon，别留残留进程
     }
 
     /// 监听屏幕锁定/解锁、系统睡眠/唤醒：
@@ -116,17 +122,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 guard !self.systemSuspended else { reply("ask", L("reply.suspended")); return }
                 // 白名单命中且整条安全 -> 直接放行，不打扰（危险/拼接命令仍要手势）
                 if Allowlist.autoAllows(req.operation) { reply("allow", L("reply.allowlist")); return }
-                self.controller.requestApproval(operation: req.operation, cwd: req.cwd, tool: req.tool, timeout: 90) { outcome in
-                    switch outcome {
-                    case .approved: reply("allow", L("reply.approved"))
-                    case .denied:   reply("deny", L("reply.denied"))
-                    case .timedOut: reply("ask", L("reply.timeout"))   // 不再自动拒绝
+                // 智能放行（可选，默认关）：规则没放行、且**不危险也不拼接**（保底闸）时，
+                // 才问本地 LLM 守门员。仅「LLM 明确说 safe」免审；不可用/超时/不安全 → fail-safe 落手势。
+                // 危险/拼接命令永远不进 LLM，直接走手势——LLM 只是额外放行器，绝不裁决危险命令。
+                if Gatekeeper.isEnabled,
+                   !Allowlist.isDangerous(req.operation),
+                   !Allowlist.isCompound(req.operation) {
+                    Task { @MainActor in
+                        if await Gatekeeper.shared.judge(operation: req.operation, cwd: req.cwd, tool: req.tool) {
+                            reply("allow", L("reply.smartgate"))
+                        } else {
+                            self.askGesture(req, reply)
+                        }
                     }
+                    return
                 }
+                self.askGesture(req, reply)
             }
         }
         do { try server.start(); self.server = server }
         catch { NSLog("GestureApprove: 服务启动失败 \(error)（端口可能被占用）") }
+    }
+
+    /// 弹手势卡片等用户裁决（白名单/智能放行都没放行时的最终路径）。
+    private func askGesture(_ req: ApprovalRequest, _ reply: @escaping (String, String) -> Void) {
+        controller.requestApproval(operation: req.operation, cwd: req.cwd, tool: req.tool, timeout: 90) { outcome in
+            switch outcome {
+            case .approved: reply("allow", L("reply.approved"))
+            case .denied:   reply("deny", L("reply.denied"))
+            case .timedOut: reply("ask", L("reply.timeout"))   // 不再自动拒绝
+            }
+        }
     }
 
     @objc private func toggleEnabled() {
@@ -191,7 +217,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             onPrimeESP32: { [weak self] in self?.controller.primeESP32() },
             onEngineChanged: { [weak self] in self?.controller.applyEngine() },
-            openMediaPipeInstall: { [weak self] in self?.openMediaPipeInstall() })
+            openMediaPipeInstall: { [weak self] in self?.openMediaPipeInstall() },
+            openGatekeeperInstall: { [weak self] in self?.openGatekeeperInstall() })
     }
 
     private func openMediaPipeInstall() {
@@ -201,6 +228,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NotificationCenter.default.post(name: .gaMediaPipeInstalled, object: nil)   // 通知设置窗刷新状态
         }
         mpInstallWC.show(script: MediaPipeInstaller.setupScript, cfg: cfg)
+    }
+
+    private func openGatekeeperInstall() {
+        var cfg = Self.gatekeeperConfig
+        cfg.onSuccess = {
+            // 装好即开启并起 daemon（首次判定时 helper 自行下模型），并通知设置窗刷新「就绪」。
+            Gatekeeper.isEnabled = true
+            Gatekeeper.shared.startIfNeeded()
+            NotificationCenter.default.post(name: .gaGatekeeperInstalled, object: nil)
+        }
+        gkInstallWC.show(script: Gatekeeper.downloadScript, cfg: cfg)
     }
 
     static var firmwareConfig: ScriptUIConfig {
@@ -230,6 +268,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 "GA_BRIDGE": MediaPipeInstaller.bridgeDir,    // bundle 内 bridge（requirements/download_model 源）
                 "GA_VENV": MediaPipeInstaller.venvDir,        // venv 装到 Application Support
                 "GA_MODELDIR": MediaPipeInstaller.modelDir,   // 模型下载到 Application Support
+            ])
+    }
+
+    static var gatekeeperConfig: ScriptUIConfig {
+        ScriptUIConfig(
+            windowTitle: L("gk.windowTitle"),
+            title: L("gk.title"),
+            intro: L("gk.intro"),
+            steps: [L("gk.step1"), L("gk.step2"), L("gk.step3")],
+            runLabel: L("gk.runLabel"), rerunLabel: L("gk.rerunLabel"), runIcon: "arrow.down.circle.fill",
+            footer: L("gk.footer"),
+            runningText: L("gk.running"), successText: L("gk.success"), failedText: L("gk.failed"),
+            idleHint: L("gk.idleHint"),
+            extraEnv: [
+                "GK_URL": Gatekeeper.helperURL.absoluteString,   // 固定 tag 的预编译 helper zip
+                "GK_DIR": Gatekeeper.installDir,                 // 解压到 Application Support
             ])
     }
 

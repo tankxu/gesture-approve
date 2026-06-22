@@ -2,6 +2,13 @@
 
 All notable changes to GestureApprove. Versions follow the GitHub releases.
 
+## v0.6.0 — Smart gate (optional local LLM)
+
+- **Smart gate: auto-allow obviously-safe commands with a local LLM.** New opt-in setting (Settings → Smart gate). When on, a small on-device model (Qwen3-1.7B, via MLX) judges each command; only obviously-safe ones skip the gesture, everything else still gets the card. Runs fully on your Mac (nothing leaves the machine), adds ~1s. **Dangerous commands never reach the LLM** — they always require a gesture (deny-list fallback); anything uncertain or offline falls back to the gesture too.
+- **The model is an optional, on-demand download — the .app stays small.** The LLM runs in a separate helper (`GestureGatekeeper`, links MLX) that is *not* bundled. Enabling Smart gate downloads a prebuilt, ad-hoc-signed helper (~50MB) from GitHub Releases plus the model weights (~1GB) into `~/Library/Application Support/GestureApprove/gatekeeper/` (self-contained; delete that folder to fully uninstall). No Apple Developer account needed — the helper is launched via `Process` (not `open`), so ad-hoc signing + quarantine-clear is enough.
+- **Approval rules are now a single editable file.** Deny-list / auto-allow / compound tokens live in `config/gatekeeper-rules.json` (loaded at runtime, with a built-in fallback so the deny-list is never empty). The deny-list was expanded to ~70 destructive/irreversible/privileged patterns (rm, git reset --hard, kill, ssh-keygen, docker prune, package installs, sudo, …) to backstop the LLM's blind spots.
+- **Settings & card polish.** Connect-AI toggles are a single horizontal row (no more "Connect " prefix); the Codex-only note moved to a hover "?" popover. The notch card is a touch wider (360pt) and the command preview is capped at 3 lines.
+
 ## v0.5.1
 
 - **Core approval hook is now Python-free.** The hook used to be `gesture_hook.py` (run via `/usr/bin/python3`), which meant a machine without Python couldn't gate tools at all. The hook is now the app binary itself — `GestureApprove --hook <claude|codex|gemini|kimi>` (new `HookCLI`). Re-toggle a CLI in Settings to switch to it (old python commands are still recognized for clean uninstall). MediaPipe still needs Python, but that's an opt-in extra.

@@ -7,28 +7,43 @@ import Foundation
 ///   2. **信任命令**整条精确命中（用户点“总是允许”亲手写入的完整命令，单独存储）→ 放行。
 ///   3. 某条正则规则**整条精确匹配** → 放行（用户在设置里写的锚定正则）。
 ///   4. 正则规则**前缀匹配**（内置只读命令快捷）→ 仅当命令“整条安全”（无 && ; | 反引号 $( 等拼接）才放行。
+///
+/// deny-list / 默认白名单 / 拼接符这三组规则的**单一来源**是仓库里的 `config/gatekeeper-rules.json`
+/// （方便大家看和改）。运行时优先读它；缺失/损坏则回退到下面 `builtin*` 内置默认，确保 deny-list 永不为空。
 enum Allowlist {
     static let key = "allowlistPatterns"
     static let trustedKey = "trustedCommands"
 
     /// 默认放行常见只读/安全命令（匹配 hook 传来的 "<tool>: <detail>" 串，多为前缀匹配）。
-    static let defaultPatterns = [
+    static let defaultPatterns = RulesConfig.shared.autoAllowPatterns ?? builtinDefaultPatterns
+    /// 危险命令 deny-list：命中则**始终要手势**，也是「智能放行」的保底闸（命中者永不进 LLM）。
+    static let dangerPatterns = RulesConfig.shared.dangerPatterns ?? builtinDangerPatterns
+    /// 命令拼接/重定向标记：出现任一则前缀白名单不放行（避免 "ls && rm -rf" 这类链式绕过）。
+    static let compoundTokens = RulesConfig.shared.compoundTokens ?? builtinCompoundTokens
+
+    // MARK: 内置默认（config 缺失/损坏时的安全兜底）
+    // 这里只放**核心子集**——覆盖最致命的操作即可，不必跟 config 的完整清单逐条同步。
+    // 正常情况下规则全部来自 config/gatekeeper-rules.json；这套仅在配置读不到时顶上，保证 deny-list 不空。
+    static let builtinDefaultPatterns = [
         "^Bash: git (status|log|diff|branch|show|remote|stash list)",
         "^Bash: (ls|pwd|cat|head|tail|less|grep|rg|find|echo|which|whoami|date|env|printenv|wc|file|stat|tree|du|df|ps|uname|hostname|open)\\b",
     ]
-
-    /// 危险命令 deny-list：命中则**始终要手势**，绝不自动放行（best-effort，非穷尽）。
-    static let dangerPatterns = [
-        "\\brm\\s+-\\S*[rf]",                                   // rm -rf / -r / -f
-        ":\\s*\\(\\s*\\)\\s*\\{",                                // fork bomb
+    static let builtinDangerPatterns = [
+        "\\brm\\b",
+        ":\\s*\\(\\s*\\)\\s*\\{",
         "\\b(mkfs|fdisk)\\b", "\\bdd\\s+if=", "\\bdiskutil\\s+(erase|partition|reformat)",
-        "\\b(curl|wget)\\b[^|]*\\|\\s*(sudo\\s+)?(sh|bash|zsh|python3?)",  // curl … | sh
+        "\\b(curl|wget)\\b[^|]*\\|\\s*(sudo\\s+)?(sh|bash|zsh|python3?)",
         ">\\s*/dev/(disk|rdisk|sd)", "\\bchmod\\s+-R\\s+0?777", "\\bsudo\\b",
-        "\\bgit\\s+push\\b.*--force|\\bgit\\s+push\\b.*-f\\b",  // 强推
+        "\\bgit\\s+push\\b.*--force|\\bgit\\s+push\\b.*-f\\b",
+        "\\bgit\\s+reset\\s+--hard\\b", "\\bgit\\s+clean\\b",
+        "\\b(kill|killall|pkill)\\b",
+        "\\bshutdown\\b|\\breboot\\b|\\bhalt\\b",
+        "\\bssh-keygen\\b", "\\btruncate\\b",
+        "\\blaunchctl\\s+(unload|remove|bootout)\\b",
+        "\\bdocker\\s+(system\\s+)?prune\\b|\\bdocker\\s+rmi\\b",
+        "\\b(pip3?|npm|yarn|pnpm|brew|gem|cargo)\\s+(install|add|i)\\b",
     ]
-
-    /// 命令拼接/重定向标记：出现任一则前缀白名单不放行（避免 "ls && rm -rf" 这类链式绕过）。
-    static let compoundTokens = ["&&", "||", ";", "|", "`", "$(", ">", "<", "\n"]
+    static let builtinCompoundTokens = ["&&", "||", ";", "|", "`", "$(", ">", "<", "\n"]
 
     static func patterns() -> [String] {
         (UserDefaults.standard.array(forKey: key) as? [String]) ?? defaultPatterns

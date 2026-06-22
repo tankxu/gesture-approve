@@ -22,9 +22,11 @@ cp -R Assets/HandGesture.mlmodelc "$APP/Contents/Resources/HandGesture.mlmodelc"
 # 打包脚本/固件进 bundle，让 release 下载即用（零仓库依赖）。
 # 只拷只读资源；venv/模型/esptool 环境等可写产物运行时落到 ~/Library/Application Support/GestureApprove。
 RES="$APP/Contents/Resources"
-mkdir -p "$RES/hooks" "$RES/bridge" "$RES/firmware"
+mkdir -p "$RES/hooks" "$RES/bridge" "$RES/firmware" "$RES/config"
 cp ../hooks/gesture_hook.py "$RES/hooks/"
-for f in ../bridge/*.py ../bridge/requirements.txt ../bridge/setup_mediapipe.sh; do
+# 审批规则配置（deny-list / 白名单 / 拼接符的单一来源，方便查看与修改）。
+cp ../config/gatekeeper-rules.json "$RES/config/"
+for f in ../bridge/*.py ../bridge/requirements.txt ../bridge/setup_mediapipe.sh ../bridge/download_gatekeeper.sh; do
     [ -e "$f" ] && cp "$f" "$RES/bridge/"
 done
 cp ../firmware/flash.sh "$RES/firmware/"
@@ -42,8 +44,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleExecutable</key><string>GestureApprove</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>0.5.1</string>
-    <key>CFBundleVersion</key><string>12</string>
+    <key>CFBundleShortVersionString</key><string>0.6.0</string>
+    <key>CFBundleVersion</key><string>13</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSUIElement</key><true/>
     <key>CFBundleDevelopmentRegion</key><string>en</string>

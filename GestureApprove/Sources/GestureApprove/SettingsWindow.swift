@@ -5,6 +5,8 @@ import ServiceManagement
 extension Notification.Name {
     /// MediaPipe 安装窗安装成功后发出，设置窗据此刷新「已安装」状态。
     static let gaMediaPipeInstalled = Notification.Name("gaMediaPipeInstalled")
+    /// 守门员组件下载成功后发出，设置窗据此刷新「就绪」状态。
+    static let gaGatekeeperInstalled = Notification.Name("gaGatekeeperInstalled")
 }
 
 @MainActor
@@ -27,6 +29,9 @@ struct SettingsView: View {
     @State private var rotation: Int = (UserDefaults.standard.object(forKey: "frameRotation") as? Int) ?? 0
     @State private var allowlistText: String = Allowlist.patterns().joined(separator: "\n")
     @State private var trusted: [String] = Allowlist.trustedCommands()
+    @State private var smartGate: Bool = Gatekeeper.isEnabled
+    @State private var gateInstalled: Bool = Gatekeeper.isInstalled
+    @State private var hoverCodexNote = false
     @State private var launchAtLogin: Bool = LaunchAtLogin.isEnabled
     @State private var appLang: String = UserDefaults.standard.string(forKey: I18n.langKey) ?? "system"
     @State private var confirmRestore = false
@@ -37,6 +42,7 @@ struct SettingsView: View {
     let onPrimeESP32: () -> Void
     let onEngineChanged: () -> Void
     let openMediaPipeInstall: () -> Void
+    let openGatekeeperInstall: () -> Void
 
     // 统一的视觉节奏：分区之间 / 分区内元素之间
     private let sectionSpacing: CGFloat = 14
@@ -62,11 +68,17 @@ struct SettingsView: View {
         .onReceive(NotificationCenter.default.publisher(for: .gaMediaPipeInstalled)) { _ in
             mpInstalled = MediaPipeInstaller.isInstalled()   // 安装窗装完后刷新「已安装」状态
         }
+        .onReceive(NotificationCenter.default.publisher(for: .gaGatekeeperInstalled)) { _ in
+            gateInstalled = Gatekeeper.isInstalled           // 守门员下载完后刷新「就绪」+ 已被装好流程开启
+            smartGate = Gatekeeper.isEnabled
+        }
         .onAppear {
             mpInstalled = MediaPipeInstaller.isInstalled()
             engine = UserDefaults.standard.string(forKey: MediaPipeInstaller.engineKey) ?? "vision"
             trusted = Allowlist.trustedCommands()
             launchAtLogin = LaunchAtLogin.isEnabled
+            smartGate = Gatekeeper.isEnabled
+            gateInstalled = Gatekeeper.isInstalled
             // 旧的连续值（如 0.55）吸附到最近的档位，否则分段控件不高亮
             let snapped = [0.3, 0.6, 0.9].min(by: { abs($0 - minConf) < abs($1 - minConf) }) ?? 0.6
             if snapped != minConf { minConf = snapped; UserDefaults.standard.set(snapped, forKey: "gestureMinConf") }
@@ -118,9 +130,9 @@ struct SettingsView: View {
                     }
                     .disabled(checkingUpdate)
                 }
-                .font(.caption)
+                .font(.system(size: 11))
                 if !updateText.isEmpty {
-                    Text(updateText).font(.caption).foregroundStyle(.secondary)
+                    Text(updateText).font(.system(size: 11)).foregroundStyle(.secondary)
                 }
             }
 
@@ -129,41 +141,90 @@ struct SettingsView: View {
             // 接入 AI 工具
             header("settings.section.connect")
             VStack(alignment: .leading, spacing: itemSpacing) {
-                Toggle(L("settings.connectClaude"), isOn: Binding(
-                    get: { claudeInstalled },
-                    set: { on in
-                        do {
-                            try on ? HookInstaller.installClaude() : HookInstaller.uninstallClaude()
-                            claudeInstalled = on
-                        } catch { errorText = "\(error)" }
-                    }))
-                Toggle(L("settings.connectCodex"), isOn: Binding(
-                    get: { codexInstalled },
-                    set: { on in
-                        do {
-                            try on ? HookInstaller.installCodex() : HookInstaller.uninstallCodex()
-                            codexInstalled = on
-                        } catch { errorText = "\(error)" }
-                    }))
-                Toggle(L("settings.connectGemini"), isOn: Binding(
-                    get: { geminiInstalled },
-                    set: { on in
-                        do {
-                            try on ? HookInstaller.installGemini() : HookInstaller.uninstallGemini()
-                            geminiInstalled = on
-                        } catch { errorText = "\(error)" }
-                    }))
-                Toggle(L("settings.connectKimi"), isOn: Binding(
-                    get: { kimiInstalled },
-                    set: { on in
-                        do {
-                            try on ? HookInstaller.installKimi() : HookInstaller.uninstallKimi()
-                            kimiInstalled = on
-                        } catch { errorText = "\(error)" }
-                    }))
-                caption("settings.connectCodexNote")
+                // 四个接入开关横排一行，节约高度。
+                HStack(spacing: 14) {
+                    Toggle("Claude Code", isOn: Binding(
+                        get: { claudeInstalled },
+                        set: { on in
+                            do {
+                                try on ? HookInstaller.installClaude() : HookInstaller.uninstallClaude()
+                                claudeInstalled = on
+                            } catch { errorText = "\(error)" }
+                        }))
+                        .fixedSize()
+                    HStack(spacing: 3) {
+                        Toggle("Codex CLI", isOn: Binding(
+                            get: { codexInstalled },
+                            set: { on in
+                                do {
+                                    try on ? HookInstaller.installCodex() : HookInstaller.uninstallCodex()
+                                    codexInstalled = on
+                                } catch { errorText = "\(error)" }
+                            }))
+                            .fixedSize()
+                        // Codex 专属提示：? 图标，hover 即弹出具体文案。
+                        Image(systemName: "questionmark.circle")
+                            .foregroundStyle(.secondary)
+                            .onHover { hoverCodexNote = $0 }
+                            .popover(isPresented: $hoverCodexNote, arrowEdge: .bottom) {
+                                Text(L("settings.connectCodexNote"))
+                                    .font(.system(size: 11))
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .frame(width: 280)
+                                    .padding(12)
+                            }
+                    }
+                    Toggle("Gemini CLI", isOn: Binding(
+                        get: { geminiInstalled },
+                        set: { on in
+                            do {
+                                try on ? HookInstaller.installGemini() : HookInstaller.uninstallGemini()
+                                geminiInstalled = on
+                            } catch { errorText = "\(error)" }
+                        }))
+                        .fixedSize()
+                    Toggle("Kimi CLI", isOn: Binding(
+                        get: { kimiInstalled },
+                        set: { on in
+                            do {
+                                try on ? HookInstaller.installKimi() : HookInstaller.uninstallKimi()
+                                kimiInstalled = on
+                            } catch { errorText = "\(error)" }
+                        }))
+                        .fixedSize()
+                    Spacer(minLength: 0)
+                }
                 caption("settings.connectDesc")
                 caption("settings.hotkeyDesc")
+            }
+
+            Divider()
+
+            // 智能放行（本地 LLM 守门员）
+            header("settings.section.smartgate")
+            VStack(alignment: .leading, spacing: itemSpacing) {
+                Toggle(L("settings.smartgate.enable"), isOn: Binding(
+                    get: { smartGate },
+                    set: { on in
+                        Gatekeeper.isEnabled = on
+                        smartGate = on
+                        gateInstalled = Gatekeeper.isInstalled
+                        if on { Gatekeeper.shared.startIfNeeded() } else { Gatekeeper.shared.stop() }
+                    }))
+                if smartGate {
+                    HStack(spacing: 8) {
+                        HStack(spacing: 4) {
+                            Image(systemName: gateInstalled ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                            Text(L(gateInstalled ? "settings.smartgate.installed" : "settings.smartgate.notInstalled"))
+                        }
+                        .foregroundStyle(gateInstalled ? Color.green : Color.orange)
+                        Button(L(gateInstalled ? "settings.smartgate.redownload" : "settings.smartgate.download")) {
+                            openGatekeeperInstall()
+                        }
+                    }
+                    .font(.system(size: 11))
+                }
+                caption("settings.smartgate.desc")
             }
 
             Divider()
@@ -174,7 +235,7 @@ struct SettingsView: View {
                 Spacer()
                 Button(L("settings.allowlist.restore")) { confirmRestore = true }
                 .buttonStyle(.link)
-                .font(.caption)
+                .font(.system(size: 11))
                 .confirmationDialog(L("settings.allowlist.restoreConfirm"),
                                     isPresented: $confirmRestore, titleVisibility: .visible) {
                     Button(L("settings.allowlist.restore"), role: .destructive) {
@@ -244,7 +305,7 @@ struct SettingsView: View {
                         Image(systemName: "cable.connector.horizontal").font(.system(size: 28))
                         Text(L("settings.esp32.noPreview"))
                         Text(L("settings.esp32.noPreviewHint"))
-                            .font(.caption)
+                            .font(.system(size: 11))
                     }
                     .foregroundStyle(.white.opacity(0.6))
                     .multilineTextAlignment(.center)
@@ -287,7 +348,7 @@ struct SettingsView: View {
                         }
                         Button(mpInstalled ? L("settings.engine.redownload") : L("settings.engine.download")) { openMediaPipeInstall() }
                     }
-                    .font(.caption)
+                    .font(.system(size: 11))
                 }
                 caption("settings.engine.desc")
             }
@@ -321,7 +382,7 @@ struct SettingsView: View {
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(.primary)
                         Text(L("settings.esp32card.desc"))
-                            .font(.caption)
+                            .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                             .multilineTextAlignment(.leading)
@@ -353,7 +414,7 @@ struct SettingsView: View {
 
     @ViewBuilder private func caption(_ key: String) -> some View {
         Text(L(key))
-            .font(.caption)
+            .font(.system(size: 11))
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
     }
@@ -361,7 +422,7 @@ struct SettingsView: View {
     @ViewBuilder private var trustedList: some View {
         if trusted.isEmpty {
             Text(L("settings.trusted.empty"))
-                .font(.caption)
+                .font(.system(size: 11))
                 .foregroundStyle(.tertiary)
         } else {
             // 信任命令是唯一会无限增长的列表 -> 封顶高度，超出内部滚动，避免把窗口撑过屏幕。
@@ -440,12 +501,14 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     func show(openFlash: @escaping () -> Void,
               onPrimeESP32: @escaping () -> Void,
               onEngineChanged: @escaping () -> Void,
-              openMediaPipeInstall: @escaping () -> Void) {
+              openMediaPipeInstall: @escaping () -> Void,
+              openGatekeeperInstall: @escaping () -> Void) {
         // 每次打开都重建视图：设置窗是复用的（关闭只隐藏），若沿用旧视图，其 @State 快照（信任命令、
         // 开机自启等）停留在上次打开时的值——比如刚在卡片上点的「总是允许」就不会显示。重建则重读最新。
         let hosting = NSHostingController(rootView: SettingsView(
             state: state, openFlash: openFlash, onPrimeESP32: onPrimeESP32,
-            onEngineChanged: onEngineChanged, openMediaPipeInstall: openMediaPipeInstall))
+            onEngineChanged: onEngineChanged, openMediaPipeInstall: openMediaPipeInstall,
+            openGatekeeperInstall: openGatekeeperInstall))
         if window == nil {
             let w = NSWindow(contentViewController: hosting)
             w.title = L("settings.windowTitle")

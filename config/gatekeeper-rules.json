@@ -1,0 +1,108 @@
+{
+  "_readme": [
+    "GestureApprove 审批规则表 —— 决定一条命令是「免审放行」「保底拦截」还是「弹手势」。",
+    "这是给人看和改的单一来源。改完：开发期(从源码运行)即时生效；发布版重新跑 build_app.sh 打包。",
+    "文件缺失或解析失败时，app 会回退到代码内置的核心默认规则，deny-list 绝不会变空（安全兜底）。",
+    "",
+    "三类规则：",
+    "  dangerPatterns   —— 危险/破坏性命令 deny-list。命中则【永远要手势】，绝不自动放行，",
+    "                       也绝不送进本地 LLM 智能放行（这就是「保底」）。这是 LLM 易漏判的最后防线。",
+    "                       宁可多弹手势(误拦只是多比划一下)，也别漏放行危险命令。欢迎按需增删。",
+    "  autoAllowPatterns—— 默认安全只读命令。整条匹配即放行；前缀匹配则需命令不含拼接符(见下)才放行。",
+    "  compoundTokens   —— 命令拼接/重定向标记。出现任一，前缀白名单不放行，也不进 LLM（防 'ls && rm -rf' 绕过）。",
+    "",
+    "pattern 为不区分大小写的正则，匹配 hook 传来的 \"<工具>: <详情>\" 串，例如 \"Bash: rm -rf /\"。",
+    "JSON 里反斜杠要写两道：\\\\b 表示正则的 \\b 单词边界，\\\\s 表示空白。"
+  ],
+
+  "dangerPatterns": [
+    { "pattern": "\\brm\\b",                                                "desc": "删除文件 rm（含 rm file.txt，不只是 rm -rf）" },
+    { "pattern": "\\bunlink\\b",                                            "desc": "unlink 删除" },
+    { "pattern": "\\b(shred|srm)\\b",                                        "desc": "安全擦除删除" },
+    { "pattern": "\\btruncate\\b",                                          "desc": "truncate 截断文件" },
+    { "pattern": "\\bfind\\b[^|]*-delete\\b",                                "desc": "find … -delete 批量删" },
+    { "pattern": "\\bfind\\b[^|]*-exec\\s+rm",                               "desc": "find … -exec rm 批量删" },
+    { "pattern": "\\brsync\\b[^|]*--delete",                                 "desc": "rsync --delete 镜像式删除" },
+
+    { "pattern": "\\b(mkfs|newfs|newfs_\\w+)\\b",                            "desc": "创建文件系统 / 格式化" },
+    { "pattern": "\\b(fdisk|gpt)\\b",                                        "desc": "改分区表" },
+    { "pattern": "\\bdd\\s+(if|of)=",                                       "desc": "dd 读写裸数据" },
+    { "pattern": "\\bdiskutil\\s+(erase\\w*|partition\\w*|reformat|apfs|secureErase)", "desc": "diskutil 抹盘/分区/重格" },
+    { "pattern": "\\basr\\b",                                              "desc": "Apple Software Restore 镜像还原" },
+    { "pattern": "\\bnvram\\b",                                            "desc": "读写 NVRAM" },
+    { "pattern": "\\bhdiutil\\s+(erase|burn)",                              "desc": "磁盘镜像擦除/刻录" },
+    { "pattern": ">\\s*/dev/(disk|rdisk|sd)",                              "desc": "重定向写裸设备" },
+
+    { "pattern": "\\bchmod\\s+-R\\b",                                       "desc": "递归改权限" },
+    { "pattern": "\\bchmod\\b[^|]*\\b(777|666|000)\\b",                      "desc": "危险权限位 777/666/000" },
+    { "pattern": "\\bchown\\s+-R\\b",                                       "desc": "递归改属主" },
+    { "pattern": "\\bchflags\\b",                                          "desc": "改文件标志（schg/uchg 等）" },
+
+    { "pattern": "\\bsudo\\b",                                             "desc": "sudo 提权" },
+    { "pattern": "\\bsu\\b",                                               "desc": "su 切换用户" },
+    { "pattern": "\\bdoas\\b",                                             "desc": "doas 提权" },
+    { "pattern": "\\bcsrutil\\b[^|]*disable",                               "desc": "关闭 SIP 系统完整性保护" },
+    { "pattern": "\\bspctl\\b[^|]*--(master-)?disable",                     "desc": "关闭 Gatekeeper" },
+    { "pattern": "\\btccutil\\b",                                          "desc": "重置隐私授权库 TCC" },
+    { "pattern": "\\bvisudo\\b",                                           "desc": "编辑 sudoers" },
+    { "pattern": "\\bdscl\\b",                                             "desc": "目录服务（增删用户/组）" },
+    { "pattern": "\\bsecurity\\s+(delete|dump|set-|add-|import|export|unlock)", "desc": "Keychain 钥匙串操作" },
+    { "pattern": "\\bdefaults\\s+(delete|write)\\b",                        "desc": "改/删 系统偏好" },
+
+    { "pattern": "\\b(curl|wget|fetch)\\b[^|]*\\|\\s*(sudo\\s+)?(sh|bash|zsh|ksh|fish|python3?|ruby|perl|node|php)\\b", "desc": "下载即执行 curl … | sh" },
+    { "pattern": "\\beval\\b",                                             "desc": "eval 执行拼接字符串" },
+    { "pattern": "\\bosascript\\b",                                        "desc": "AppleScript（可操控全机）" },
+    { "pattern": "\\b(nc|ncat|netcat)\\b[^|]*-e\\b",                         "desc": "nc -e 反弹 shell" },
+    { "pattern": "\\bnpx\\b",                                              "desc": "npx 运行任意远端包" },
+    { "pattern": "<\\(\\s*(curl|wget)",                                     "desc": "进程替换执行远端脚本" },
+
+    { "pattern": "\\b(pip3?|pipx|npm|yarn|pnpm|bun|brew|gem|cargo|conda|poetry|composer)\\s+(install|add|i|ci)\\b", "desc": "装包（可触发任意安装脚本）" },
+    { "pattern": "\\bgo\\s+install\\b",                                     "desc": "go install" },
+    { "pattern": "\\b(apt|apt-get|yum|dnf|pacman|port|snap)\\b[^|]*(install|upgrade|remove|purge)", "desc": "系统包管理" },
+    { "pattern": "\\bsoftwareupdate\\b",                                   "desc": "系统软件更新" },
+    { "pattern": "\\bmake\\s+install\\b",                                   "desc": "make install" },
+
+    { "pattern": "\\b(kill|killall|pkill)\\b",                              "desc": "杀进程（含 kill -9 1）" },
+    { "pattern": "\\b(shutdown|reboot|halt|poweroff)\\b",                    "desc": "关机 / 重启" },
+    { "pattern": "\\blaunchctl\\s+(unload|remove|bootout|disable|stop|kickstart|load)\\b", "desc": "装卸/启停系统服务" },
+    { "pattern": "\\bpmset\\b",                                            "desc": "电源管理设置" },
+    { "pattern": "\\bsystemsetup\\b",                                      "desc": "系统级设置（需 root）" },
+
+    { "pattern": "\\bgit\\s+push\\b[^|]*(--force|-f)\\b",                    "desc": "git 强推（覆盖远端历史）" },
+    { "pattern": "\\bgit\\s+reset\\s+--hard\\b",                            "desc": "git reset --hard（丢弃改动）" },
+    { "pattern": "\\bgit\\s+clean\\b",                                     "desc": "git clean（删未跟踪文件）" },
+    { "pattern": "\\bgit\\s+(filter-branch|filter-repo)\\b",                 "desc": "重写整段提交历史" },
+    { "pattern": "\\bgit\\s+branch\\s+-D\\b",                               "desc": "强删分支" },
+    { "pattern": "\\bgit\\s+update-ref\\s+-d\\b",                           "desc": "删除引用" },
+    { "pattern": "\\bgit\\s+reflog\\s+(expire|delete)\\b",                   "desc": "清 reflog（失去找回点）" },
+    { "pattern": "\\bgit\\s+stash\\s+(clear|drop)\\b",                       "desc": "丢弃 stash" },
+
+    { "pattern": "\\bdocker\\s+(rm|rmi|kill)\\b|\\bdocker\\s+(system|image|container|volume)\\s+(prune|rm)\\b", "desc": "删容器/镜像/卷" },
+    { "pattern": "\\bdocker\\b[^|]*--privileged",                           "desc": "特权容器" },
+    { "pattern": "\\bdocker-compose\\s+down\\b[^|]*-v",                      "desc": "docker-compose 连卷销毁" },
+    { "pattern": "\\bkubectl\\s+delete\\b",                                 "desc": "删除 K8s 资源" },
+    { "pattern": "\\bhelm\\s+(delete|uninstall)\\b",                        "desc": "卸载 helm release" },
+    { "pattern": "\\bterraform\\s+(destroy|apply)\\b",                      "desc": "销毁/变更基础设施" },
+    { "pattern": "\\baws\\s+\\w+[^|]*\\b(rm|rb|delete|terminate)\\b",         "desc": "AWS 删除/销毁资源" },
+    { "pattern": "\\bgcloud\\b[^|]*\\bdelete\\b",                            "desc": "GCP 删除资源" },
+    { "pattern": "\\bgh\\s+repo\\s+delete\\b",                              "desc": "删除 GitHub 仓库" },
+
+    { "pattern": "\\bdrop\\s+(table|database|schema)\\b",                    "desc": "SQL DROP" },
+    { "pattern": "\\btruncate\\s+table\\b",                                 "desc": "SQL TRUNCATE TABLE" },
+    { "pattern": "\\bredis-cli\\b[^|]*\\b(flushall|flushdb)\\b",             "desc": "Redis 清库" },
+    { "pattern": "\\bdropdb\\b",                                           "desc": "删除 PostgreSQL 库" },
+
+    { "pattern": "\\bmv\\b",                                               "desc": "移动/覆盖文件" },
+    { "pattern": "\\btee\\b[^|]*/(etc|usr|bin|sbin|System|Library)\\b",      "desc": "tee 写入系统目录" },
+    { "pattern": "\\bcrontab\\s+-[re]\\b",                                  "desc": "crontab 清空/编辑（持久化）" },
+    { "pattern": "\\bhistory\\s+-c\\b",                                     "desc": "清空 shell 历史" },
+    { "pattern": ":\\s*\\(\\s*\\)\\s*\\{",                                    "desc": "fork bomb :(){ :|:& };:" }
+  ],
+
+  "autoAllowPatterns": [
+    { "pattern": "^Bash: git (status|log|diff|branch|show|remote|stash list|describe|blame|shortlog)", "desc": "git 只读子命令" },
+    { "pattern": "^Bash: (ls|pwd|cat|head|tail|less|more|grep|rg|ag|find|fd|echo|which|whoami|id|date|env|printenv|wc|file|stat|tree|du|df|ps|top|uname|hostname|sw_vers|uptime|open|say)\\b", "desc": "常见只读/查看命令" }
+  ],
+
+  "compoundTokens": ["&&", "||", ";", "|", "`", "$(", ">", "<", "\n"]
+}

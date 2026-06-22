@@ -71,7 +71,7 @@ final class ApprovalController {
     }
 
     private func buildPanel() {
-        let size = NSSize(width: 360, height: 240)
+        let size = NSSize(width: 400, height: 240)   // 卡片 360 + 左右各 20 余量
         let panel = NSPanel(contentRect: NSRect(origin: .zero, size: size),
                             styleMask: [.borderless, .nonactivatingPanel],
                             backing: .buffered, defer: false)

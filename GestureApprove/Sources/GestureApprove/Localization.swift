@@ -99,6 +99,11 @@ private let table: [String: [String: String]] = [
         "ja": "許可リストにより自動承認", "ko": "허용 목록으로 자동 통과",
         "es": "Permitido por la lista de permitidos", "fr": "Autorisé par la liste blanche",
     ],
+    "reply.smartgate": [
+        "en": "Auto-allowed by smart gate (local LLM)", "zh": "智能放行（本地 LLM）",
+        "ja": "スマートゲートにより自動承認（ローカル LLM）", "ko": "스마트 게이트 자동 통과（로컬 LLM）",
+        "es": "Permitido por la puerta inteligente (LLM local)", "fr": "Autorisé par le portail intelligent (LLM local)",
+    ],
     "reply.approved": [
         "en": "👍 Approved", "zh": "👍 通过", "ja": "👍 承認", "ko": "👍 승인",
         "es": "👍 Aprobado", "fr": "👍 Approuvé",
@@ -298,6 +303,85 @@ private let table: [String: [String: String]] = [
         "fr": "Cliquez sur « Démarrer le téléchargement » pour commencer ; la progression s'affiche ici.",
     ],
 
+    // MARK: 智能放行守门员下载窗
+    "gk.windowTitle": [
+        "en": "Smart Gate Setup", "zh": "智能放行组件", "ja": "スマートゲート設定",
+        "ko": "스마트 게이트 설정", "es": "Configurar puerta inteligente", "fr": "Configuration du portail intelligent",
+    ],
+    "gk.title": [
+        "en": "Download the local LLM gatekeeper", "zh": "下载本地 LLM 守门员组件",
+        "ja": "ローカル LLM ゲートキーパーをダウンロード", "ko": "로컬 LLM 게이트키퍼 다운로드",
+        "es": "Descargar el guardián LLM local", "fr": "Télécharger le gardien LLM local",
+    ],
+    "gk.intro": [
+        "en": "A small helper (~50MB) plus the local model (~1GB) — both download here. Once it says ready, everything works with no further wait. Runs fully on your Mac.",
+        "zh": "一个小巧的 helper（约 50MB）加本地模型（约 1GB）——都在这里一并下好。显示「就绪」后即可直接用、不再额外等待。全程不离开你的 Mac。",
+        "ja": "小さなヘルパー（約50MB）とローカルモデル（約1GB）をここで一括ダウンロード。「準備完了」になればすぐ使え、追加の待ち時間はありません。すべて Mac 内で完結します。",
+        "ko": "작은 헬퍼(~50MB)와 로컬 모델(~1GB)을 여기서 한 번에 다운로드합니다. \"준비됨\"이 표시되면 추가 대기 없이 바로 작동합니다. 모든 것이 Mac 안에서 처리됩니다.",
+        "es": "Un pequeño ayudante (~50MB) más el modelo local (~1GB), ambos se descargan aquí. Cuando diga «listo», todo funciona sin más espera. Funciona totalmente en tu Mac.",
+        "fr": "Un petit assistant (~50 Mo) plus le modèle local (~1 Go), tout se télécharge ici. Une fois « prêt », tout fonctionne sans attente supplémentaire. Entièrement sur votre Mac.",
+    ],
+    "gk.step1": [
+        "en": "Download the prebuilt helper from GitHub Releases.",
+        "zh": "从 GitHub Releases 下载预编译的 helper。",
+        "ja": "GitHub Releases からビルド済みヘルパーをダウンロード。",
+        "ko": "GitHub Releases에서 미리 빌드된 헬퍼를 다운로드.",
+        "es": "Descargar el ayudante precompilado desde GitHub Releases.",
+        "fr": "Télécharger l'assistant précompilé depuis GitHub Releases.",
+    ],
+    "gk.step2": [
+        "en": "Unpack to Application Support and clear quarantine.",
+        "zh": "解压到 Application Support 并清除隔离属性。",
+        "ja": "Application Support に展開し、隔離属性を解除。",
+        "ko": "Application Support에 풀고 격리 속성 제거.",
+        "es": "Descomprimir en Application Support y quitar la cuarentena.",
+        "fr": "Décompresser dans Application Support et lever la quarantaine.",
+    ],
+    "gk.step3": [
+        "en": "Prefetch the model weights (~1GB) so it's ready to use.",
+        "zh": "预取模型权重（约 1GB），下完即可直接用。",
+        "ja": "モデルの重み（約1GB）を事前取得し、すぐ使える状態に。",
+        "ko": "모델 가중치(~1GB)를 미리 받아 바로 사용 가능하게 합니다.",
+        "es": "Precargar los pesos del modelo (~1GB) para dejarlo listo.",
+        "fr": "Pré-télécharger les poids du modèle (~1 Go) pour qu'il soit prêt.",
+    ],
+    "gk.runLabel": [
+        "en": "Start download", "zh": "开始下载", "ja": "ダウンロード開始",
+        "ko": "다운로드 시작", "es": "Iniciar descarga", "fr": "Démarrer le téléchargement",
+    ],
+    "gk.rerunLabel": [
+        "en": "Re-download", "zh": "重新下载", "ja": "再ダウンロード",
+        "ko": "다시 다운로드", "es": "Volver a descargar", "fr": "Retélécharger",
+    ],
+    "gk.footer": [
+        "en": "Runs fully on-device. If download fails, the gesture flow keeps working.",
+        "zh": "全程本地运行。下载失败也不影响：仍按手势审批。",
+        "ja": "完全にオンデバイスで動作。ダウンロードに失敗してもジェスチャー審査は機能します。",
+        "ko": "완전히 온디바이스로 실행됩니다. 다운로드가 실패해도 제스처 흐름은 계속 작동합니다.",
+        "es": "Funciona totalmente en el dispositivo. Si la descarga falla, el gesto sigue funcionando.",
+        "fr": "Fonctionne entièrement sur l'appareil. En cas d'échec, le geste continue de fonctionner.",
+    ],
+    "gk.running": [
+        "en": "Downloading…", "zh": "下载中…", "ja": "ダウンロード中…",
+        "ko": "다운로드 중…", "es": "Descargando…", "fr": "Téléchargement…",
+    ],
+    "gk.success": [
+        "en": "Ready", "zh": "已就绪", "ja": "準備完了", "ko": "준비됨",
+        "es": "Listo", "fr": "Prêt",
+    ],
+    "gk.failed": [
+        "en": "Failed", "zh": "失败", "ja": "失敗", "ko": "실패",
+        "es": "Falló", "fr": "Échec",
+    ],
+    "gk.idleHint": [
+        "en": "Click \"Start download\" to begin; progress shows here.",
+        "zh": "点「开始下载」开始，这里实时显示进度。",
+        "ja": "「ダウンロード開始」を押すと始まり、ここに進捗が表示されます。",
+        "ko": "\"다운로드 시작\"을 누르면 시작되고 여기에 진행 상황이 표시됩니다.",
+        "es": "Pulsa «Iniciar descarga» para empezar; el progreso aparece aquí.",
+        "fr": "Cliquez sur « Démarrer le téléchargement » ; la progression s'affiche ici.",
+    ],
+
     // MARK: 刘海卡片
     "card.needApproval": [
         "en": "APPROVAL NEEDED", "zh": "需要审批", "ja": "承認が必要",
@@ -483,6 +567,47 @@ private let table: [String: [String: String]] = [
     "settings.precision.strict": [
         "en": "Strict", "zh": "严格", "ja": "厳しい", "ko": "엄격",
         "es": "Estricto", "fr": "Strict",
+    ],
+    "settings.section.smartgate": [
+        "en": "Smart gate (local LLM)", "zh": "智能放行（本地 LLM）",
+        "ja": "スマートゲート（ローカル LLM）", "ko": "스마트 게이트（로컬 LLM）",
+        "es": "Puerta inteligente (LLM local)", "fr": "Portail intelligent (LLM local)",
+    ],
+    "settings.smartgate.enable": [
+        "en": "Auto-allow obviously-safe commands via local LLM",
+        "zh": "用本地 LLM 自动放行明显安全的命令",
+        "ja": "ローカル LLM で明らかに安全なコマンドを自動承認",
+        "ko": "로컬 LLM으로 명백히 안전한 명령 자동 통과",
+        "es": "Permitir comandos obviamente seguros mediante LLM local",
+        "fr": "Auto-autoriser les commandes manifestement sûres via un LLM local",
+    ],
+    "settings.smartgate.installed": [
+        "en": "Model ready", "zh": "模型组件就绪", "ja": "モデル準備完了",
+        "ko": "모델 준비됨", "es": "Modelo listo", "fr": "Modèle prêt",
+    ],
+    "settings.smartgate.notInstalled": [
+        "en": "Component not installed — gesture still works",
+        "zh": "组件未安装 — 仍按手势审批",
+        "ja": "コンポーネント未インストール — ジェスチャーは有効",
+        "ko": "구성요소 미설치 — 제스처는 계속 작동",
+        "es": "Componente no instalado — el gesto sigue funcionando",
+        "fr": "Composant non installé — le geste fonctionne toujours",
+    ],
+    "settings.smartgate.download": [
+        "en": "Download", "zh": "下载", "ja": "ダウンロード", "ko": "다운로드",
+        "es": "Descargar", "fr": "Télécharger",
+    ],
+    "settings.smartgate.redownload": [
+        "en": "Re-download", "zh": "重新下载", "ja": "再ダウンロード", "ko": "다시 다운로드",
+        "es": "Volver a descargar", "fr": "Retélécharger",
+    ],
+    "settings.smartgate.desc": [
+        "en": "When on, a small local model (Qwen3-1.7B) judges each command; only obviously-safe ones skip the gesture. Runs fully on-device (private), adds ~1s. Dangerous commands always require a gesture (deny-list fallback). Anything uncertain or offline falls back to the gesture.",
+        "zh": "开启后，本地小模型（Qwen3-1.7B）判断每条命令，只有明显安全的才免手势。全程本地运行（隐私不外泄），约多 1 秒。危险命令永远要手势（deny-list 保底）；不确定或离线一律回退手势。",
+        "ja": "オンにすると、ローカルの小型モデル（Qwen3-1.7B）が各コマンドを判定し、明らかに安全なものだけジェスチャーを省略します。完全にオンデバイス（プライバシー保護）で約1秒追加。危険なコマンドは常にジェスチャーが必要（deny-list フォールバック）。不確実・オフライン時はジェスチャーに戻ります。",
+        "ko": "켜면 로컬 소형 모델(Qwen3-1.7B)이 각 명령을 판단해 명백히 안전한 것만 제스처를 생략합니다. 완전 온디바이스(개인정보 보호), 약 1초 추가. 위험한 명령은 항상 제스처 필요(deny-list 폴백). 불확실하거나 오프라인이면 제스처로 되돌립니다.",
+        "es": "Cuando está activo, un pequeño modelo local (Qwen3-1.7B) evalúa cada comando; solo los obviamente seguros omiten el gesto. Funciona totalmente en el dispositivo (privado), añade ~1s. Los comandos peligrosos siempre requieren gesto (lista de denegación). Lo incierto o sin conexión vuelve al gesto.",
+        "fr": "Activé, un petit modèle local (Qwen3-1.7B) évalue chaque commande ; seules les commandes manifestement sûres évitent le geste. Entièrement sur l'appareil (privé), ajoute ~1s. Les commandes dangereuses exigent toujours un geste (liste de refus). En cas de doute ou hors ligne, retour au geste.",
     ],
     "settings.section.allowlist": [
         "en": "Auto-allow rules", "zh": "自动放行规则", "ja": "自動承認ルール",

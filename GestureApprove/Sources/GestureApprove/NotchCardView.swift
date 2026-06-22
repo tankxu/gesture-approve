@@ -87,7 +87,7 @@ struct NotchCardView: View {
             // hover 显示完整命令（长命令仍可能尾部省略，但危险片段尽量可见，悬停可看全）。
             Text(styledOperation)
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .lineLimit(commandExpanded ? nil : 4)
+                .lineLimit(commandExpanded ? nil : 3)
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 18)
@@ -129,7 +129,7 @@ struct NotchCardView: View {
             }
             .padding(.bottom, 14)
         }
-        .frame(width: 320)
+        .frame(width: 360)
         .background(cardBackground)
         .overlay(alignment: .topTrailing) {
             if locked == nil {
