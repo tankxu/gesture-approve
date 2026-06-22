@@ -65,9 +65,97 @@ private let table: [String: [String: String]] = [
         "ja": "承認カードをテスト", "ko": "승인 카드 테스트",
         "es": "Probar tarjeta de aprobación", "fr": "Tester la carte d'approbation",
     ],
+    "menu.log": [
+        "en": "Approval log…", "zh": "审批日志…",
+        "ja": "承認ログ…", "ko": "승인 로그…",
+        "es": "Registro de aprobaciones…", "fr": "Journal d'approbation…",
+    ],
     "menu.quit": [
         "en": "Quit", "zh": "退出", "ja": "終了", "ko": "종료",
         "es": "Salir", "fr": "Quitter",
+    ],
+
+    // MARK: 审批日志窗口
+    "log.windowTitle": [
+        "en": "Approval Log", "zh": "审批日志",
+        "ja": "承認ログ", "ko": "승인 로그",
+        "es": "Registro de aprobaciones", "fr": "Journal d'approbation",
+    ],
+    "log.empty": [
+        "en": "No approvals recorded yet", "zh": "暂无审批记录",
+        "ja": "まだ承認記録はありません", "ko": "아직 승인 기록이 없습니다",
+        "es": "Aún no hay aprobaciones registradas", "fr": "Aucune approbation enregistrée",
+    ],
+    "log.refresh": [
+        "en": "Refresh", "zh": "刷新", "ja": "更新", "ko": "새로고침",
+        "es": "Actualizar", "fr": "Actualiser",
+    ],
+    "log.reveal": [
+        "en": "Show in Finder", "zh": "在 Finder 中显示",
+        "ja": "Finder で表示", "ko": "Finder에서 보기",
+        "es": "Mostrar en Finder", "fr": "Afficher dans le Finder",
+    ],
+    "log.clear": [
+        "en": "Clear", "zh": "清空", "ja": "消去", "ko": "지우기",
+        "es": "Borrar", "fr": "Effacer",
+    ],
+    "log.clearConfirm": [
+        "en": "Clear all approval log entries?", "zh": "清空所有审批日志记录？",
+        "ja": "すべての承認ログを消去しますか？", "ko": "모든 승인 로그를 지울까요?",
+        "es": "¿Borrar todo el registro de aprobaciones?", "fr": "Effacer tout le journal d'approbation ?",
+    ],
+    "log.danger": [
+        "en": "Blacklist", "zh": "黑名单",
+        "ja": "ブラックリスト", "ko": "블랙리스트",
+        "es": "Lista negra", "fr": "Liste noire",
+    ],
+    "log.allow": [
+        "en": "Allowed", "zh": "放行", "ja": "許可", "ko": "허용",
+        "es": "Permitido", "fr": "Autorisé",
+    ],
+    "log.deny": [
+        "en": "Denied", "zh": "拒绝", "ja": "拒否", "ko": "거부",
+        "es": "Rechazado", "fr": "Refusé",
+    ],
+    "log.ask": [
+        "en": "To terminal", "zh": "交回终端",
+        "ja": "ターミナルへ", "ko": "터미널로",
+        "es": "Al terminal", "fr": "Au terminal",
+    ],
+    "gate.allowlist": [
+        "en": "Allowlist", "zh": "白名单",
+        "ja": "許可リスト", "ko": "허용 목록",
+        "es": "Lista de permitidos", "fr": "Liste blanche",
+    ],
+    "gate.smartgate": [
+        "en": "Smart gate", "zh": "智能放行",
+        "ja": "スマートゲート", "ko": "스마트 게이트",
+        "es": "Puerta inteligente", "fr": "Portail intelligent",
+    ],
+    "gate.gesture": [
+        "en": "Gesture", "zh": "手势",
+        "ja": "ジェスチャー", "ko": "제스처",
+        "es": "Gesto", "fr": "Geste",
+    ],
+    "gate.alwaysAllow": [
+        "en": "Always allow", "zh": "总是允许",
+        "ja": "常に許可", "ko": "항상 허용",
+        "es": "Permitir siempre", "fr": "Toujours autoriser",
+    ],
+    "gate.timeout": [
+        "en": "Timed out", "zh": "超时",
+        "ja": "タイムアウト", "ko": "시간 초과",
+        "es": "Tiempo agotado", "fr": "Délai dépassé",
+    ],
+    "gate.suspended": [
+        "en": "Locked/asleep", "zh": "锁屏/睡眠",
+        "ja": "ロック/スリープ", "ko": "잠금/절전",
+        "es": "Bloqueado/reposo", "fr": "Verrouillé/veille",
+    ],
+    "gate.gatingOff": [
+        "en": "Gating off", "zh": "拦截关闭",
+        "ja": "ゲート無効", "ko": "게이트 꺼짐",
+        "es": "Control desactivado", "fr": "Contrôle désactivé",
     ],
     "app.name": [
         "en": "GestureApprove", "zh": "手势审批",

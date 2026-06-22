@@ -10,6 +10,7 @@ enum HookCLI {
         let payload = readStdinJSON()
         let tool = payload["tool_name"] as? String ?? ""
         let cwd = payload["cwd"] as? String ?? ""
+        let session = payload["session_id"] as? String ?? ""
         let ti = payload["tool_input"] as? [String: Any] ?? [:]
         let detail = (ti["command"] as? String) ?? (ti["file_path"] as? String) ?? (ti["description"] as? String) ?? ""
         var op = "\(tool): \(detail)".trimmingCharacters(in: CharacterSet(charactersIn: ": "))
@@ -18,7 +19,7 @@ enum HookCLI {
 
         let decision: String
         let reason: String
-        if let (d, r) = ask(operation: op, cwd: cwd, tool: tool) {
+        if let (d, r) = ask(operation: op, cwd: cwd, tool: tool, session: session) {
             decision = d
             reason = "手势审批: \(r)"
         } else {
@@ -37,14 +38,14 @@ enum HookCLI {
     }
 
     /// 同步 POST /approve，返回 (decision, reason)；失败返回 nil。
-    private static func ask(operation: String, cwd: String, tool: String) -> (String, String)? {
+    private static func ask(operation: String, cwd: String, tool: String, session: String) -> (String, String)? {
         let port = ProcessInfo.processInfo.environment["GESTURE_APPROVE_PORT"] ?? "47600"
         guard let url = URL(string: "http://127.0.0.1:\(port)/approve") else { return nil }
         let timeout = Double(ProcessInfo.processInfo.environment["GESTURE_APPROVE_HTTP_TIMEOUT"] ?? "") ?? 100
         var req = URLRequest(url: url, timeoutInterval: timeout)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try? JSONSerialization.data(withJSONObject: ["operation": operation, "cwd": cwd, "tool": tool])
+        req.httpBody = try? JSONSerialization.data(withJSONObject: ["operation": operation, "cwd": cwd, "tool": tool, "session": session])
 
         let sem = DispatchSemaphore(value: 0)
         var result: (String, String)? = nil

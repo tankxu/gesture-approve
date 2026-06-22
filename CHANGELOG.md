@@ -2,6 +2,10 @@
 
 All notable changes to GestureApprove. Versions follow the GitHub releases.
 
+## v0.7.0 — Approval log
+
+- **Approval log.** Every approval the app takes over is now recorded — command, time, session (Claude `session_id` + project dir + tool), the decision (allow / deny / back-to-terminal), and which gate decided it: allowlist, smart gate, gesture, or "always allow" (writing a trusted command), plus a blacklist flag when a dangerous-rule match forced the gesture. New menu item **Approval log…** (⌃-menu) opens a window listing entries newest-first, with colored tags, live refresh, **Show in Finder**, and **Clear**. Entries persist as JSONL in `~/Library/Application Support/GestureApprove/approve-log.jsonl` (capped at the most recent 3000 lines). The hook now forwards `session_id` so each entry is attributable to a session.
+
 ## v0.6.0 — Smart gate (optional local LLM)
 
 - **Smart gate: auto-allow obviously-safe commands with a local LLM.** New opt-in setting (Settings → Smart gate). When on, a small on-device model (Qwen3-1.7B, via MLX) judges each command; only obviously-safe ones skip the gesture, everything else still gets the card. Runs fully on your Mac (nothing leaves the machine), adds ~1s. **Dangerous commands never reach the LLM** — they always require a gesture (deny-list fallback); anything uncertain or offline falls back to the gesture too.

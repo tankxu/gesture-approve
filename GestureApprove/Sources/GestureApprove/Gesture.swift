@@ -11,9 +11,10 @@ enum Gesture: String {
 
 /// 一次审批的最终结果。
 enum ApprovalOutcome {
-    case approved   // 👍
-    case denied     // 🖐
-    case timedOut   // 超时未识别
+    case approved       // 👍
+    case alwaysAllowed  // 👍 且点了「总是允许」，已写入信任命令
+    case denied         // 🖐
+    case timedOut       // 超时未识别
 
-    var isApproved: Bool { self == .approved }
+    var isApproved: Bool { self == .approved || self == .alwaysAllowed }
 }

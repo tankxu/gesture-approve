@@ -65,6 +65,7 @@ final class ApprovalController {
     private var inFlight = false
     private var completion: ((ApprovalOutcome) -> Void)?
     private var timeoutWork: DispatchWorkItem?
+    private var alwaysAllowTapped = false   // 本次审批是否点了「总是允许」（区分普通 👍 与写白名单）
 
     init() {
         buildPanel()
@@ -123,6 +124,7 @@ final class ApprovalController {
             return
         }
         inFlight = true
+        alwaysAllowTapped = false
         self.completion = completion
 
         vm.operation = operation.isEmpty ? L("card.noOperation") : operation
@@ -192,6 +194,7 @@ final class ApprovalController {
         guard inFlight, vm.canAlwaysAllow else { return }
         Allowlist.addAlwaysAllow(vm.operation)
         Notifier.post(title: L("alwaysAllow.notifyTitle"), body: vm.operation)
+        alwaysAllowTapped = true
         finish(with: .thumbUp)
     }
 
@@ -205,7 +208,7 @@ final class ApprovalController {
 
         let outcome: ApprovalOutcome
         switch gesture {
-        case .thumbUp: outcome = .approved
+        case .thumbUp: outcome = alwaysAllowTapped ? .alwaysAllowed : .approved
         case .openPalm: outcome = .denied
         case .none: outcome = .timedOut
         }

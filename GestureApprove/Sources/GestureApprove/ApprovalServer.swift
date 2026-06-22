@@ -8,6 +8,7 @@ struct ApprovalRequest {
     let operation: String
     let cwd: String
     let tool: String
+    let session: String   // 会话 ID（Claude session_id；其它 CLI 可能为空）
 }
 
 final class ApprovalServer {
@@ -100,7 +101,8 @@ final class ApprovalServer {
         let req = ApprovalRequest(
             operation: obj?["operation"] as? String ?? "",
             cwd: obj?["cwd"] as? String ?? "",
-            tool: obj?["tool"] as? String ?? "")
+            tool: obj?["tool"] as? String ?? "",
+            session: obj?["session"] as? String ?? "")
         onApprove(req) { [weak self] decision, reason in
             self?.respond(conn, decision: decision, reason: reason)
         }

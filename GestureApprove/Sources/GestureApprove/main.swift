@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let controller = ApprovalController()
     private var server: ApprovalServer?
     private let settingsWC = SettingsWindowController()
+    private let logWC = ApproveLogWindowController()
     private let flashWC = ScriptWindowController()
     private let mpInstallWC = ScriptWindowController()
     private let gkInstallWC = ScriptWindowController()
@@ -117,11 +118,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.async {
                 guard let self else { reply("ask", L("reply.notReady")); return }
                 // 总开关关闭 -> 直接交回终端正常审批，不弹卡片
-                guard self.approvalEnabled else { reply("ask", L("reply.gatingOff")); return }
+                guard self.approvalEnabled else {
+                    ApproveLog.record(req, decision: "ask", gate: .gatingOff, dangerous: Allowlist.isDangerous(req.operation))
+                    reply("ask", L("reply.gatingOff")); return
+                }
                 // 屏幕锁定/睡眠 -> 用户无法比手势，直接交回终端，不弹无人操作的卡片
-                guard !self.systemSuspended else { reply("ask", L("reply.suspended")); return }
+                guard !self.systemSuspended else {
+                    ApproveLog.record(req, decision: "ask", gate: .suspended, dangerous: Allowlist.isDangerous(req.operation))
+                    reply("ask", L("reply.suspended")); return
+                }
                 // 白名单命中且整条安全 -> 直接放行，不打扰（危险/拼接命令仍要手势）
-                if Allowlist.autoAllows(req.operation) { reply("allow", L("reply.allowlist")); return }
+                if Allowlist.autoAllows(req.operation) {
+                    ApproveLog.record(req, decision: "allow", gate: .allowlist, dangerous: false)
+                    reply("allow", L("reply.allowlist")); return
+                }
                 // 智能放行（可选，默认关）：规则没放行、且**不危险也不拼接**（保底闸）时，
                 // 才问本地 LLM 守门员。仅「LLM 明确说 safe」免审；不可用/超时/不安全 → fail-safe 落手势。
                 // 危险/拼接命令永远不进 LLM，直接走手势——LLM 只是额外放行器，绝不裁决危险命令。
@@ -130,6 +140,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                    !Allowlist.isCompound(req.operation) {
                     Task { @MainActor in
                         if await Gatekeeper.shared.judge(operation: req.operation, cwd: req.cwd, tool: req.tool) {
+                            ApproveLog.record(req, decision: "allow", gate: .smartgate, dangerous: false)
                             reply("allow", L("reply.smartgate"))
                         } else {
                             self.askGesture(req, reply)
@@ -146,11 +157,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// 弹手势卡片等用户裁决（白名单/智能放行都没放行时的最终路径）。
     private func askGesture(_ req: ApprovalRequest, _ reply: @escaping (String, String) -> Void) {
+        let dangerous = Allowlist.isDangerous(req.operation)
         controller.requestApproval(operation: req.operation, cwd: req.cwd, tool: req.tool, timeout: 90) { outcome in
             switch outcome {
-            case .approved: reply("allow", L("reply.approved"))
-            case .denied:   reply("deny", L("reply.denied"))
-            case .timedOut: reply("ask", L("reply.timeout"))   // 不再自动拒绝
+            case .approved:
+                ApproveLog.record(req, decision: "allow", gate: .gesture, dangerous: dangerous)
+                reply("allow", L("reply.approved"))
+            case .alwaysAllowed:
+                ApproveLog.record(req, decision: "allow", gate: .alwaysAllow, dangerous: dangerous)
+                reply("allow", L("reply.approved"))
+            case .denied:
+                ApproveLog.record(req, decision: "deny", gate: .gesture, dangerous: dangerous)
+                reply("deny", L("reply.denied"))
+            case .timedOut:
+                ApproveLog.record(req, decision: "ask", gate: .timeout, dangerous: dangerous)
+                reply("ask", L("reply.timeout"))   // 不再自动拒绝
             }
         }
     }
@@ -199,6 +220,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         test.image = NSImage(systemSymbolName: "hand.thumbsup", accessibilityDescription: nil)
         menu.addItem(test)
 
+        let log = NSMenuItem(title: L("menu.log"), action: #selector(openLog), keyEquivalent: "l")
+        log.target = self
+        log.image = NSImage(systemSymbolName: "list.bullet.rectangle", accessibilityDescription: nil)
+        menu.addItem(log)
+
         menu.addItem(.separator())
         let quit = NSMenuItem(title: L("menu.quit"), action: #selector(quit), keyEquivalent: "q")
         quit.target = self
@@ -208,6 +234,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.menu = menu
         self.statusItem = item
     }
+
+    @objc private func openLog() { logWC.show() }
 
     @objc private func openSettings() {
         settingsWC.show(
@@ -296,7 +324,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.testInFlight = false
             let body: String
             switch outcome {
-            case .approved: body = L("test.approved")
+            case .approved, .alwaysAllowed: body = L("test.approved")
             case .denied:   body = L("test.denied")
             case .timedOut: body = L("test.timeout")
             }
