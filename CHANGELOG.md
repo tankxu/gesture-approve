@@ -2,6 +2,10 @@
 
 All notable changes to GestureApprove. Versions follow the GitHub releases.
 
+## v0.7.1
+
+- **Smart gate now also judges compound commands.** When the smart gate (local LLM) is on, compound commands (`&&`, `|`, `;`, redirects, …) used to skip the LLM and always fall to a gesture. Now they're sent to the LLM too — it reads the whole command, so it can recognize intent hidden after a pipe/`&&` better than the prefix-allowlist (which only matches the head). The safety floor is unchanged: the danger deny-list matches against the *entire* command, so any compound containing a dangerous fragment (e.g. `ls && rm -rf …`) is flagged dangerous and never reaches the LLM — it always requires a gesture. The prefix-allowlist still refuses compounds outright (no LLM backstop there). Net effect: with the LLM on, harmless compounds like `cd build && cmake ..` can be auto-allowed instead of always prompting.
+
 ## v0.7.0 — Approval log
 
 - **Approval log.** Every approval the app takes over is now recorded — command, time, session (Claude `session_id` + project dir + tool), the decision (allow / deny / back-to-terminal), and which gate decided it: allowlist, smart gate, gesture, or "always allow" (writing a trusted command), plus a blacklist flag when a dangerous-rule match forced the gesture. New menu item **Approval log…** (⌃-menu) opens a window listing entries newest-first, with colored tags, live refresh, **Show in Finder**, and **Clear**. Entries persist as JSONL in `~/Library/Application Support/GestureApprove/approve-log.jsonl` (capped at the most recent 3000 lines). The hook now forwards `session_id` so each entry is attributable to a session.

@@ -132,12 +132,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     ApproveLog.record(req, decision: "allow", gate: .allowlist, dangerous: false)
                     reply("allow", L("reply.allowlist")); return
                 }
-                // 智能放行（可选，默认关）：规则没放行、且**不危险也不拼接**（保底闸）时，
-                // 才问本地 LLM 守门员。仅「LLM 明确说 safe」免审；不可用/超时/不安全 → fail-safe 落手势。
-                // 危险/拼接命令永远不进 LLM，直接走手势——LLM 只是额外放行器，绝不裁决危险命令。
+                // 智能放行（可选，默认关）：规则没放行、且**不危险**时问本地 LLM 守门员——
+                // 含组合命令（&& | ; 等）：LLM 看整条，能识别藏在拼接后的真实意图，比"前缀白名单"
+                // 那种只看头部的判断更可靠，所以组合命令在这里交给 LLM 裁决而非直接落手势。
+                // 仅「LLM 明确说 safe」免审；不可用/超时/不安全 → fail-safe 落手势。
+                // 危险命令（deny-list 命中整条，组合命令里任一危险片段都会命中）永不进 LLM，
+                // 直接走手势——LLM 只是额外放行器，绝不裁决危险命令；保底闸不变。
                 if Gatekeeper.isEnabled,
-                   !Allowlist.isDangerous(req.operation),
-                   !Allowlist.isCompound(req.operation) {
+                   !Allowlist.isDangerous(req.operation) {
                     Task { @MainActor in
                         if await Gatekeeper.shared.judge(operation: req.operation, cwd: req.cwd, tool: req.tool) {
                             ApproveLog.record(req, decision: "allow", gate: .smartgate, dangerous: false)
