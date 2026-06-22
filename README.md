@@ -39,7 +39,8 @@ AI runs a tool ─► hook (tiny HTTP) ─► GestureApprove.app
   - **MediaPipe (optional, ~300 MB)** — Google's pretrained model, downloadable on demand from Settings.
 - **Multiple camera sources**: FaceTime / USB / Continuity / **ESP32-CAM (serial)**. Per-frame **rotation** option; preview is **mirrored** (like a mirror).
 - **Respond fast**: gesture, **global hotkeys ⌃⇧Y / ⌃⇧N**, or click the card icons.
-- **Auto-allow list**: safe commands (e.g. `ls`, `git status`) pass without a card — editable regex rules.
+- **Auto-allow list**: safe commands (e.g. `ls`, `git status`) pass without a card — editable regex rules in `config/gatekeeper-rules.json`.
+- **Smart gate (optional, local LLM)**: a small on-device model (Qwen3-1.7B via MLX) can auto-allow *obviously-safe* commands so they skip the card; **dangerous commands always require a gesture** (rule deny-list, ~70 patterns). Fully local — nothing leaves your Mac. Opt-in from Settings; downloads a ~50 MB helper + ~1 GB model on demand into `~/Library/Application Support/GestureApprove/gatekeeper/` (the app itself stays MLX-free and small).
 - **Notch card**: live camera behind "black glass", zooms toward the detected hand, countdown ring, sound + system-notification feedback.
 - **6 languages**: English, 简体中文, 日本語, 한국어, Español, Français (follows the system language).
 - **Launch at login**, one-click **enable/disable**, in-app **hook install** for Claude Code & Codex.
@@ -69,10 +70,11 @@ Then from the menu-bar 👍 icon → **Settings** to pick a camera, choose an en
 | `GestureApprove/` | The macOS app (SwiftPM). `install.sh` builds + signs + installs. |
 | `GestureApprove/Assets/HandGesture.mlmodelc` | Bundled Vision gesture model (~44 KB). |
 | `GestureApprove/train/` | Training script + sample landmarks (see also [hand-gesture-coreml](https://github.com/tankxu/hand-gesture-coreml)). |
+| `GestureApprove/Sources/GestureGatekeeper/` | Optional local-LLM "smart gate" helper (links MLX). Built separately (`build_gatekeeper_helper.sh`), **not** bundled — downloaded on demand. |
 | `hooks/gesture_hook.py` | Stdlib-only hook bridging Claude Code / Codex to the app. |
-| `bridge/` | Optional MediaPipe daemon + ESP32 serial helpers (`setup.sh` installs MediaPipe). |
+| `bridge/` | Optional MediaPipe daemon + ESP32 serial helpers (`setup.sh` installs MediaPipe); `download_gatekeeper.sh` installs the smart-gate helper. |
 | `firmware/` | Optional ESP32-CAM firmware + one-click flasher. |
-| `config/` | Manual hook config snippets (the app installs hooks automatically). |
+| `config/` | Hook config snippets + `gatekeeper-rules.json` (smart-gate deny-list / auto-allow rules). |
 
 ## License
 
@@ -119,7 +121,8 @@ AI 跑工具 ─► hook(轻量HTTP) ─► GestureApprove.app
   - **MediaPipe（可选，~300 MB）**——Google 预训练模型，设置里按需下载。
 - **多摄像头源**：FaceTime / USB / 连续互通 / **ESP32-CAM（串口）**。可设**画面旋转**；预览**镜像**（像照镜子）。
 - **多种回应方式**：比手势、**全局热键 ⌃⇧Y / ⌃⇧N**、或点卡片图标。
-- **自动放行白名单**：安全命令（如 `ls`、`git status`）直接通过不弹卡片，规则可编辑（正则）。
+- **自动放行白名单**：安全命令（如 `ls`、`git status`）直接通过不弹卡片，规则可编辑（正则，见 `config/gatekeeper-rules.json`）。
+- **智能放行（可选，本地 LLM）**：本地小模型（Qwen3-1.7B，经 MLX）可自动放行**明显安全**的命令、免弹卡片；**危险命令永远要手势**（规则 deny-list 兜底，约 70 条）。全程本地，不出本机。在设置里按需开启：按需下载 ~50 MB helper + ~1 GB 模型到 `~/Library/Application Support/GestureApprove/gatekeeper/`（主 app 本身不含 MLX、保持小巧）。
 - **刘海卡片**：黑玻璃后透出实时画面、推近到手部、倒计时环、音效 + 系统通知反馈。
 - **6 国语言**：English、简体中文、日本語、한국어、Español、Français（跟随系统语言）。
 - **开机自启**、一键**开关**、设置里**一键接入** Claude Code / Codex 的 hook。
@@ -149,10 +152,11 @@ cd GestureApprove
 | `GestureApprove/` | macOS app（SwiftPM）。`install.sh` 构建+签名+安装。 |
 | `GestureApprove/Assets/HandGesture.mlmodelc` | 内置 Vision 手势模型（~44 KB）。 |
 | `GestureApprove/train/` | 训练脚本 + 样本关键点（另见 [hand-gesture-coreml](https://github.com/tankxu/hand-gesture-coreml)）。 |
+| `GestureApprove/Sources/GestureGatekeeper/` | 可选的本地 LLM「智能放行」helper（链接 MLX）。单独构建（`build_gatekeeper_helper.sh`），**不**打进 app——按需下载。 |
 | `hooks/gesture_hook.py` | 仅用标准库的 hook，桥接 Claude Code / Codex 与 app。 |
-| `bridge/` | 可选 MediaPipe 守护进程 + ESP32 串口工具（`setup.sh` 装 MediaPipe）。 |
+| `bridge/` | 可选 MediaPipe 守护进程 + ESP32 串口工具（`setup.sh` 装 MediaPipe）；`download_gatekeeper.sh` 安装智能放行 helper。 |
 | `firmware/` | 可选 ESP32-CAM 固件 + 一键刷写。 |
-| `config/` | 手动 hook 配置片段（app 会自动装 hook）。 |
+| `config/` | hook 配置片段 + `gatekeeper-rules.json`（智能放行的 deny-list / 白名单规则）。 |
 
 ## 许可
 
