@@ -8,6 +8,8 @@ struct ApproveLogView: View {
     @State private var confirmClear = false
     /// 当前信任命令集合：决定每行显示「加入白名单」按钮还是「已在白名单」。
     @State private var trusted: Set<String> = Set(Allowlist.trustedCommands())
+    /// 鼠标悬停的行 id：仅该行显示「加入白名单」按钮，避免每行都挂一排按钮显得杂乱。
+    @State private var hoveredID: String? = nil
 
     private let timeFmt: DateFormatter = {
         let f = DateFormatter()
@@ -102,31 +104,39 @@ struct ApproveLogView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
+        .contentShape(Rectangle())   // 整行（含留白）都参与 hover 命中
+        .background(hoveredID == e.id ? Color.primary.opacity(0.04) : Color.clear)
         .overlay(alignment: .bottom) {
             Rectangle().fill(Color.primary.opacity(0.06)).frame(height: 1)
         }
+        .onHover { hoveredID = $0 ? e.id : (hoveredID == e.id ? nil : hoveredID) }
     }
 
-    /// 每行右侧的白名单控件：可把这条命令一键加入信任命令（以后免审）。
+    /// 每行右侧的白名单控件：把这条命令一键加入信任命令（以后免审）。
+    /// 「加入白名单」按钮只在**鼠标悬停该行**时出现；已在白名单的行常显「已在白名单」状态。
     /// 危险命令不提供——它即使加了也会被 deny-list 硬否决、永远要手势，给按钮会误导。
     @ViewBuilder private func allowlistControl(_ e: ApproveLogEntry) -> some View {
         if !e.operation.isEmpty && !Allowlist.isDangerous(e.operation) {
             if trusted.contains(e.operation) {
-                Label(L("log.inAllowlist"), systemImage: "checkmark.circle.fill")
-                    .labelStyle(.titleAndIcon)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.green)
-            } else {
+                HStack(spacing: 2) {
+                    Image(systemName: "checkmark.circle.fill")
+                    Text(L("log.inAllowlist"))
+                }
+                .font(.system(size: 11))
+                .foregroundStyle(.green)
+            } else if hoveredID == e.id {
                 Button {
                     Allowlist.addAlwaysAllow(e.operation)
                     trusted.insert(e.operation)
                     Notifier.post(title: L("alwaysAllow.notifyTitle"), body: e.operation)
                 } label: {
-                    Label(L("log.addAllowlist"), systemImage: "plus.circle")
+                    HStack(spacing: 2) {
+                        Image(systemName: "plus.circle")
+                        Text(L("log.addAllowlist"))
+                    }
+                    .font(.system(size: 11))
                 }
                 .buttonStyle(.borderless)
-                .controlSize(.small)
-                .font(.system(size: 11))
                 .help(L("log.addAllowlist.help"))
             }
         }

@@ -2,6 +2,10 @@
 
 All notable changes to GestureApprove. Versions follow the GitHub releases.
 
+## v0.7.3
+
+- **Approval-log polish.** The "Allowlist" button now only appears on the row you're hovering (the row also highlights), instead of every row carrying a button. Tightened the icon-to-label spacing on the button and the "In allowlist" state.
+
 ## v0.7.2
 
 - **Add to allowlist straight from the approval log.** Each log row now has an **Allowlist** button that adds that exact command to trusted commands, so the same command skips the gesture from now on; rows already trusted show "In allowlist" instead. Dangerous (deny-list) commands get no button — they'd be hard-denied to a gesture anyway, so offering it would mislead.
