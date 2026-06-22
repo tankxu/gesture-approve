@@ -157,6 +157,24 @@ private let table: [String: [String: String]] = [
         "ja": "ゲート無効", "ko": "게이트 꺼짐",
         "es": "Control desactivado", "fr": "Contrôle désactivé",
     ],
+    "log.addAllowlist": [
+        "en": "Allowlist", "zh": "加入白名单",
+        "ja": "許可リストへ", "ko": "허용 목록에 추가",
+        "es": "Permitir", "fr": "Autoriser",
+    ],
+    "log.addAllowlist.help": [
+        "en": "Add this exact command to trusted commands — it will skip the gesture from now on",
+        "zh": "把这条命令加入信任命令，以后同样命令免审直接放行",
+        "ja": "このコマンドを信頼済みに追加し、以後はジェスチャーを省略します",
+        "ko": "이 명령을 신뢰 명령에 추가하여 이후 제스처를 건너뜁니다",
+        "es": "Añadir este comando exacto a los comandos de confianza — se saltará el gesto a partir de ahora",
+        "fr": "Ajouter cette commande exacte aux commandes de confiance — le geste sera ignoré désormais",
+    ],
+    "log.inAllowlist": [
+        "en": "In allowlist", "zh": "已在白名单",
+        "ja": "許可リスト済み", "ko": "허용 목록에 있음",
+        "es": "En la lista", "fr": "Dans la liste",
+    ],
     "app.name": [
         "en": "GestureApprove", "zh": "手势审批",
         "ja": "ジェスチャー承認", "ko": "제스처 승인",

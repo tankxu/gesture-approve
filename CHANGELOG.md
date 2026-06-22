@@ -2,6 +2,10 @@
 
 All notable changes to GestureApprove. Versions follow the GitHub releases.
 
+## v0.7.2
+
+- **Add to allowlist straight from the approval log.** Each log row now has an **Allowlist** button that adds that exact command to trusted commands, so the same command skips the gesture from now on; rows already trusted show "In allowlist" instead. Dangerous (deny-list) commands get no button — they'd be hard-denied to a gesture anyway, so offering it would mislead.
+
 ## v0.7.1
 
 - **Smart gate now also judges compound commands.** When the smart gate (local LLM) is on, compound commands (`&&`, `|`, `;`, redirects, …) used to skip the LLM and always fall to a gesture. Now they're sent to the LLM too — it reads the whole command, so it can recognize intent hidden after a pipe/`&&` better than the prefix-allowlist (which only matches the head). The safety floor is unchanged: the danger deny-list matches against the *entire* command, so any compound containing a dangerous fragment (e.g. `ls && rm -rf …`) is flagged dangerous and never reaches the LLM — it always requires a gesture. The prefix-allowlist still refuses compounds outright (no LLM backstop there). Net effect: with the LLM on, harmless compounds like `cd build && cmake ..` can be auto-allowed instead of always prompting.

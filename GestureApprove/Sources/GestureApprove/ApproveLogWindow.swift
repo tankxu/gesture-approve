@@ -6,6 +6,8 @@ import AppKit
 struct ApproveLogView: View {
     @State private var entries: [ApproveLogEntry] = ApproveLog.recent()
     @State private var confirmClear = false
+    /// 当前信任命令集合：决定每行显示「加入白名单」按钮还是「已在白名单」。
+    @State private var trusted: Set<String> = Set(Allowlist.trustedCommands())
 
     private let timeFmt: DateFormatter = {
         let f = DateFormatter()
@@ -34,6 +36,7 @@ struct ApproveLogView: View {
         .frame(minWidth: 640, minHeight: 420)
         .onReceive(NotificationCenter.default.publisher(for: .gaApproveLogged)) { _ in
             entries = ApproveLog.recent()
+            trusted = Set(Allowlist.trustedCommands())
         }
     }
 
@@ -78,6 +81,7 @@ struct ApproveLogView: View {
                 gateTag(e)
                 if e.dangerous { plainTag(L("log.danger"), color: .red) }
                 Spacer(minLength: 6)
+                allowlistControl(e)
                 Text(timeFmt.string(from: e.date))
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundStyle(.secondary)
@@ -100,6 +104,31 @@ struct ApproveLogView: View {
         .padding(.vertical, 9)
         .overlay(alignment: .bottom) {
             Rectangle().fill(Color.primary.opacity(0.06)).frame(height: 1)
+        }
+    }
+
+    /// 每行右侧的白名单控件：可把这条命令一键加入信任命令（以后免审）。
+    /// 危险命令不提供——它即使加了也会被 deny-list 硬否决、永远要手势，给按钮会误导。
+    @ViewBuilder private func allowlistControl(_ e: ApproveLogEntry) -> some View {
+        if !e.operation.isEmpty && !Allowlist.isDangerous(e.operation) {
+            if trusted.contains(e.operation) {
+                Label(L("log.inAllowlist"), systemImage: "checkmark.circle.fill")
+                    .labelStyle(.titleAndIcon)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.green)
+            } else {
+                Button {
+                    Allowlist.addAlwaysAllow(e.operation)
+                    trusted.insert(e.operation)
+                    Notifier.post(title: L("alwaysAllow.notifyTitle"), body: e.operation)
+                } label: {
+                    Label(L("log.addAllowlist"), systemImage: "plus.circle")
+                }
+                .buttonStyle(.borderless)
+                .controlSize(.small)
+                .font(.system(size: 11))
+                .help(L("log.addAllowlist.help"))
+            }
         }
     }
 
