@@ -42,9 +42,9 @@ func L(_ key: String) -> String { I18n.string(key) }
 private let table: [String: [String: String]] = [
     // MARK: 菜单
     "menu.running": [
-        "en": "GestureApprove · Running", "zh": "手势审批 · 运行中",
+        "en": "Gesture Approve · Running", "zh": "手势审批 · 运行中",
         "ja": "ジェスチャー承認 · 実行中", "ko": "제스처 승인 · 실행 중",
-        "es": "GestureApprove · En ejecución", "fr": "GestureApprove · En cours",
+        "es": "Gesture Approve · En ejecución", "fr": "Gesture Approve · En cours",
     ],
     "menu.enable": [
         "en": "Enable approval gating", "zh": "启用审批拦截",
@@ -176,9 +176,9 @@ private let table: [String: [String: String]] = [
         "es": "En la lista", "fr": "Dans la liste",
     ],
     "app.name": [
-        "en": "GestureApprove", "zh": "手势审批",
+        "en": "Gesture Approve", "zh": "手势审批",
         "ja": "ジェスチャー承認", "ko": "제스처 승인",
-        "es": "GestureApprove", "fr": "GestureApprove",
+        "es": "Gesture Approve", "fr": "Gesture Approve",
     ],
 
     // MARK: 给 hook 的判定理由（会显示在终端）
@@ -249,9 +249,9 @@ private let table: [String: [String: String]] = [
         "fr": "⌛️ Aucune réponse (les vraies approbations reviennent au terminal)",
     ],
     "test.notifyTitle": [
-        "en": "GestureApprove · Test result", "zh": "手势审批 · 测试结果",
+        "en": "Gesture Approve · Test result", "zh": "手势审批 · 测试结果",
         "ja": "ジェスチャー承認 · テスト結果", "ko": "제스처 승인 · 테스트 결과",
-        "es": "GestureApprove · Resultado de la prueba", "fr": "GestureApprove · Résultat du test",
+        "es": "Gesture Approve · Resultado de la prueba", "fr": "Gesture Approve · Résultat du test",
     ],
 
     // MARK: 固件刷写窗
@@ -535,9 +535,9 @@ private let table: [String: [String: String]] = [
 
     // MARK: 设置窗
     "settings.windowTitle": [
-        "en": "GestureApprove · Settings", "zh": "手势审批 · 设置",
+        "en": "Gesture Approve · Settings", "zh": "手势审批 · 设置",
         "ja": "ジェスチャー承認 · 設定", "ko": "제스처 승인 · 설정",
-        "es": "GestureApprove · Ajustes", "fr": "GestureApprove · Réglages",
+        "es": "Gesture Approve · Ajustes", "fr": "Gesture Approve · Réglages",
     ],
     "settings.section.connect": [
         "en": "Connect AI tools", "zh": "接入 AI 工具",
@@ -789,6 +789,24 @@ private let table: [String: [String: String]] = [
     "settings.download": [
         "en": "Download", "zh": "下载", "ja": "ダウンロード",
         "ko": "다운로드", "es": "Descargar", "fr": "Télécharger",
+    ],
+    "settings.installUpdate": [
+        "en": "Update now", "zh": "立即更新", "ja": "今すぐ更新",
+        "ko": "지금 업데이트", "es": "Actualizar ahora", "fr": "Mettre à jour",
+    ],
+    "settings.update.downloading": [
+        "en": "Downloading…", "zh": "下载中…", "ja": "ダウンロード中…",
+        "ko": "다운로드 중…", "es": "Descargando…", "fr": "Téléchargement…",
+    ],
+    "settings.update.installing": [
+        "en": "Installing — the app will relaunch…", "zh": "安装中，应用即将重启…",
+        "ja": "インストール中、アプリを再起動します…", "ko": "설치 중 — 앱이 다시 시작됩니다…",
+        "es": "Instalando — la app se reiniciará…", "fr": "Installation — l'app va redémarrer…",
+    ],
+    "settings.update.installFailed": [
+        "en": "Update failed (network?)", "zh": "更新失败（网络？）",
+        "ja": "更新に失敗（ネットワーク？）", "ko": "업데이트 실패(네트워크?)",
+        "es": "Error al actualizar (¿red?)", "fr": "Échec de la mise à jour (réseau ?)",
     ],
     "settings.section.general": [
         "en": "General", "zh": "通用", "ja": "一般",

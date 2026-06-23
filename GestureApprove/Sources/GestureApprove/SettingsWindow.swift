@@ -37,7 +37,11 @@ struct SettingsView: View {
     @State private var confirmRestore = false
     @State private var checkingUpdate = false
     @State private var updateText = ""
-    @State private var updateURL: URL? = nil
+    @State private var updateAsset: URL? = nil    // 新版 zip 直链（app 自更新）
+    @State private var updatePage: URL? = nil     // release 页（找不到 zip 时回退）
+    @State private var updateVersion = ""         // 新版本号（弹窗标题用）
+    @State private var updateNotes = ""           // 新版 changelog（弹窗正文用）
+    @State private var installing = false
     let openFlash: () -> Void
     let onPrimeESP32: () -> Void
     let onEngineChanged: () -> Void
@@ -122,13 +126,18 @@ struct SettingsView: View {
                     Text("\(L("settings.version")) \(Updater.current)")
                         .foregroundStyle(.secondary)
                     Spacer()
-                    if let url = updateURL {
-                        Button(L("settings.download")) { NSWorkspace.shared.open(url) }
+                    if let asset = updateAsset {
+                        Button(installing ? L("settings.update.downloading") : L("settings.installUpdate")) {
+                            startInstall(asset)
+                        }
+                        .disabled(installing)
+                    } else if let page = updatePage {
+                        Button(L("settings.download")) { NSWorkspace.shared.open(page) }
                     }
                     Button(checkingUpdate ? L("settings.checking") : L("settings.checkUpdate")) {
                         checkUpdate()
                     }
-                    .disabled(checkingUpdate)
+                    .disabled(checkingUpdate || installing)
                 }
                 .font(.system(size: 11))
                 if !updateText.isEmpty {
@@ -459,19 +468,42 @@ struct SettingsView: View {
     private func checkUpdate() {
         checkingUpdate = true
         updateText = ""
-        updateURL = nil
+        updateAsset = nil
+        updatePage = nil
         Updater.check { outcome in
             checkingUpdate = false
             switch outcome {
             case .upToDate:
                 updateText = L("settings.upToDate")
-            case .updateAvailable(let version, let url):
+            case .updateAvailable(let version, let asset, let page, let notes):
                 updateText = "\(L("settings.updateAvailable")) \(version)"
-                updateURL = url
+                updateVersion = version
+                updateNotes = notes
+                updateAsset = asset
+                updatePage = page
             case .failed:
                 updateText = L("settings.updateFailed")
             }
         }
+    }
+
+    /// 点「立即更新」：先弹确认框显示该版本 changelog，确认后 app 自己下载 → 替换 → 重启（成功不返回）。
+    private func startInstall(_ asset: URL) {
+        let alert = NSAlert()
+        alert.messageText = "\(L("settings.updateAvailable")) \(updateVersion)"
+        alert.informativeText = updateNotes.isEmpty ? "" : updateNotes
+        alert.addButton(withTitle: L("settings.installUpdate"))   // 第一个按钮：更新
+        alert.addButton(withTitle: L("settings.cancel"))          // 第二个按钮：取消
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        installing = true
+        updateText = L("settings.update.downloading")
+        Updater.installUpdate(from: asset, status: { s in
+            updateText = s
+        }, failure: { _ in
+            installing = false
+            updateText = L("settings.update.installFailed")
+            if let p = updatePage { NSWorkspace.shared.open(p) }   // 自更新失败 → 回退打开下载页
+        })
     }
 
     private func setLaunchAtLogin(_ on: Bool) {

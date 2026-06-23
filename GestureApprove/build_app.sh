@@ -38,14 +38,14 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleName</key><string>GestureApprove</string>
-    <key>CFBundleDisplayName</key><string>GestureApprove</string>
+    <key>CFBundleName</key><string>Gesture Approve</string>
+    <key>CFBundleDisplayName</key><string>Gesture Approve</string>
     <key>CFBundleIdentifier</key><string>com.tankxu.gestureapprove</string>
     <key>CFBundleExecutable</key><string>GestureApprove</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>0.7.5</string>
-    <key>CFBundleVersion</key><string>19</string>
+    <key>CFBundleShortVersionString</key><string>0.7.6</string>
+    <key>CFBundleVersion</key><string>20</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSUIElement</key><true/>
     <key>CFBundleDevelopmentRegion</key><string>en</string>
@@ -71,12 +71,12 @@ make_lproj() {  # $1=目录名 $2=显示名 $3=相机授权说明
 "NSCameraUsageDescription" = "$3";
 STR
 }
-make_lproj en      "GestureApprove"   "Used to recognize your approval gestures (👍 approve / 🖐 deny)."
+make_lproj en      "Gesture Approve"  "Used to recognize your approval gestures (👍 approve / 🖐 deny)."
 make_lproj zh-Hans "手势审批"          "用于识别你的审批手势（👍 通过 / 🖐 拒绝）。"
 make_lproj ja      "ジェスチャー承認"   "承認ジェスチャー（👍 承認 / 🖐 拒否）の認識に使用します。"
 make_lproj ko      "제스처 승인"       "승인 제스처(👍 승인 / 🖐 거부) 인식에 사용됩니다."
-make_lproj es      "GestureApprove"   "Se usa para reconocer tus gestos de aprobación (👍 aprobar / 🖐 rechazar)."
-make_lproj fr      "GestureApprove"   "Utilisé pour reconnaître vos gestes d'approbation (👍 approuver / 🖐 refuser)."
+make_lproj es      "Gesture Approve"  "Se usa para reconocer tus gestos de aprobación (👍 aprobar / 🖐 rechazar)."
+make_lproj fr      "Gesture Approve"  "Utilisé pour reconnaître vos gestes d'approbation (👍 approuver / 🖐 refuser)."
 
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"   # 默认 ad-hoc；可用环境变量指定证书
 echo "==> 签名 ($SIGN_IDENTITY)"

@@ -2,6 +2,11 @@
 
 All notable changes to GestureApprove. Versions follow the GitHub releases.
 
+## v0.7.6
+
+- **Renamed to "Gesture Approve"** (with a space) — the display name in Finder/Dock/menu bar/windows. The bundle identifier, executable, and data folder are unchanged.
+- **In-app self-update.** "Check for updates" can now download, install, and relaunch the new version itself, with a changelog confirmation dialog. Because the app downloads and de-quarantines the build directly, the unsigned new version opens without Gatekeeper's repeated "Open Anyway" prompt — you only approve the first manual install.
+
 ## v0.7.5
 
 - **Installer/download windows are now fully localized.** The progress text streamed into the firmware-flash, MediaPipe, and smart-gate setup windows — and the gatekeeper helper's own model-download progress — used to be hardcoded; it now follows the app language across all six locales (en/zh/ja/ko/es/fr).

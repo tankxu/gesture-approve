@@ -26,7 +26,7 @@ enum HookCLI {
             // app 没开/不可达：回退终端正常审批，并在终端提示一行（不影响 stdout 协议）。
             decision = "ask"
             reason = "手势审批不可用，交回终端"
-            FileHandle.standardError.write(Data("⚠️  GestureApprove 离线（未运行或端口不可达），本次交回终端正常审批。\n".utf8))
+            FileHandle.standardError.write(Data("⚠️  Gesture Approve 离线（未运行或端口不可达），本次交回终端正常审批。\n".utf8))
         }
         emit(target: target, decision: decision, reason: reason)
         exit(0)
