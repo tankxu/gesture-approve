@@ -2,6 +2,10 @@
 
 All notable changes to GestureApprove. Versions follow the GitHub releases.
 
+## v0.7.4
+
+- **Bundle identifier is now `com.tankxu.gestureapprove`.** Switched to the GitHub account as the reverse-DNS prefix (also the LaunchAgent label and internal queue names). Note: the app now uses a fresh preferences domain, so settings written by older versions (trusted commands, allowlist, engine choice, smart-gate toggle, …) don't carry over — reconfigure in Settings after installing.
+
 ## v0.7.3
 
 - **Approval-log polish.** The "Allowlist" button now only appears on the row you're hovering (the row also highlights), instead of every row carrying a button. Tightened the icon-to-label spacing on the button and the "In allowlist" state.
