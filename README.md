@@ -61,7 +61,9 @@ Then from the menu-bar 👍 icon → **Settings** to pick a camera, choose an en
 
 > ⚠️ **Gemini CLI & Kimi CLI support is experimental and untested.** The wiring is in place (Gemini `BeforeTool` in `~/.gemini/settings.json`, Kimi `PreToolUse` in `~/.kimi/config.toml`; enable them in Settings), derived from each tool's docs/source but **not yet verified end-to-end** — feedback welcome. Both are terminal-CLI only; Kimi may require `/hooks` trust like Codex.
 
-> Signed with a local Apple Development cert and **not** notarized, so Gatekeeper warns on first open — right-click → Open.
+> Signed with a local Apple Development cert and **not** notarized, so macOS Gatekeeper blocks it on first open. On macOS 15 (Sequoia) and later, right-click → Open is no longer enough: open **System Settings → Privacy & Security**, scroll to the **Security** section, click **Open Anyway** next to the *"GestureApprove" was blocked* notice, then confirm with Touch ID / your password.
+>
+> <img src="GestureApprove/Assets/first-launch-gatekeeper.png" alt="Allow GestureApprove under System Settings → Privacy & Security → Open Anyway" width="560">
 
 ## Repo layout
 
@@ -143,7 +145,9 @@ cd GestureApprove
 
 > ⚠️ **Gemini CLI 与 Kimi CLI 的支持为实验性、未经测试。** 接入已接好（Gemini 的 `BeforeTool` 写入 `~/.gemini/settings.json`，Kimi 的 `PreToolUse` 写入 `~/.kimi/config.toml`，在设置里开启），依据各自文档/源码实现，但**尚未端到端验证过**——欢迎反馈。两者均仅限终端 CLI；Kimi 可能和 Codex 一样需要 `/hooks` 信任。
 
-> 用本机 Apple Development 证书签名、**未公证**，首次打开 Gatekeeper 会拦——右键 → 打开。
+> 用本机 Apple Development 证书签名、**未公证**，macOS 首次打开会拦。macOS 15（Sequoia）及以上「右键 → 打开」已不够：打开**系统设置 → 隐私与安全性**，滚动到**安全性**一节，在 *“GestureApprove” was blocked* 提示旁点 **Open Anyway（仍要打开）**，再用触控 ID / 密码确认。
+>
+> <img src="GestureApprove/Assets/first-launch-gatekeeper.png" alt="在系统设置 → 隐私与安全性中点 Open Anyway 放行 GestureApprove" width="560">
 
 ## 目录结构
 
