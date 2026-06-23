@@ -21,7 +21,8 @@ from mediapipe.tasks.python import vision
 
 MODEL = os.environ.get("GESTURE_MODEL") or os.path.join(os.path.dirname(__file__), "models", "gesture_recognizer.task")
 GESTURE_MAP = {"Thumb_Up": "thumbUp", "Open_Palm": "openPalm"}
-MIN_CONF = 0.70   # 手势置信度门槛，调高=更严格、更少误判
+# daemon 总是输出 score；置信度门槛由 Swift 端（MediaPipeClassifier）按「识别精准度」档位过滤。
+# 实测：MediaPipe 对清晰 Thumb_Up 的 score 仅 ~0.73，门槛设太高会让 thumbUp 直接失效。
 
 _stdin = sys.stdin.buffer
 

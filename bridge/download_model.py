@@ -15,12 +15,15 @@ DEST = os.path.join(DEST_DIR, "gesture_recognizer.task")
 
 def main() -> None:
     os.makedirs(DEST_DIR, exist_ok=True)
+    # 进度文案按界面语言（app 经环境变量传入），脱离 app 单独运行时回退英文。
     if os.path.exists(DEST) and os.path.getsize(DEST) > 0:
-        print(f"模型已存在: {DEST}")
+        print(f"{os.environ.get('MP_M_MODEL_EXISTS', 'Model already present:')} {DEST}")
         return
-    print(f"下载手势模型 -> {DEST}")
+    print(f"{os.environ.get('MP_M_MODEL_DOWNLOAD', 'Downloading gesture model ->')} {DEST}")
     urllib.request.urlretrieve(URL, DEST)
-    print(f"完成，{os.path.getsize(DEST)} 字节")
+    done = os.environ.get("MP_M_MODEL_DONE", "Done,")
+    unit = os.environ.get("MP_M_BYTES", "bytes")
+    print(f"{done} {os.path.getsize(DEST)} {unit}")
 
 
 if __name__ == "__main__":

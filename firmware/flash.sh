@@ -14,13 +14,13 @@ PYBIN="$VENV/bin/python"
 
 # 1) 准备 esptool（首次自动安装）
 if ! { [ -x "$PYBIN" ] && "$PYBIN" -m esptool version >/dev/null 2>&1; }; then
-    echo "==> 首次使用：正在准备烧录工具 esptool（约 20MB，仅此一次）…"
+    echo "==> ${FW_M_PREP_ESPTOOL:-First run: preparing the esptool flasher (~20MB, one time)…}"
     PY3="$(command -v python3 || true)"
-    if [ -z "$PY3" ]; then echo "未找到 python3，无法安装 esptool。" >&2; exit 1; fi
-    "$PY3" -m venv "$VENV" || { echo "创建 venv 失败。" >&2; exit 1; }
+    if [ -z "$PY3" ]; then echo "${FW_M_NO_PYTHON:-python3 not found; cannot install esptool.}" >&2; exit 1; fi
+    "$PY3" -m venv "$VENV" || { echo "${FW_M_VENV_FAIL:-Failed to create venv.}" >&2; exit 1; }
     "$PYBIN" -m pip install --upgrade pip >/dev/null 2>&1
-    "$PYBIN" -m pip install esptool || { echo "安装 esptool 失败（检查网络）。" >&2; exit 1; }
-    echo "==> esptool 就绪。"
+    "$PYBIN" -m pip install esptool || { echo "${FW_M_ESPTOOL_FAIL:-Failed to install esptool (check network).}" >&2; exit 1; }
+    echo "==> ${FW_M_ESPTOOL_READY:-esptool ready.}"
 fi
 
 # 2) 探测串口
@@ -29,13 +29,13 @@ if [ -z "$PORT" ]; then
     PORT="$(ls /dev/cu.usbserial-* /dev/cu.SLAB_USBtoUART* /dev/cu.wchusbserial* /dev/cu.usbmodem* 2>/dev/null | head -1 || true)"
 fi
 if [ -z "$PORT" ]; then
-    echo "没找到串口。请确认 ESP32-CAM 已通过 USB-串口适配器插入电脑。" >&2
+    echo "${FW_M_NO_PORT:-No serial port found. Make sure the ESP32-CAM is plugged in via a USB-to-serial adapter.}" >&2
     exit 1
 fi
-echo "==> 串口: $PORT"
+echo "==> ${FW_M_PORT:-Serial port:} $PORT"
 
 # 3) 烧录预编译固件
-echo "==> 开始刷写固件…"
+echo "==> ${FW_M_FLASHING:-Flashing firmware…}"
 "$PYBIN" -m esptool --chip esp32 --port "$PORT" --baud 460800 \
     --before default_reset --after hard_reset write_flash -z \
     0x1000 "$PREBUILT/bootloader.bin" \
@@ -46,9 +46,9 @@ RC=$?
 
 if [ $RC -eq 0 ]; then
     echo ""
-    echo "✅ 刷写成功。回到设置，把视频输入源选成「ESP32-CAM（串口）」即可。"
+    echo "${FW_M_SUCCESS:-✅ Flash succeeded. Back in Settings, set the video source to \"ESP32-CAM (serial)\".}"
 else
     echo ""
-    echo "❌ 刷写失败 (rc=$RC)。裸 FTDI 接线若没自动复位：GPIO0 接 GND → 复位 → 点「重新刷写」。" >&2
+    echo "❌ ${FW_M_FAILED:-Flash failed} (rc=$RC). ${FW_M_FAIL_HINT:-If a bare FTDI has no auto-reset: tie GPIO0 to GND → reset → click \"Flash again\".}" >&2
 fi
 exit $RC

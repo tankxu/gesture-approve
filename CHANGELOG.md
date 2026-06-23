@@ -2,6 +2,11 @@
 
 All notable changes to GestureApprove. Versions follow the GitHub releases.
 
+## v0.7.5
+
+- **Installer/download windows are now fully localized.** The progress text streamed into the firmware-flash, MediaPipe, and smart-gate setup windows — and the gatekeeper helper's own model-download progress — used to be hardcoded; it now follows the app language across all six locales (en/zh/ja/ko/es/fr).
+- **Fixed MediaPipe not recognizing 👍 at the higher strictness levels.** The "recognition strictness" slider was reused verbatim as MediaPipe's gesture-score threshold, but MediaPipe's scores run lower than Vision's geometric scale (a clean Thumb_Up tops out around 0.73), so Standard sat right on the edge and Strict (0.9) rejected everything. The three levels now map to MediaPipe-appropriate thresholds (0.40 / 0.55 / 0.70).
+
 ## v0.7.4
 
 - **Bundle identifier is now `com.tankxu.gestureapprove`.** Switched to the GitHub account as the reverse-DNS prefix (also the LaunchAgent label and internal queue names). Note: the app now uses a fresh preferences domain, so settings written by older versions (trusted commands, allowlist, engine choice, smart-gate toggle, …) don't carry over — reconfigure in Settings after installing.

@@ -97,6 +97,11 @@ func logLine(_ s: String) {
     FileHandle.standardError.write(Data(("[gatekeeper] " + s + "\n").utf8))
 }
 
+/// 进度文案按界面语言：app 经环境变量传入（GK_M_*），脱离 app 单独运行时回退英文。
+func msg(_ key: String, _ fallback: String) -> String {
+    ProcessInfo.processInfo.environment[key] ?? fallback
+}
+
 // MARK: - 判定核心
 
 /// 串行守门:MLX 调用不是并发安全的,所有判定经此 actor 排队。
@@ -150,16 +155,16 @@ actor Judge {
 // MARK: - 模型加载
 
 func loadModel(_ id: String) async throws -> ModelContainer {
-    logLine("加载模型 \(id) …(首次会从 HuggingFace 下载)")
+    logLine("\(msg("GK_M_LOADING", "Loading model")) \(id) \(msg("GK_M_LOADING_SUFFIX", "(downloads from HuggingFace on first run)"))")
     let t = Date()
     let container = try await #huggingFaceLoadModelContainer(
         configuration: ModelConfiguration(id: id)
     ) { progress in
         if progress.fractionCompleted > 0 {
-            logLine(String(format: "下载 %.0f%%", progress.fractionCompleted * 100))
+            logLine(String(format: "%@ %.0f%%", msg("GK_M_DOWNLOAD_PCT", "Downloading"), progress.fractionCompleted * 100))
         }
     }
-    logLine(String(format: "模型就绪,耗时 %.1fs", Date().timeIntervalSince(t)))
+    logLine(String(format: "%@ %.1fs", msg("GK_M_MODEL_READY", "Model ready in"), Date().timeIntervalSince(t)))
     return container
 }
 
@@ -257,7 +262,7 @@ if ProcessInfo.processInfo.environment["HF_HUB_CACHE"] == nil {
     if !exeDir.isEmpty {
         let cache = (exeDir as NSString).appendingPathComponent("models")
         setenv("HF_HUB_CACHE", cache, 1)
-        logLine("模型缓存目录: \(cache)")
+        logLine("\(msg("GK_M_MODEL_CACHE", "Model cache dir:")) \(cache)")
     }
 }
 
@@ -271,12 +276,14 @@ case "prefetch":
         while !Task.isCancelled {
             try? await Task.sleep(nanoseconds: 3_000_000_000)
             if Task.isCancelled { break }
-            logLine(String(format: "下载中…已用 %.0fs(模型约 1GB,首次请耐心等待)", Date().timeIntervalSince(t0)))
+            let pre = msg("GK_M_DOWNLOADING", "Downloading… elapsed")
+            let suf = msg("GK_M_DOWNLOADING_SUFFIX", "(model is ~1GB, first run takes a while)")
+            logLine(String(format: "%@ %.0fs %@", pre, Date().timeIntervalSince(t0), suf))
         }
     }
     _ = try await loadModel(args.model)
     heartbeat.cancel()
-    logLine("预取完成,模型已就绪")
+    logLine(msg("GK_M_PREFETCH_DONE", "Prefetch complete, model ready"))
     exit(0)
 
 case "judge":

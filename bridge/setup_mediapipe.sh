@@ -10,17 +10,17 @@ BRIDGE="${GA_BRIDGE:?need GA_BRIDGE}"
 VENV="${GA_VENV:?need GA_VENV}"
 MODELDIR="${GA_MODELDIR:?need GA_MODELDIR}"
 
-echo "==> 创建 venv: $VENV"
+echo "==> ${MP_M_VENV:-Creating venv:} $VENV"
 mkdir -p "$(dirname "$VENV")"
 python3 -m venv "$VENV"
 
-echo "==> 安装依赖"
+echo "==> ${MP_M_DEPS:-Installing dependencies}"
 "$VENV/bin/pip" install --upgrade pip >/dev/null
 "$VENV/bin/pip" install -r "$BRIDGE/requirements.txt"
 
-echo "==> 下载 MediaPipe 手势模型"
+echo "==> ${MP_M_MODEL:-Downloading the MediaPipe gesture model}"
 mkdir -p "$MODELDIR"
 GESTURE_MODEL_DIR="$MODELDIR" "$VENV/bin/python" "$BRIDGE/download_model.py"
 
 echo ""
-echo "完成。MediaPipe 已就绪。"
+echo "${MP_M_DONE:-Done. MediaPipe is ready.}"

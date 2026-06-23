@@ -100,9 +100,20 @@ final class MediaPipeClassifier {
         case "openPalm": gesture = .openPalm
         default:         gesture = .none
         }
-        // 按设置里的「识别精准度」滑杆过滤：置信度不足则视为未识别
+        // 按设置里的「识别精准度」三档过滤：置信度不足则视为未识别。
+        // 注意：滑杆值（0.3/0.6/0.9）在 Vision 里是「几何松紧」、在这里是 MediaPipe 的 gesture
+        // score 阈值——两者量纲不同，不能直接套用滑杆裸值（旧逻辑高档 0.9 连理想样图都过不了）。
+        // 实测 MediaPipe 官方清晰 Thumb_Up 样图 score 仅 0.73、Open_Palm/Victory 0.8~0.9，真实摄像头
+        // 更低。故三档分别取可用值（非线性，thumbUp 可用区间本就窄）：
+        //   低 0.40 · 中 0.55 · 高 0.70（高档略低于 thumbUp 上限 0.73、余量很小，仍可能偏紧）。
         let conf = Double(parts[5]) ?? 1
-        let threshold = (UserDefaults.standard.object(forKey: "gestureMinConf") as? Double) ?? 0.6
+        let slider = (UserDefaults.standard.object(forKey: "gestureMinConf") as? Double) ?? 0.6
+        let threshold: Double
+        switch slider {
+        case ..<0.45: threshold = 0.40   // 低
+        case ..<0.75: threshold = 0.55   // 中
+        default:      threshold = 0.70   // 高
+        }
         if gesture.isDecisive && conf < threshold { gesture = .none }
 
         var box: CGRect? = nil

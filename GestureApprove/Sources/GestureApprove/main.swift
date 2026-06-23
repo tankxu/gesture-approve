@@ -281,7 +281,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             footer: L("firmware.footer"),
             runningText: L("firmware.running"), successText: L("firmware.success"), failedText: L("firmware.failed"),
             idleHint: L("firmware.idleHint"),
-            extraEnv: ["FLASH_VENV": AppPaths.supportPath("flashenv")])   // esptool venv 装到 Application Support
+            extraEnv: [
+                "FLASH_VENV": AppPaths.supportPath("flashenv"),   // esptool venv 装到 Application Support
+                // 脚本进度文案（按当前界面语言）——保持单一数据源在 Localization.swift。
+                "FW_M_PREP_ESPTOOL": L("fw.sh.prepEsptool"),
+                "FW_M_NO_PYTHON": L("fw.sh.noPython"),
+                "FW_M_VENV_FAIL": L("fw.sh.venvFail"),
+                "FW_M_ESPTOOL_FAIL": L("fw.sh.esptoolFail"),
+                "FW_M_ESPTOOL_READY": L("fw.sh.esptoolReady"),
+                "FW_M_NO_PORT": L("fw.sh.noPort"),
+                "FW_M_PORT": L("fw.sh.port"),
+                "FW_M_FLASHING": L("fw.sh.flashing"),
+                "FW_M_SUCCESS": L("fw.sh.success"),
+                "FW_M_FAILED": L("fw.sh.failed"),
+                "FW_M_FAIL_HINT": L("fw.sh.failHint"),
+            ])
     }
 
     static var mediapipeConfig: ScriptUIConfig {
@@ -298,6 +312,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 "GA_BRIDGE": MediaPipeInstaller.bridgeDir,    // bundle 内 bridge（requirements/download_model 源）
                 "GA_VENV": MediaPipeInstaller.venvDir,        // venv 装到 Application Support
                 "GA_MODELDIR": MediaPipeInstaller.modelDir,   // 模型下载到 Application Support
+                // 脚本进度文案（setup_mediapipe.sh 直接用，download_model.py 继承环境变量）。
+                "MP_M_VENV": L("mp.sh.venv"),
+                "MP_M_DEPS": L("mp.sh.deps"),
+                "MP_M_MODEL": L("mp.sh.model"),
+                "MP_M_DONE": L("mp.sh.done"),
+                "MP_M_MODEL_EXISTS": L("mp.sh.modelExists"),
+                "MP_M_MODEL_DOWNLOAD": L("mp.sh.modelDownload"),
+                "MP_M_MODEL_DONE": L("mp.sh.modelDone"),
+                "MP_M_BYTES": L("mp.sh.bytes"),
             ])
     }
 
@@ -314,6 +337,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             extraEnv: [
                 "GK_URL": Gatekeeper.helperURL.absoluteString,   // 固定 tag 的预编译 helper zip
                 "GK_DIR": Gatekeeper.installDir,                 // 解压到 Application Support
+                // 脚本进度文案（download_gatekeeper.sh 用）。
+                "GK_M_DOWNLOAD": L("gk.sh.download"),
+                "GK_M_EXTRACT": L("gk.sh.extract"),
+                "GK_M_QUARANTINE": L("gk.sh.quarantine"),
+                "GK_M_MISSING_BIN": L("gk.sh.missingBin"),
+                "GK_M_MISSING_BUNDLE": L("gk.sh.missingBundle"),
+                "GK_M_SIGN_OK": L("gk.sh.signOk"),
+                "GK_M_SIGN_WARN": L("gk.sh.signWarn"),
+                "GK_M_PREFETCH": L("gk.sh.prefetch"),
+                "GK_M_PREFETCH_FAIL": L("gk.sh.prefetchFail"),
+                "GK_M_READY": L("gk.sh.ready"),
+                // 下面几条由 helper（--prefetch）自己读环境变量打印（脚本子进程继承环境）。
+                "GK_M_MODEL_CACHE": L("gk.sh.modelCache"),
+                "GK_M_DOWNLOADING": L("gk.sh.downloading"),
+                "GK_M_DOWNLOADING_SUFFIX": L("gk.sh.downloadingSuffix"),
+                "GK_M_PREFETCH_DONE": L("gk.sh.prefetchDone"),
+                "GK_M_LOADING": L("gk.sh.loadingModel"),
+                "GK_M_LOADING_SUFFIX": L("gk.sh.loadingModelSuffix"),
+                "GK_M_DOWNLOAD_PCT": L("gk.sh.downloadPct"),
+                "GK_M_MODEL_READY": L("gk.sh.modelReady"),
             ])
     }
 

@@ -863,4 +863,216 @@ private let table: [String: [String: String]] = [
         "ja": "起動できません：", "ko": "실행할 수 없음: ",
         "es": "No se puede iniciar: ", "fr": "Impossible de lancer : ",
     ],
+
+    // MARK: 守门员下载脚本进度（download_gatekeeper.sh，经环境变量传入）
+    "gk.sh.download": [
+        "en": "Downloading gatekeeper component", "zh": "下载守门员组件",
+        "ja": "ゲートキーパーをダウンロード", "ko": "게이트키퍼 다운로드",
+        "es": "Descargando el guardián", "fr": "Téléchargement du gardien",
+    ],
+    "gk.sh.extract": [
+        "en": "Unpacking to", "zh": "解压到", "ja": "展開先", "ko": "압축 해제 위치",
+        "es": "Descomprimiendo en", "fr": "Décompression dans",
+    ],
+    "gk.sh.quarantine": [
+        "en": "Clearing quarantine attribute", "zh": "清除隔离属性",
+        "ja": "隔離属性を解除", "ko": "격리 속성 제거",
+        "es": "Quitando la cuarentena", "fr": "Levée de la quarantaine",
+    ],
+    "gk.sh.missingBin": [
+        "en": "Missing executable after unpack:", "zh": "解压后缺少可执行文件：",
+        "ja": "展開後に実行ファイルがありません：", "ko": "압축 해제 후 실행 파일 없음:",
+        "es": "Falta el ejecutable tras descomprimir:", "fr": "Exécutable manquant après décompression :",
+    ],
+    "gk.sh.missingBundle": [
+        "en": "Missing mlx-swift_Cmlx.bundle (Metal library) — cannot run",
+        "zh": "缺少 mlx-swift_Cmlx.bundle（Metal 库），无法运行",
+        "ja": "mlx-swift_Cmlx.bundle（Metal ライブラリ）がなく実行できません",
+        "ko": "mlx-swift_Cmlx.bundle(Metal 라이브러리) 없음 — 실행 불가",
+        "es": "Falta mlx-swift_Cmlx.bundle (biblioteca Metal); no se puede ejecutar",
+        "fr": "mlx-swift_Cmlx.bundle (bibliothèque Metal) manquant — exécution impossible",
+    ],
+    "gk.sh.signOk": [
+        "en": "Signature verified", "zh": "签名校验通过",
+        "ja": "署名を検証しました", "ko": "서명 확인됨",
+        "es": "Firma verificada", "fr": "Signature vérifiée",
+    ],
+    "gk.sh.signWarn": [
+        "en": "⚠️ Signature not verified (ad-hoc still runs)",
+        "zh": "⚠️ 签名校验未通过（ad-hoc 仍可运行）",
+        "ja": "⚠️ 署名未検証（ad-hoc でも実行可）",
+        "ko": "⚠️ 서명 미확인 (ad-hoc 실행 가능)",
+        "es": "⚠️ Firma no verificada (ad-hoc igual funciona)",
+        "fr": "⚠️ Signature non vérifiée (ad-hoc fonctionne quand même)",
+    ],
+    "gk.sh.prefetch": [
+        "en": "Prefetching model weights (~1GB; slow the first time, instant if cached)",
+        "zh": "预取模型权重（约 1GB，首次较慢；已缓存则秒过）",
+        "ja": "モデルの重みを事前取得（約1GB、初回は低速、キャッシュ済みなら即時）",
+        "ko": "모델 가중치 미리 받기(~1GB, 최초 느림, 캐시 시 즉시)",
+        "es": "Precargando pesos del modelo (~1GB; lento la primera vez, instantáneo si está en caché)",
+        "fr": "Pré-téléchargement des poids (~1 Go ; lent la première fois, instantané si en cache)",
+    ],
+    "gk.sh.prefetchFail": [
+        "en": "Model prefetch failed (network?). The helper is in place — retry later via \"Re-download\" in Settings.",
+        "zh": "模型预取失败（网络问题？）。helper 已就位，可稍后在设置里「重新下载」重试。",
+        "ja": "モデルの事前取得に失敗（ネットワーク？）。ヘルパーは配置済み。設定の「再ダウンロード」で後ほど再試行できます。",
+        "ko": "모델 미리 받기 실패(네트워크?). 헬퍼는 설치됨 — 설정의 \"다시 다운로드\"로 나중에 재시도하세요.",
+        "es": "Falló la precarga del modelo (¿red?). El ayudante está listo; reintenta luego con «Volver a descargar» en Ajustes.",
+        "fr": "Échec du pré-téléchargement (réseau ?). L'assistant est en place — réessayez via « Retélécharger » dans Réglages.",
+    ],
+    "gk.sh.ready": [
+        "en": "Gatekeeper + model ready ✅", "zh": "守门员 + 模型就绪 ✅",
+        "ja": "ゲートキーパー + モデル準備完了 ✅", "ko": "게이트키퍼 + 모델 준비됨 ✅",
+        "es": "Guardián + modelo listos ✅", "fr": "Gardien + modèle prêts ✅",
+    ],
+    // helper(GestureGatekeeper）prefetch 时打到 stderr 的进度，经环境变量按界面语言传入。
+    "gk.sh.modelCache": [
+        "en": "Model cache dir:", "zh": "模型缓存目录：",
+        "ja": "モデルキャッシュ：", "ko": "모델 캐시 폴더:",
+        "es": "Caché del modelo:", "fr": "Cache du modèle :",
+    ],
+    "gk.sh.downloading": [   // 后面接「 <秒数>s 」与 downloadingSuffix
+        "en": "Downloading… elapsed", "zh": "下载中…已用",
+        "ja": "ダウンロード中…経過", "ko": "다운로드 중… 경과",
+        "es": "Descargando… transcurrido", "fr": "Téléchargement… écoulé",
+    ],
+    "gk.sh.downloadingSuffix": [
+        "en": "(model is ~1GB, first run takes a while)",
+        "zh": "（模型约 1GB，首次请耐心等待）",
+        "ja": "（モデルは約1GB、初回はお待ちください）",
+        "ko": "(모델 약 1GB, 최초 실행은 시간이 걸립니다)",
+        "es": "(el modelo pesa ~1GB, la primera vez tarda)",
+        "fr": "(le modèle fait ~1 Go, la première fois prend du temps)",
+    ],
+    "gk.sh.prefetchDone": [
+        "en": "Prefetch complete, model ready", "zh": "预取完成，模型已就绪",
+        "ja": "事前取得完了、モデル準備完了", "ko": "미리 받기 완료, 모델 준비됨",
+        "es": "Precarga completa, modelo listo", "fr": "Pré-téléchargement terminé, modèle prêt",
+    ],
+    "gk.sh.loadingModel": [   // 后面接「 <模型id> 」与 loadingModelSuffix
+        "en": "Loading model", "zh": "加载模型",
+        "ja": "モデルを読み込み中", "ko": "모델 로딩 중",
+        "es": "Cargando modelo", "fr": "Chargement du modèle",
+    ],
+    "gk.sh.loadingModelSuffix": [
+        "en": "(downloads from HuggingFace on first run)",
+        "zh": "（首次会从 HuggingFace 下载）",
+        "ja": "（初回は HuggingFace からダウンロード）",
+        "ko": "(최초 실행 시 HuggingFace에서 다운로드)",
+        "es": "(se descarga de HuggingFace la primera vez)",
+        "fr": "(téléchargé depuis HuggingFace au premier lancement)",
+    ],
+    "gk.sh.downloadPct": [   // 后面接「 <百分比>% 」
+        "en": "Downloading", "zh": "下载", "ja": "ダウンロード",
+        "ko": "다운로드", "es": "Descargando", "fr": "Téléchargement",
+    ],
+    "gk.sh.modelReady": [   // 后面接「 <秒数>s 」
+        "en": "Model ready in", "zh": "模型就绪，耗时",
+        "ja": "モデル準備完了、所要", "ko": "모델 준비됨, 소요",
+        "es": "Modelo listo en", "fr": "Modèle prêt en",
+    ],
+
+    // MARK: MediaPipe 安装脚本进度（setup_mediapipe.sh / download_model.py，经环境变量传入）
+    "mp.sh.venv": [
+        "en": "Creating venv:", "zh": "创建 venv：", "ja": "venv を作成：",
+        "ko": "venv 생성:", "es": "Creando venv:", "fr": "Création du venv :",
+    ],
+    "mp.sh.deps": [
+        "en": "Installing dependencies", "zh": "安装依赖", "ja": "依存関係をインストール",
+        "ko": "의존성 설치", "es": "Instalando dependencias", "fr": "Installation des dépendances",
+    ],
+    "mp.sh.model": [
+        "en": "Downloading the MediaPipe gesture model", "zh": "下载 MediaPipe 手势模型",
+        "ja": "MediaPipe ジェスチャーモデルをダウンロード", "ko": "MediaPipe 제스처 모델 다운로드",
+        "es": "Descargando el modelo de gestos de MediaPipe", "fr": "Téléchargement du modèle de gestes MediaPipe",
+    ],
+    "mp.sh.done": [
+        "en": "Done. MediaPipe is ready.", "zh": "完成。MediaPipe 已就绪。",
+        "ja": "完了。MediaPipe の準備ができました。", "ko": "완료. MediaPipe가 준비되었습니다.",
+        "es": "Listo. MediaPipe está preparado.", "fr": "Terminé. MediaPipe est prêt.",
+    ],
+    "mp.sh.modelExists": [
+        "en": "Model already present:", "zh": "模型已存在：",
+        "ja": "モデルは既にあります：", "ko": "모델이 이미 있음:",
+        "es": "El modelo ya existe:", "fr": "Modèle déjà présent :",
+    ],
+    "mp.sh.modelDownload": [
+        "en": "Downloading gesture model ->", "zh": "下载手势模型 ->",
+        "ja": "ジェスチャーモデルをダウンロード ->", "ko": "제스처 모델 다운로드 ->",
+        "es": "Descargando modelo de gestos ->", "fr": "Téléchargement du modèle ->",
+    ],
+    "mp.sh.modelDone": [
+        "en": "Done,", "zh": "完成，", "ja": "完了、", "ko": "완료,",
+        "es": "Listo,", "fr": "Terminé,",
+    ],
+    "mp.sh.bytes": [
+        "en": "bytes", "zh": "字节", "ja": "バイト", "ko": "바이트",
+        "es": "bytes", "fr": "octets",
+    ],
+
+    // MARK: 固件刷写脚本进度（flash.sh，经环境变量传入）
+    "fw.sh.prepEsptool": [
+        "en": "First run: preparing the esptool flasher (~20MB, one time)…",
+        "zh": "首次使用：正在准备烧录工具 esptool（约 20MB，仅此一次）…",
+        "ja": "初回：書き込みツール esptool を準備中（約20MB、初回のみ）…",
+        "ko": "최초 실행: esptool 플래셔 준비 중(~20MB, 1회)…",
+        "es": "Primera vez: preparando esptool (~20MB, una sola vez)…",
+        "fr": "Première fois : préparation d'esptool (~20 Mo, une seule fois)…",
+    ],
+    "fw.sh.noPython": [
+        "en": "python3 not found; cannot install esptool.", "zh": "未找到 python3，无法安装 esptool。",
+        "ja": "python3 が見つからず esptool をインストールできません。", "ko": "python3을 찾을 수 없어 esptool을 설치할 수 없습니다.",
+        "es": "No se encontró python3; no se puede instalar esptool.", "fr": "python3 introuvable ; impossible d'installer esptool.",
+    ],
+    "fw.sh.venvFail": [
+        "en": "Failed to create venv.", "zh": "创建 venv 失败。",
+        "ja": "venv の作成に失敗しました。", "ko": "venv 생성 실패.",
+        "es": "Error al crear el venv.", "fr": "Échec de la création du venv.",
+    ],
+    "fw.sh.esptoolFail": [
+        "en": "Failed to install esptool (check network).", "zh": "安装 esptool 失败（检查网络）。",
+        "ja": "esptool のインストールに失敗（ネットワークを確認）。", "ko": "esptool 설치 실패(네트워크 확인).",
+        "es": "Error al instalar esptool (revisa la red).", "fr": "Échec de l'installation d'esptool (vérifiez le réseau).",
+    ],
+    "fw.sh.esptoolReady": [
+        "en": "esptool ready.", "zh": "esptool 就绪。", "ja": "esptool 準備完了。",
+        "ko": "esptool 준비됨.", "es": "esptool listo.", "fr": "esptool prêt.",
+    ],
+    "fw.sh.noPort": [
+        "en": "No serial port found. Make sure the ESP32-CAM is plugged in via a USB-to-serial adapter.",
+        "zh": "没找到串口。请确认 ESP32-CAM 已通过 USB-串口适配器插入电脑。",
+        "ja": "シリアルポートが見つかりません。ESP32-CAM が USB-シリアル変換アダプタで接続されているか確認してください。",
+        "ko": "시리얼 포트를 찾을 수 없습니다. ESP32-CAM이 USB-시리얼 어댑터로 연결됐는지 확인하세요.",
+        "es": "No se encontró puerto serie. Asegúrate de que el ESP32-CAM esté conectado por un adaptador USB-serie.",
+        "fr": "Aucun port série trouvé. Vérifiez que l'ESP32-CAM est branché via un adaptateur USB-série.",
+    ],
+    "fw.sh.port": [
+        "en": "Serial port:", "zh": "串口：", "ja": "シリアルポート：",
+        "ko": "시리얼 포트:", "es": "Puerto serie:", "fr": "Port série :",
+    ],
+    "fw.sh.flashing": [
+        "en": "Flashing firmware…", "zh": "开始刷写固件…", "ja": "ファームウェアを書き込み中…",
+        "ko": "펌웨어 플래시 중…", "es": "Flasheando firmware…", "fr": "Flash du firmware…",
+    ],
+    "fw.sh.success": [
+        "en": "✅ Flash succeeded. Back in Settings, set the video source to \"ESP32-CAM (serial)\".",
+        "zh": "✅ 刷写成功。回到设置，把视频输入源选成「ESP32-CAM（串口）」即可。",
+        "ja": "✅ 書き込み成功。設定で映像入力を「ESP32-CAM（シリアル）」に設定してください。",
+        "ko": "✅ 플래시 성공. 설정에서 비디오 입력을 \"ESP32-CAM(시리얼)\"로 선택하세요.",
+        "es": "✅ Flasheo correcto. En Ajustes, elige la fuente de vídeo «ESP32-CAM (serie)».",
+        "fr": "✅ Flash réussi. Dans Réglages, choisissez la source vidéo « ESP32-CAM (série) ».",
+    ],
+    "fw.sh.failed": [
+        "en": "Flash failed", "zh": "刷写失败", "ja": "書き込み失敗",
+        "ko": "플래시 실패", "es": "Flasheo fallido", "fr": "Échec du flash",
+    ],
+    "fw.sh.failHint": [
+        "en": "If a bare FTDI has no auto-reset: tie GPIO0 to GND → reset → click \"Flash again\".",
+        "zh": "裸 FTDI 接线若没自动复位：GPIO0 接 GND → 复位 → 点「重新刷写」。",
+        "ja": "素の FTDI で自動リセットしない場合：GPIO0 を GND に → リセット → 「再書き込み」をクリック。",
+        "ko": "베어 FTDI가 자동 리셋되지 않으면: GPIO0을 GND에 → 리셋 → \"다시 플래시\" 클릭.",
+        "es": "Si un FTDI sin reset automático: conecta GPIO0 a GND → reinicia → pulsa «Volver a flashear».",
+        "fr": "Si un FTDI nu sans reset auto : reliez GPIO0 à GND → reset → cliquez sur « Reflasher ».",
+    ],
 ]
