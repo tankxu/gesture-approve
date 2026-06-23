@@ -125,7 +125,10 @@ struct SettingsView: View {
                 HStack(spacing: 8) {
                     Text("\(L("settings.version")) \(Updater.current)")
                         .foregroundStyle(.secondary)
-                    Spacer()
+                    Button(checkingUpdate ? L("settings.checking") : L("settings.checkUpdate")) {
+                        checkUpdate()
+                    }
+                    .disabled(checkingUpdate || installing)
                     if let asset = updateAsset {
                         Button(installing ? L("settings.update.downloading") : L("settings.installUpdate")) {
                             startInstall(asset)
@@ -134,10 +137,7 @@ struct SettingsView: View {
                     } else if let page = updatePage {
                         Button(L("settings.download")) { NSWorkspace.shared.open(page) }
                     }
-                    Button(checkingUpdate ? L("settings.checking") : L("settings.checkUpdate")) {
-                        checkUpdate()
-                    }
-                    .disabled(checkingUpdate || installing)
+                    Spacer()
                 }
                 .font(.system(size: 11))
                 if !updateText.isEmpty {

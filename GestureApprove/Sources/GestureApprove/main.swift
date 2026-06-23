@@ -27,6 +27,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         set { UserDefaults.standard.set(newValue, forKey: "approvalEnabled") }
     }
     private var enabledItem: NSMenuItem?
+    private var updateItem: NSMenuItem?                                      // 「更新到 vX」菜单项（默认隐藏）
+    private var updateTimer: Timer?
+    private var pendingUpdate: (version: String, asset: URL, page: URL, notes: String)?
 
     /// 系统睡眠：靠 willSleep/didWake 维护（didWake 必达，可靠）。
     private var asleep = false
@@ -64,6 +67,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startServer()
         Gatekeeper.shared.startIfNeeded()   // 智能放行守门员 daemon（仅开关开+已装才起；会先清残留）
         observeSystemState()
+        // 后台检查更新：启动时 + 每 24h；有新版只在菜单栏菜单加一项，不弹窗不通知。
+        checkForUpdate()
+        updateTimer = Timer.scheduledTimer(withTimeInterval: 24 * 60 * 60, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.checkForUpdate() }
+        }
         GALog.log("启动：screenLocked=\(screenLocked) asleep=\(asleep)")
     }
 
@@ -201,6 +209,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: L("menu.running"), action: nil, keyEquivalent: "")
         menu.addItem(.separator())
 
+        // 「更新到 vX.Y.Z」——默认隐藏，后台检查发现新版后才显示（最安静：不弹窗、不通知，不点即跳过）。
+        let update = NSMenuItem(title: "", action: #selector(updateNow), keyEquivalent: "")
+        update.target = self
+        update.image = NSImage(systemSymbolName: "arrow.down.circle.fill", accessibilityDescription: nil)
+        update.isHidden = true
+        menu.addItem(update)
+        self.updateItem = update
+
         let enabled = NSMenuItem(title: L("menu.enable"), action: #selector(toggleEnabled), keyEquivalent: "")
         enabled.target = self
         enabled.state = approvalEnabled ? .on : .off
@@ -235,6 +251,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         item.menu = menu
         self.statusItem = item
+    }
+
+    // MARK: 后台检查更新（最安静：仅菜单项；用户不点即视为跳过该版本）
+
+    private func checkForUpdate() {
+        Updater.check { [weak self] outcome in
+            guard let self else { return }
+            guard case let .updateAvailable(version, asset, page, notes) = outcome, let asset else { return }
+            self.pendingUpdate = (version, asset, page, notes)
+            self.updateItem?.title = "🆕 \(L("menu.updateTo")) \(version)"
+            self.updateItem?.isHidden = false
+        }
+    }
+
+    /// 点菜单的「更新到 vX」：弹确认框显示该版本 changelog，确认后一键下载安装重启。
+    @objc private func updateNow() {
+        guard let u = pendingUpdate else { return }
+        let alert = NSAlert()
+        alert.messageText = "\(L("settings.updateAvailable")) \(u.version)"
+        alert.informativeText = u.notes.isEmpty ? "" : u.notes
+        alert.addButton(withTitle: L("settings.installUpdate"))   // 第一个按钮：更新
+        alert.addButton(withTitle: L("settings.cancel"))          // 第二个：取消
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        Updater.installUpdate(from: u.asset, status: { _ in }, failure: { _ in
+            NSWorkspace.shared.open(u.page)   // 自更新失败 → 回退打开下载页
+        })
     }
 
     @objc private func openLog() { logWC.show() }

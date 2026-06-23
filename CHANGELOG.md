@@ -2,6 +2,11 @@
 
 All notable changes to GestureApprove. Versions follow the GitHub releases.
 
+## v0.7.7
+
+- **Automatic update checks.** The app now checks for a new release on launch and every 24h in the background. When one is found, a quiet **"🆕 Update to vX.Y.Z"** item appears in the menu-bar menu (no pop-ups, no notifications) — click it to see the changelog and update in one click. Ignore it and it just stays there; not clicking is how you skip a version.
+- **"Check for updates" moved next to the version number** in Settings (instead of being pushed to the far right).
+
 ## v0.7.6
 
 - **Renamed to "Gesture Approve"** (with a space) — the display name in Finder/Dock/menu bar/windows. The bundle identifier, executable, and data folder are unchanged.

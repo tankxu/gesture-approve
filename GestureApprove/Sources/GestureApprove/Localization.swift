@@ -74,6 +74,10 @@ private let table: [String: [String: String]] = [
         "en": "Quit", "zh": "退出", "ja": "終了", "ko": "종료",
         "es": "Salir", "fr": "Quitter",
     ],
+    "menu.updateTo": [   // 后面接版本号，如「🆕 更新到 0.7.7」
+        "en": "Update to", "zh": "更新到", "ja": "更新：",
+        "ko": "업데이트:", "es": "Actualizar a", "fr": "Mettre à jour vers",
+    ],
 
     // MARK: 审批日志窗口
     "log.windowTitle": [
