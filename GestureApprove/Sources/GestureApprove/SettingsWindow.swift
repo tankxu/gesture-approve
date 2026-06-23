@@ -491,7 +491,7 @@ struct SettingsView: View {
     private func startInstall(_ asset: URL) {
         let alert = NSAlert()
         alert.messageText = "\(L("settings.updateAvailable")) \(updateVersion)"
-        alert.informativeText = updateNotes.isEmpty ? "" : updateNotes
+        alert.informativeText = updateNotes.isEmpty ? "" : Updater.plainNotes(updateNotes)
         alert.addButton(withTitle: L("settings.installUpdate"))   // 第一个按钮：更新
         alert.addButton(withTitle: L("settings.cancel"))          // 第二个按钮：取消
         guard alert.runModal() == .alertFirstButtonReturn else { return }

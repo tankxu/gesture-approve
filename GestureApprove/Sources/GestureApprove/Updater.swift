@@ -58,6 +58,16 @@ enum Updater {
         return false
     }
 
+    /// 把 release 正文的简易 markdown 转成弹窗可读纯文本（NSAlert 不渲染 markdown）：
+    /// 去掉 ** 粗体标记，行首 "- " 换成 "• "。
+    static func plainNotes(_ s: String) -> String {
+        s.split(separator: "\n", omittingEmptySubsequences: false).map { line -> String in
+            var l = String(line).replacingOccurrences(of: "**", with: "")
+            if l.hasPrefix("- ") { l = "• " + l.dropFirst(2) }
+            return l
+        }.joined(separator: "\n")
+    }
+
     // MARK: - 自更新：下载 zip → 解压 → 清隔离 → 替换当前 .app → 重启
 
     /// 为什么能免 Gatekeeper 拦：app 自己用 URLSession 下载的 zip 不带 `com.apple.quarantine`

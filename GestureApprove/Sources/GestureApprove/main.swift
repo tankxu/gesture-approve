@@ -270,7 +270,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let u = pendingUpdate else { return }
         let alert = NSAlert()
         alert.messageText = "\(L("settings.updateAvailable")) \(u.version)"
-        alert.informativeText = u.notes.isEmpty ? "" : u.notes
+        alert.informativeText = u.notes.isEmpty ? "" : Updater.plainNotes(u.notes)
         alert.addButton(withTitle: L("settings.installUpdate"))   // 第一个按钮：更新
         alert.addButton(withTitle: L("settings.cancel"))          // 第二个：取消
         guard alert.runModal() == .alertFirstButtonReturn else { return }

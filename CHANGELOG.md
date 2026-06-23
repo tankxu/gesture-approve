@@ -2,6 +2,10 @@
 
 All notable changes to GestureApprove. Versions follow the GitHub releases.
 
+## v0.7.8
+
+- **Update dialog renders the changelog as clean text.** The release notes shown in the update confirmation no longer display raw markdown (`**`, `-`); bold markers are stripped and list items become readable bullets.
+
 ## v0.7.7
 
 - **Automatic update checks.** The app now checks for a new release on launch and every 24h in the background. When one is found, a quiet **"🆕 Update to vX.Y.Z"** item appears in the menu-bar menu (no pop-ups, no notifications) — click it to see the changelog and update in one click. Ignore it and it just stays there; not clicking is how you skip a version.
