@@ -1,9 +1,9 @@
 {
-  "_comment": "把 hooks 块合并进 ~/.claude/settings.json。需要 GestureApprove.app 在运行。超时/关闭/app未开都会回退终端正常审批(不自动拒绝)。审批时按 ⌃⇧Y 通过 / ⌃⇧N 拒绝，或比手势。timeout 要 >= HTTP_TIMEOUT(100) >= app 卡片超时(90)。",
+  "_comment": "把 hooks 块合并进 ~/.claude/settings.json。需要 GestureApprove.app 在运行。超时/关闭/app未开都会回退终端正常审批(不自动拒绝)。审批时按 ⌃⇧Y 通过 / ⌃⇧N 拒绝，或比手势。timeout 要 >= HTTP_TIMEOUT(100) >= app 卡片超时(90)。matcher 含 Read(只对敏感凭证/密钥路径弹手势，普通读默认放行，见 gatekeeper-rules.json)和 mcp__.*(所有 MCP 工具默认弹手势)。WebFetch/WebSearch 故意不纳入(基本无需审批)。",
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash|Edit|Write|MultiEdit|NotebookEdit",
+        "matcher": "Bash|Edit|Write|MultiEdit|NotebookEdit|Read|mcp__.*",
         "hooks": [
           {
             "type": "command",

@@ -16,6 +16,14 @@ A native macOS menu-bar app. Recognition runs on-device. No cloud.
   <img src="demo.gif" alt="GestureApprove demo" width="640">
 </p>
 
+<p align="center">
+  <a href="https://github.com/tankxu/gesture-approve/releases/download/v0.7.9/GestureApprove-v0.7.9.zip"><img src="https://img.shields.io/badge/⬇%20Download-GestureApprove%20v0.7.9-2ea44f?style=for-the-badge" alt="Download GestureApprove"></a>
+</p>
+
+<p align="center">
+  macOS 14+ · Apple Silicon & Intel · ~1.8 MB · <a href="https://github.com/tankxu/gesture-approve/releases/latest">all releases</a>
+</p>
+
 **[Changelog](CHANGELOG.md)** · [中文说明见下方](#中文) ↓
 
 ---
@@ -103,6 +111,15 @@ The bundled Vision model derives from [HaGRID](https://github.com/hukenovs/hagri
 - 超时 / app 没开 / 出错 → **回退到终端正常审批**（不丢任何东西）
 
 原生 macOS 菜单栏 app，识别全程在本机，不上云。
+
+<p align="center">
+  <a href="https://github.com/tankxu/gesture-approve/releases/download/v0.7.9/GestureApprove-v0.7.9.zip"><img src="https://img.shields.io/badge/⬇%20下载-GestureApprove%20v0.7.9-2ea44f?style=for-the-badge" alt="下载 GestureApprove"></a>
+</p>
+
+<p align="center">
+  macOS 14+ · Apple 芯片 & Intel · ~1.8 MB · <a href="https://github.com/tankxu/gesture-approve/releases/latest">全部版本</a><br>
+  首次打开会有 Gatekeeper 提示（未公证）：右键 → 打开，或在「系统设置 → 隐私与安全性」点「仍要打开」。
+</p>
 
 ## 原理
 

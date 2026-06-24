@@ -2,6 +2,11 @@
 
 All notable changes to GestureApprove. Versions follow the GitHub releases.
 
+## v0.7.9
+
+- **Sensitive file reads now require a gesture.** Reading credential/secret paths (`.ssh/`, `.env`, private keys, `*.pem`, cloud-provider credentials, etc.) used to bypass gesture approval and land in the terminal prompt directly, because the hook only matched `Bash|Edit|Write|MultiEdit|NotebookEdit`. `Read` is now covered — sensitive paths pop a card, ordinary file reads still pass silently.
+- **MCP tools are covered too.** All `mcp__*` tools now route through the hook. Read-only tools (`get`/`list`/`search`/`read`/`query`/`whoami`…) auto-pass; write/action tools (`create`/`update`/`delete`/`upload`/`authenticate`…) require a gesture. `WebFetch`/`WebSearch` are intentionally left out (no approval needed).
+
 ## v0.7.8
 
 - **Update dialog renders the changelog as clean text.** The release notes shown in the update confirmation no longer display raw markdown (`**`, `-`); bold markers are stripped and list items become readable bullets.

@@ -92,6 +92,8 @@
     { "pattern": "\\bredis-cli\\b[^|]*\\b(flushall|flushdb)\\b",             "desc": "Redis 清库" },
     { "pattern": "\\bdropdb\\b",                                           "desc": "删除 PostgreSQL 库" },
 
+    { "pattern": "^Read: .*(/\\.ssh/|/\\.aws/|/\\.gnupg/|/\\.config/(gcloud|gh)/|/\\.kube/config|/\\.docker/config\\.json|/\\.netrc|/\\.npmrc|/\\.pypirc|/\\.git-credentials|/\\.env(\\.[\\w.-]+)?$|/id_(rsa|dsa|ecdsa|ed25519)\\b|\\.pem$|\\.p12$|\\.pfx$|\\.key$|/credentials$|/secrets?(\\.[\\w-]+)?$)", "desc": "读敏感凭证/密钥文件（.ssh、.env、私钥、云厂商凭证等）—— 优先级高于下面 Read 整体放行" },
+
     { "pattern": "\\bmv\\b",                                               "desc": "移动/覆盖文件" },
     { "pattern": "\\btee\\b[^|]*/(etc|usr|bin|sbin|System|Library)\\b",      "desc": "tee 写入系统目录" },
     { "pattern": "\\bcrontab\\s+-[re]\\b",                                  "desc": "crontab 清空/编辑（持久化）" },
@@ -101,7 +103,9 @@
 
   "autoAllowPatterns": [
     { "pattern": "^Bash: git (status|log|diff|branch|show|remote|stash list|describe|blame|shortlog)", "desc": "git 只读子命令" },
-    { "pattern": "^Bash: (ls|pwd|cat|head|tail|less|more|grep|rg|ag|find|fd|echo|which|whoami|id|date|env|printenv|wc|file|stat|tree|du|df|ps|top|uname|hostname|sw_vers|uptime|open|say)\\b", "desc": "常见只读/查看命令" }
+    { "pattern": "^Bash: (ls|pwd|cat|head|tail|less|more|grep|rg|ag|find|fd|echo|which|whoami|id|date|env|printenv|wc|file|stat|tree|du|df|ps|top|uname|hostname|sw_vers|uptime|open|say)\\b", "desc": "常见只读/查看命令" },
+    { "pattern": "^Read: ", "desc": "Read 工具读文件默认放行；敏感路径已被上面 dangerPatterns 拦下强制手势（deny-list 优先级更高）" },
+    { "pattern": "^mcp__.+__(get|list|search|read|fetch|query|view|describe|find|lookup|count|whoami|resolve|check|status)(_|$)", "desc": "只读类 MCP 工具放行（get/list/search/read/query… 等无副作用动词）；写操作(create/update/delete/add/send/upload/generate/authenticate…)不匹配，仍弹手势" }
   ],
 
   "compoundTokens": ["&&", "||", ";", "|", "`", "$(", ">", "<", "\n"]
