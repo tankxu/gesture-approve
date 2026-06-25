@@ -164,6 +164,14 @@ final class ApprovalController {
     /// 设置里切换识别引擎后调用。
     func applyEngine() { engine.applyEngineSetting() }
 
+    /// 系统睡眠唤醒/解锁后调用：复用的采集会话在系统挂起后可能静默失效，
+    /// 主动让相机源在下次审批重新配置、并复位 ESP32，避免唤醒后首次审批黑屏。
+    /// 与 ApprovalServer.restart()（复活网络监听）对称。
+    func handleSystemWake() {
+        cameraSource?.invalidate()
+        esp32Source?.prime()
+    }
+
     /// 选中 ESP32 / 点刷新时调用：确保 ESP32 源存在并复位一次（提前唤醒，避免首次没画面）。
     func primeESP32() {
         if esp32Source == nil { esp32Source = ESP32FrameSource(engine: engine) }

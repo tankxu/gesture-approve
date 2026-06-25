@@ -19,8 +19,16 @@ final class CameraFrameSource: NSObject, FrameSource, AVCaptureVideoDataOutputSa
     private let session = AVCaptureSession()
     private let output = AVCaptureVideoDataOutput()
     private let queue = DispatchQueue(label: "com.tankxu.gestureapprove.camera")
-    private var configured = false   // 会话只配置一次，之后 start/stop 仅切换运行，避免重复抢占设备
+    private var configured = false   // 输入/输出是否已挂好（重建时清掉再挂）
+    private var observersAdded = false
     private static let ciContext = CIContext(options: nil)
+
+    // 帧看门狗：USB 采集卡可能在 session.isRunning 仍为 true 时静默停吐帧（无运行时错误）。
+    // 审批期间(active)定期检查，若超过阈值没有新帧就整体重建会话自愈，避免“刘海黑屏”。
+    private var active = false
+    private var lastFrameAt = Date.distantPast
+    private let staleThreshold: TimeInterval = 1.5
+    private let watchdogInterval: TimeInterval = 0.8
 
     init(engine: GestureEngine, deviceUniqueID: String? = nil) {
         self.engine = engine
@@ -30,27 +38,83 @@ final class CameraFrameSource: NSObject, FrameSource, AVCaptureVideoDataOutputSa
     func start() {
         queue.async { [weak self] in
             guard let self else { return }
+            self.active = true
+            self.lastFrameAt = Date()   // 给首帧留出宽限，避免刚启动就误判为卡死
             self.configureIfNeeded()
             if self.configured && !self.session.isRunning { self.session.startRunning() }
+            self.scheduleWatchdog()
         }
     }
 
     func stop() {
         queue.async { [weak self] in
             guard let self else { return }
+            self.active = false
             if self.session.isRunning { self.session.stopRunning() }
         }
     }
 
+    /// 睡眠唤醒/解锁后调用：系统挂起会让复用的会话静默失效（isRunning 仍为 true 却不吐帧）。
+    /// 空闲时主动拆掉输入/输出，下次审批 start() 自然重新配置——省掉看门狗那 ~1.5s 首帧黑屏。
+    /// 与 ApprovalServer.restart()（唤醒后复活网络监听）对称。审批进行中则交给看门狗，不打断当前会话。
+    func invalidate() {
+        queue.async { [weak self] in
+            guard let self, !self.active else { return }
+            self.teardownIO()
+        }
+    }
+
+    /// 拆掉输入/输出并置 configured=false（仍在 queue 上调用）。
+    private func teardownIO() {
+        if session.isRunning { session.stopRunning() }
+        session.beginConfiguration()
+        for input in session.inputs { session.removeInput(input) }
+        for out in session.outputs { session.removeOutput(out) }
+        session.commitConfiguration()
+        configured = false
+    }
+
+    /// 看门狗：仅在审批期间循环自检；长时间无新帧则重建会话。
+    private func scheduleWatchdog() {
+        queue.asyncAfter(deadline: .now() + watchdogInterval) { [weak self] in
+            guard let self, self.active else { return }
+            if self.configured && Date().timeIntervalSince(self.lastFrameAt) > self.staleThreshold {
+                GALog.log("camera 看门狗：\(self.staleThreshold)s 无新帧，重建会话")
+                self.rebuild()
+            }
+            self.scheduleWatchdog()
+        }
+    }
+
+    /// 拆掉输入/输出并重新配置、重启——把静默卡死的会话恢复到能吐帧的状态。
+    private func rebuild() {
+        teardownIO()
+        lastFrameAt = Date()   // 重置宽限窗口
+        configureIfNeeded()
+        if configured && !session.isRunning { session.startRunning() }
+    }
+
     private func configureIfNeeded() {
         if configured { return }
-        NotificationCenter.default.addObserver(forName: .AVCaptureSessionRuntimeError,
-                                               object: session, queue: nil) { note in
-            GALog.log("camera 运行时错误: \(String(describing: note.userInfo?[AVCaptureSessionErrorKey]))")
-        }
-        NotificationCenter.default.addObserver(forName: .AVCaptureSessionWasInterrupted,
-                                               object: session, queue: nil) { note in
-            GALog.log("camera 被中断(可能被其它 app 占用): \(String(describing: note.userInfo))")
+        if !observersAdded {
+            observersAdded = true
+            NotificationCenter.default.addObserver(forName: .AVCaptureSessionRuntimeError,
+                                                   object: session, queue: nil) { [weak self] note in
+                GALog.log("camera 运行时错误: \(String(describing: note.userInfo?[AVCaptureSessionErrorKey]))")
+                self?.queue.async { if self?.active == true { self?.rebuild() } }
+            }
+            NotificationCenter.default.addObserver(forName: .AVCaptureSessionWasInterrupted,
+                                                   object: session, queue: nil) { note in
+                GALog.log("camera 被中断(可能被其它 app 占用): \(String(describing: note.userInfo))")
+            }
+            NotificationCenter.default.addObserver(forName: .AVCaptureSessionInterruptionEnded,
+                                                   object: session, queue: nil) { [weak self] _ in
+                GALog.log("camera 中断结束，尝试恢复")
+                self?.queue.async {
+                    guard let self, self.active else { return }
+                    if !self.session.isRunning { self.session.startRunning() }
+                }
+            }
         }
         session.beginConfiguration()
         session.sessionPreset = .high
@@ -79,6 +143,7 @@ final class CameraFrameSource: NSObject, FrameSource, AVCaptureVideoDataOutputSa
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
+        lastFrameAt = Date()   // 喂帧时间戳，供看门狗判断会话是否还活着
         guard let pb = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         var ci = CIImage(cvPixelBuffer: pb)
         // 下采样到高 ~240，减小传给 MediaPipe 的体积并加速

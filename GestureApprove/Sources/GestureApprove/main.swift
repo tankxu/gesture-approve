@@ -100,9 +100,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func onSystemEvent(_ note: Notification) {
         switch note.name.rawValue {
         case "com.apple.screenIsLocked":            break   // 锁屏状态由 screenLocked 实时查询反映，无需缓存
-        case "com.apple.screenIsUnlocked":          server?.restart()
+        case "com.apple.screenIsUnlocked":          server?.restart(); controller.handleSystemWake()
         case NSWorkspace.willSleepNotification.rawValue: asleep = true
-        case NSWorkspace.didWakeNotification.rawValue:   asleep = false; server?.restart()
+        case NSWorkspace.didWakeNotification.rawValue:   asleep = false; server?.restart(); controller.handleSystemWake()
         default: return
         }
         // restart() 只是复活监听（与手势开关无关，hook 始终需要能连上拿到 ask）；
