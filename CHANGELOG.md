@@ -2,6 +2,11 @@
 
 All notable changes to GestureApprove. Versions follow the GitHub releases.
 
+## v0.7.10
+
+- **Fixed the intermittent "blank notch" bug.** Once in a while the approval card showed a black card with no camera image (and gestures stopped working) until the app was restarted. USB capture cards (e.g. AVerMedia PW310) can silently stop delivering frames while the capture session still reports itself as running — no error is raised, so nothing recovered it. The camera source now runs a frame watchdog during approval: if no new frame arrives it rebuilds the capture session automatically, and runtime errors / interruption-ended events trigger recovery too.
+- **After sleep/wake it uses the camera you actually selected.** The same silent failure also happens after the Mac sleeps or the screen locks. On top of that, a USB capture card that hadn't finished re-enumerating yet was treated as "gone", so the app silently fell back to the built-in camera and showed the wrong camera (or a black frame). The app now sticks to your selected device and waits for it to re-enumerate instead of falling back; the watchdog retries while the device is still coming up and gives the first frame enough grace time so it no longer rebuilds in a loop. (A USB capture card still takes ~2s from start to first frame after waking — that's the device's own warm-up.)
+
 ## v0.7.9
 
 - **Sensitive file reads now require a gesture.** Reading credential/secret paths (`.ssh/`, `.env`, private keys, `*.pem`, cloud-provider credentials, etc.) used to bypass gesture approval and land in the terminal prompt directly, because the hook only matched `Bash|Edit|Write|MultiEdit|NotebookEdit`. `Read` is now covered — sensitive paths pop a card, ordinary file reads still pass silently.

@@ -42,6 +42,17 @@ enum VideoInputs {
         return preferredDefaultID()
     }
 
+    /// 实际要打开的设备 id：**坚持用户保存的选择**，即使此刻 `available()` 里看不到它
+    /// （USB 采集卡刚从睡眠唤醒、还没重新枚举完是常态）。与 `currentID()` 的区别是**不回退**——
+    /// 回退会在唤醒瞬间把选定的 AVerMedia 误判成"不存在"而换成内置摄像头。没保存过才用首选默认。
+    /// 设备真的被永久移除时，配合下游"严格用选定设备、找不到就等"，宁可暂时黑屏也不偷偷用错摄像头。
+    static func savedOrDefaultID() -> String {
+        if let saved = UserDefaults.standard.string(forKey: defaultsKey), !saved.isEmpty {
+            return saved
+        }
+        return preferredDefaultID()
+    }
+
     static func setCurrentID(_ id: String) {
         UserDefaults.standard.set(id, forKey: defaultsKey)
     }

@@ -150,7 +150,7 @@ final class ApprovalController {
         engine.onStable = { [weak self] gesture in
             self?.finish(with: gesture)
         }
-        let inputID = VideoInputs.currentID()
+        let inputID = VideoInputs.savedOrDefaultID()   // 与预热一致：坚持选定设备，避免两者用不同 id 互相重建
         GALog.log("requestApproval inputID=\(inputID) op=\(operation)")
         let source = makeSource(for: inputID)
         currentSource = source
@@ -163,6 +163,24 @@ final class ApprovalController {
 
     /// 设置里切换识别引擎后调用。
     func applyEngine() { engine.applyEngineSetting() }
+
+    /// 系统睡眠唤醒/解锁后调用：复用的采集会话在系统挂起后可能静默失效，主动拆掉标记失效，
+    /// 下次审批 start() 重新配置。**不主动开摄像头**（不亮灯）——唤醒后首次审批仍要等 USB
+    /// 设备启动那 ~2s，由审批期看门狗兜底。与 ApprovalServer.restart()（复活网络监听）对称。
+    /// 只针对当前选中的视频源：选 ESP32 就只复位 ESP32，选摄像头就对齐到选定设备后懒重建。
+    func handleSystemWake() {
+        let inputID = VideoInputs.savedOrDefaultID()   // 坚持用户选定设备，别因唤醒时还没枚举就回退
+        if inputID == VideoInputs.esp32ID {
+            primeESP32()   // 选的是 ESP32：复位串口源，别碰摄像头
+            return
+        }
+        // 选的是摄像头：对齐到选定设备（用户可能换过摄像头、或从没审批过 cameraSource 还是旧的/nil），再懒重建
+        if cameraSource == nil || cameraSource!.deviceUniqueID != inputID {
+            cameraSource?.stop()
+            cameraSource = CameraFrameSource(engine: engine, deviceUniqueID: inputID)
+        }
+        cameraSource?.invalidate()
+    }
 
     /// 选中 ESP32 / 点刷新时调用：确保 ESP32 源存在并复位一次（提前唤醒，避免首次没画面）。
     func primeESP32() {

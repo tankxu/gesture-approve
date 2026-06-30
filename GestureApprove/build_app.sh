@@ -44,8 +44,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleExecutable</key><string>GestureApprove</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>0.7.9</string>
-    <key>CFBundleVersion</key><string>23</string>
+    <key>CFBundleShortVersionString</key><string>0.7.10</string>
+    <key>CFBundleVersion</key><string>24</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSUIElement</key><true/>
     <key>CFBundleDevelopmentRegion</key><string>en</string>
@@ -79,6 +79,9 @@ make_lproj es      "Gesture Approve"  "Se usa para reconocer tus gestos de aprob
 make_lproj fr      "Gesture Approve"  "Utilisé pour reconnaître vos gestes d'approbation (👍 approuver / 🖐 refuser)."
 
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"   # 默认 ad-hoc；可用环境变量指定证书
+# iCloud 同步目录会给文件打 com.apple.FinderInfo 等 xattr，codesign 会因此报
+# "resource fork / Finder information not allowed" 校验失败——签名前先清干净。
+xattr -cr "$APP"
 echo "==> 签名 ($SIGN_IDENTITY)"
 codesign --force --deep --sign "$SIGN_IDENTITY" "$APP"
 

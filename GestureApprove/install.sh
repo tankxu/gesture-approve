@@ -18,6 +18,8 @@ pkill -f "GestureApprove.app/Contents/MacOS/GestureApprove" 2>/dev/null || true
 sleep 1
 rm -rf "$DEST"
 cp -R build/GestureApprove.app "$DEST"
+# 从 iCloud 同步目录 cp 过来可能带 com.apple.FinderInfo，会让 codesign 校验失败——清掉。
+xattr -cr "$DEST"
 
 echo "==> 校验签名"
 codesign --verify --deep --strict --verbose=1 "$DEST" && echo "签名有效 ✅"
