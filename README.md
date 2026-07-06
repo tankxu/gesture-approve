@@ -63,9 +63,9 @@ cd GestureApprove
 ./install.sh          # build + sign + install to /Applications + launch
 ```
 
-Then from the menu-bar 👍 icon → **Settings** to pick a camera, choose an engine, and connect Claude Code / Codex CLI. Turn on **Enable approval gating** when you want gestures to actually gate tools.
+Then from the menu-bar 👍 icon → **Settings** to pick a camera, choose an engine, and connect Claude Code / Codex. Turn on **Enable approval gating** when you want gestures to actually gate tools.
 
-> **Codex is CLI-only.** Codex hooks run in the **terminal `codex` CLI**, not the desktop/IDE app (which uses its own approval UI and doesn't read `config.toml` hooks). After enabling "Connect Codex CLI", run `/hooks` inside Codex and **trust** the gesture-approve hook — untrusted command hooks are skipped. Claude Code works on every surface because its hooks are part of the core runtime.
+> **Codex needs a one-time trust step.** After enabling "Connect Codex", run `/hooks` inside Codex and **trust** the gesture-approve hook — untrusted command hooks are skipped. Also note Codex only fires a permission request when a command escalates beyond its sandbox (network access, writes outside the workspace, …); routine sandboxed commands run without asking, so gesture cards appear less often than with Claude Code. To gate every command, set `approval_policy = "untrusted"` in `~/.codex/config.toml`.
 
 > ⚠️ **Gemini CLI & Kimi CLI support is experimental and untested.** The wiring is in place (Gemini `BeforeTool` in `~/.gemini/settings.json`, Kimi `PreToolUse` in `~/.kimi/config.toml`; enable them in Settings), derived from each tool's docs/source but **not yet verified end-to-end** — feedback welcome. Both are terminal-CLI only; Kimi may require `/hooks` trust like Codex.
 
@@ -156,9 +156,9 @@ cd GestureApprove
 ./install.sh          # 构建 + 签名 + 装到 /Applications + 启动
 ```
 
-然后从菜单栏 👍 图标 →「设置」选摄像头、选引擎、接入 Claude Code / Codex CLI。想让手势真正拦工具时，勾上「**启用审批拦截**」。
+然后从菜单栏 👍 图标 →「设置」选摄像头、选引擎、接入 Claude Code / Codex。想让手势真正拦工具时，勾上「**启用审批拦截**」。
 
-> **Codex 仅限 CLI。** Codex 的 hook 只在**终端 `codex` CLI** 生效，桌面/IDE 版不支持（它用自带审批 UI，不读 `config.toml` 的 hook）。勾上「接入 Codex CLI」后，需在 Codex 里执行 `/hooks` 并**信任** gesture-approve 这条 hook——未信任的命令 hook 会被跳过。Claude Code 各端都生效，因为它的 hook 是核心运行时的一部分。
+> **Codex 需要一次性信任步骤。** 勾上「接入 Codex」后，在 Codex 里执行 `/hooks` 并**信任** gesture-approve 这条 hook——未信任的命令 hook 会被跳过。另外注意：Codex 只在命令越出沙箱时（访问网络、写 workspace 之外等）才发权限请求，沙箱内的常规命令直接执行不询问，所以手势卡会比 Claude Code 弹得少；想让每条命令都过手势，可在 `~/.codex/config.toml` 里把 `approval_policy` 设为 `"untrusted"`。
 
 > ⚠️ **Gemini CLI 与 Kimi CLI 的支持为实验性、未经测试。** 接入已接好（Gemini 的 `BeforeTool` 写入 `~/.gemini/settings.json`，Kimi 的 `PreToolUse` 写入 `~/.kimi/config.toml`，在设置里开启），依据各自文档/源码实现，但**尚未端到端验证过**——欢迎反馈。两者均仅限终端 CLI；Kimi 可能和 Codex 一样需要 `/hooks` 信任。
 

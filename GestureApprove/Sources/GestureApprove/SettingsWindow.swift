@@ -182,7 +182,7 @@ struct SettingsView: View {
                         }))
                         .fixedSize()
                     HStack(spacing: 3) {
-                        Toggle("Codex CLI", isOn: Binding(
+                        Toggle("Codex", isOn: Binding(
                             get: { codexInstalled },
                             set: { on in
                                 do {
