@@ -556,7 +556,7 @@ if CommandLine.arguments.contains("--cam-info") {
         print("  - \(d.localizedName) | pos=\(d.position.rawValue) | type=\(d.deviceType.rawValue) | id=\(d.uniqueID)")
     }
     print("系统默认: \(AVCaptureDevice.default(for: .video)?.localizedName ?? "无")")
-    print("当前选择 id: \(VideoInputs.currentID())")
+    print("当前选择 id: \(VideoInputs.savedOrDefaultID())")
     exit(0)
 }
 

@@ -67,6 +67,15 @@ final class ApprovalController {
     private var timeoutWork: DispatchWorkItem?
     private var alwaysAllowTapped = false   // 本次审批是否点了「总是允许」（区分普通 👍 与写白名单）
 
+    // 延迟弹卡：摄像头 startRunning 到首帧有 ~1-2s 物理延迟（不常开、不无故亮灯的代价，
+    // 见 docs/camera-resilience.md §2）。立刻弹卡会先黑 2s 很难看——改成**首帧到达才弹**，
+    // 弹出即有画面；封顶 cardShowCap 兜底（设备缺席等极端情况也要让用户看到卡片和倒计时）。
+    private var showWork: DispatchWorkItem?
+    private var firstFrameSub: AnyCancellable?
+    private var cardShown = false
+    private var requestedAt = Date()
+    private let cardShowCap: TimeInterval = 2.0
+
     init() {
         buildPanel()
     }
@@ -135,8 +144,44 @@ final class ApprovalController {
         vm.locked = nil
         vm.timeout = timeout
         vm.sessionID += 1
-        vm.visible = true
 
+        engine.reset()   // 清掉上一次的画面/状态（previewImage 置 nil，首帧监听才可靠）
+        engine.onStable = { [weak self] gesture in
+            self?.finish(with: gesture)
+        }
+        let inputID = VideoInputs.savedOrDefaultID()   // 与预热一致：坚持选定设备，避免两者用不同 id 互相重建
+        GALog.log("requestApproval inputID=\(inputID) op=\(operation)")
+        let source = makeSource(for: inputID)
+        currentSource = source
+        source.start()   // 先开摄像头暖机，卡片等首帧
+
+        // 首帧到达或封顶超时，先到者弹卡（弹出即有画面，不给用户看 2s 黑屏）
+        cardShown = false
+        requestedAt = Date()
+        firstFrameSub = engine.$previewImage
+            .compactMap { $0 }
+            .first()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.showCard(reason: "首帧") }
+        let show = DispatchWorkItem { [weak self] in self?.showCard(reason: "封顶") }
+        showWork = show
+        DispatchQueue.main.asyncAfter(deadline: .now() + cardShowCap, execute: show)
+
+        let work = DispatchWorkItem { [weak self] in self?.finish(with: .none) }
+        timeoutWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + timeout, execute: work)
+    }
+
+    /// 展开卡片（音效、面板、动画）。首帧回调与封顶定时都会到这里，只执行一次。
+    private func showCard(reason: String) {
+        guard inFlight, !cardShown else { return }
+        cardShown = true
+        showWork?.cancel()
+        showWork = nil
+        firstFrameSub = nil
+        GALog.log(String(format: "card 弹出(%@ +%.2fs)", reason, Date().timeIntervalSince(requestedAt)))
+
+        vm.visible = true
         NSSound(named: "Submarine")?.play()   // 音效提醒：需要审批
 
         positionPanel()
@@ -145,20 +190,6 @@ final class ApprovalController {
             ctx.duration = 0.25
             panel?.animator().alphaValue = 1
         }
-
-        engine.reset()
-        engine.onStable = { [weak self] gesture in
-            self?.finish(with: gesture)
-        }
-        let inputID = VideoInputs.savedOrDefaultID()   // 与预热一致：坚持选定设备，避免两者用不同 id 互相重建
-        GALog.log("requestApproval inputID=\(inputID) op=\(operation)")
-        let source = makeSource(for: inputID)
-        currentSource = source
-        source.start()
-
-        let work = DispatchWorkItem { [weak self] in self?.finish(with: .none) }
-        timeoutWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + timeout, execute: work)
     }
 
     /// 设置里切换识别引擎后调用。
@@ -201,9 +232,10 @@ final class ApprovalController {
         return cameraSource!
     }
 
-    /// 由全局热键/点击调用：仅在有审批进行中时生效，立即用通过/拒绝结束。
+    /// 由全局热键/点击调用：仅在卡片已弹出时生效，立即用通过/拒绝结束。
+    /// 等首帧那 ~1.4s 里（卡片还没出现）不响应——看不见卡片就能批掉，太怪也容易误按。
     func resolveByHotkey(approve: Bool) {
-        guard inFlight else { return }
+        guard inFlight, cardShown else { return }
         finish(with: approve ? .thumbUp : .openPalm)
     }
 
@@ -220,6 +252,9 @@ final class ApprovalController {
         guard inFlight else { return }
         timeoutWork?.cancel()
         timeoutWork = nil
+        showWork?.cancel()      // 卡片可能还在等首帧没弹出（快捷键提前解决/超时）
+        showWork = nil
+        firstFrameSub = nil
         engine.onStable = nil
         currentSource?.stop()
         currentSource = nil
@@ -237,6 +272,17 @@ final class ApprovalController {
         case .thumbUp:  NSSound(named: "Glass")?.play()
         case .openPalm: NSSound(named: "Basso")?.play()
         case .none:     break
+        }
+
+        // 卡片还没弹出就已结束（正常到不了：快捷键要求 cardShown、手势要多帧稳定;
+        // 只剩调用方传了 < cardShowCap 的极短超时这种边角）：不闪卡，直接回结果。
+        if !cardShown {
+            let done = completion
+            completion = nil
+            inFlight = false
+            vm.locked = nil
+            done?(outcome)
+            return
         }
 
         // 锁定后停留片刻展示结果勾选，再收起。

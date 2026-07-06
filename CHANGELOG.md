@@ -2,6 +2,14 @@
 
 All notable changes to GestureApprove. Versions follow the GitHub releases.
 
+## v0.7.11
+
+- **Unplugging your selected camera no longer blackholes approvals.** If the saved camera (e.g. a USB capture card) is permanently removed, the approval card used to stay black forever — the strict "never fall back" rule couldn't tell "still re-enumerating after wake" from "gone for good". Now: within a 4s grace period the app still waits strictly for your device (wake behavior unchanged); past it, the card temporarily falls back to the default camera so approvals keep working. Your saved choice is never overwritten — plug the device back in and it switches back automatically.
+- **Settings no longer lies about the selected camera.** When the saved camera is disconnected, Settings used to silently display the built-in camera (with a live preview!) while approvals still targeted the dead device. It now shows a "⚠️ Selected camera disconnected" placeholder plus an explanation of the temporary fallback.
+- **The card now pops with a live picture.** Cameras need ~1.4s from start to first frame (kept off between approvals so the camera light never idles on). The card used to appear instantly and sit black for that warm-up; it now waits for the first frame (2s cap) and appears with the picture already live. The ⌃⇧Y / ⌃⇧N hotkeys activate once the card is visible.
+- **Much taller field of view on the built-in camera.** The FaceTime HD default 16:9 is a crop of a near-square sensor. The app now picks the squarest capture format (1552×1552 on FaceTime HD — +44% vertical FOV), so a hand resting near the keyboard makes it into frame. Settings preview uses the same framing; 16:9-only devices (OBS/Camo/capture cards) are unaffected. Note for macOS: `activeFormat` must be set *after* `startRunning()`, or the session preset snaps it back to 16:9.
+- Camera "waiting for device" log lines are now recorded once per absence instead of every 0.8s.
+
 ## v0.7.10
 
 - **Fixed the intermittent "blank notch" bug.** Once in a while the approval card showed a black card with no camera image (and gestures stopped working) until the app was restarted. USB capture cards (e.g. AVerMedia PW310) can silently stop delivering frames while the capture session still reports itself as running — no error is raised, so nothing recovered it. The camera source now runs a frame watchdog during approval: if no new frame arrives it rebuilds the capture session automatically, and runtime errors / interruption-ended events trigger recovery too.

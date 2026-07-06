@@ -30,16 +30,64 @@ final class CameraFrameSource: NSObject, FrameSource, AVCaptureVideoDataOutputSa
     private let staleThreshold: TimeInterval = 1.5
     private let watchdogInterval: TimeInterval = 0.8
 
-    // 唤醒预热：解锁/唤醒后主动把摄像头拉起来吐一帧再关掉，把 USB 重新枚举的耗时提前消化，
-    // 让“唤醒后第一次审批”立刻有画面，而不是等到 start() 才发现设备没好。
     // 首帧宽限：USB 采集卡 startRunning 到吐出第一帧可达 ~2s，远超 staleThreshold。
     // 还没出过首帧时用更长的 firstFrameGrace，避免看门狗在首帧到达前就误判卡死、陷入重建循环。
     private var deliveredFrame = false
     private let firstFrameGrace: TimeInterval = 3.0
 
+    // 选定设备缺席：区分"唤醒后还没枚举完"（短暂，要严格等它，别误切内置）和"被永久拔掉"
+    // （无限等 = 审批永远黑屏）。缺席不到 fallbackGrace 只等；超过则判为已移除，**临时**回退
+    // 到默认设备（内置优先）保证审批有画面。不改写用户保存的选择；看门狗持续探测选定设备，
+    // 插回即自动切回。missingSince 跨审批保留——设备一直缺席时第二次审批不必重新等满宽限。
+    private var missingSince: Date?
+    private var usingFallback = false
+    private var loggedFallback = false   // 回退只记一条日志，避免看门狗每拍刷屏
+    private let fallbackGrace: TimeInterval = 4.0   // 必须 > USB 唤醒重枚举 ~2s
+
     init(engine: GestureEngine, deviceUniqueID: String? = nil) {
         self.engine = engine
         self.deviceUniqueID = deviceUniqueID
+    }
+
+    // MARK: 垂直视野最大化
+
+    /// 挑"尽量方"的格式：内置 FaceTime 的默认 16:9 (1920x1080) 是从近方形传感器**裁切**的横条，
+    /// 上下——尤其手所在的下方——被切掉。选 min(宽,高) 最大的横向/方形格式（FaceTime HD 实测有
+    /// 1552x1552，垂直视野 +44%），手放在键盘附近也能入框。竖版格式(高>宽)牺牲太多水平视野，排除。
+    /// 分辨率本身无所谓：识别前会缩到 ~240 高。只有 16:9 的设备（OBS/Camo/采集卡）返回 nil，不折腾。
+    static func tallFormat(for device: AVCaptureDevice) -> AVCaptureDevice.Format? {
+        var best: AVCaptureDevice.Format?
+        var bestMin: Int32 = 0
+        for f in device.formats {
+            let d = CMVideoFormatDescriptionGetDimensions(f.formatDescription)
+            guard d.width >= d.height,
+                  Double(d.height) / Double(d.width) > 0.6,   // 比 16:9(0.5625) 更方才有收益
+                  f.videoSupportedFrameRateRanges.contains(where: { $0.maxFrameRate >= 15 })
+            else { continue }
+            if min(d.width, d.height) > bestMin {
+                bestMin = min(d.width, d.height)
+                best = f
+            }
+        }
+        return best
+    }
+
+    /// 应用高格式（审批采集与设置预览共用，保证两边看到同样的取景范围）。
+    /// **必须在 session.startRunning() 之后调用**：macOS 没有 iOS 的 inputPriority preset，
+    /// 实测无论 .high 还是 .photo，commit/startRunning 都会把事务内设置的 activeFormat
+    /// 打回 16:9（首帧 1920x1080）；只有运行后再设才真正生效。
+    /// 若日志中"camera 首帧"仍是 16:9 尺寸说明又被打回（回归标志）。
+    static func applyTallFormat(to device: AVCaptureDevice, session: AVCaptureSession) {
+        guard let fmt = tallFormat(for: device), device.activeFormat != fmt else { return }
+        do {
+            try device.lockForConfiguration()
+        } catch {
+            return
+        }
+        device.activeFormat = fmt
+        device.unlockForConfiguration()
+        let d = CMVideoFormatDescriptionGetDimensions(fmt.formatDescription)
+        GALog.log("camera 格式 \(d.width)x\(d.height)（扩大垂直视野）")
     }
 
     func start() {
@@ -48,8 +96,12 @@ final class CameraFrameSource: NSObject, FrameSource, AVCaptureVideoDataOutputSa
             self.active = true
             self.deliveredFrame = false
             self.lastFrameAt = Date()   // 给首帧留出宽限，避免刚启动就误判为卡死
+            // 上次审批落在临时回退设备上、期间选定设备已插回：拆掉回退会话，直接用选定设备重配
+            if self.usingFallback, let id = self.deviceUniqueID, AVCaptureDevice(uniqueID: id) != nil {
+                self.teardownIO()
+            }
             self.configureIfNeeded()
-            if self.configured && !self.session.isRunning { self.session.startRunning() }
+            if self.configured { self.startSessionEnforcingTallFormat() }
             self.scheduleWatchdog()
         }
     }
@@ -69,6 +121,12 @@ final class CameraFrameSource: NSObject, FrameSource, AVCaptureVideoDataOutputSa
         queue.async { [weak self] in
             guard let self, !self.active else { return }
             self.teardownIO()
+            // 唤醒时选定设备不在系统里：现在就开始计缺席时长。真是"睡眠期间被拔走"的话，
+            // 首次审批就不必再从头黑等满宽限期；只是枚举慢的话，configure 找到它会清零。
+            if let id = self.deviceUniqueID, self.missingSince == nil, AVCaptureDevice(uniqueID: id) == nil {
+                self.missingSince = Date()
+                GALog.log("camera 唤醒时选定设备缺席 \(id)，开始计时")
+            }
         }
     }
 
@@ -84,12 +142,15 @@ final class CameraFrameSource: NSObject, FrameSource, AVCaptureVideoDataOutputSa
 
     /// 看门狗：仅在审批期间循环自检，把会话推到"能吐帧"的状态。
     /// - 设备还没枚举回来(!configured，USB 唤醒慢)：重试配置，直到选定设备出现。
+    /// - 正开着临时回退设备：探测选定设备是否已插回，回来就重建切回。
     /// - 已配置但无新帧：还没出过首帧给 firstFrameGrace(避免误判)，出过帧后断流用 staleThreshold 快速恢复。
     private func scheduleWatchdog() {
         queue.asyncAfter(deadline: .now() + watchdogInterval) { [weak self] in
             guard let self, self.active else { return }
             if !self.configured {
                 self.rebuild()   // 设备未就绪：重试配置等它枚举回来（configureIfNeeded 严格用选定设备）
+            } else if self.usingFallback, let id = self.deviceUniqueID, AVCaptureDevice(uniqueID: id) != nil {
+                self.rebuild()   // 选定设备已插回：重建切回（configureIfNeeded 会优先用它并记日志）
             } else {
                 let grace = self.deliveredFrame ? self.staleThreshold : self.firstFrameGrace
                 if Date().timeIntervalSince(self.lastFrameAt) > grace {
@@ -107,7 +168,15 @@ final class CameraFrameSource: NSObject, FrameSource, AVCaptureVideoDataOutputSa
         deliveredFrame = false
         lastFrameAt = Date()   // 重置宽限窗口
         configureIfNeeded()
-        if configured && !session.isRunning { session.startRunning() }
+        if configured { startSessionEnforcingTallFormat() }
+    }
+
+    /// 启动会话并在**运行后**应用高格式——时机见 applyTallFormat 注释（事务内设置会被 preset 打回）。
+    private func startSessionEnforcingTallFormat() {
+        if !session.isRunning { session.startRunning() }
+        if let dev = (session.inputs.first as? AVCaptureDeviceInput)?.device {
+            Self.applyTallFormat(to: dev, session: session)
+        }
     }
 
     private func configureIfNeeded() {
@@ -128,33 +197,53 @@ final class CameraFrameSource: NSObject, FrameSource, AVCaptureVideoDataOutputSa
                 GALog.log("camera 中断结束，尝试恢复")
                 self?.queue.async {
                     guard let self, self.active else { return }
-                    if !self.session.isRunning { self.session.startRunning() }
+                    self.startSessionEnforcingTallFormat()
                 }
             }
         }
         session.beginConfiguration()
         session.sessionPreset = .high
-        // 指定了设备就**严格用它**：找不到通常是 USB 采集卡刚唤醒还没枚举完——视为"未就绪"，
-        // 保持 configured=false 让预热/看门狗继续等它回来，**绝不 fallback 到内置摄像头**
-        // （否则会出现"选了 AVerMedia 却开了 FaceTime"、还识别不准）。没指定才用内置默认。
+        // 指定了设备就**严格用它**：找不到通常是 USB 采集卡刚唤醒还没枚举完——宽限期内视为
+        // "未就绪"，保持 configured=false 让看门狗继续等它回来，别急着 fallback（否则唤醒瞬间
+        // 就会"选了 AVerMedia 却开了 FaceTime"、还识别不准）。缺席超过 fallbackGrace 判为
+        // 已被拔掉：临时回退到默认设备保证审批不黑屏，选定设备插回后由看门狗切回。
         let device: AVCaptureDevice?
         if let id = deviceUniqueID {
-            device = AVCaptureDevice(uniqueID: id)
+            if let chosen = AVCaptureDevice(uniqueID: id) {
+                if missingSince != nil { GALog.log("camera 选定设备已回归 \(chosen.localizedName)") }
+                missingSince = nil
+                usingFallback = false
+                loggedFallback = false
+                device = chosen
+            } else {
+                let since: Date
+                if let s = missingSince {
+                    since = s
+                } else {
+                    since = Date()
+                    missingSince = since
+                    GALog.log("camera 选定设备未就绪(等待枚举) \(id)")
+                }
+                if Date().timeIntervalSince(since) > fallbackGrace {
+                    device = VideoInputs.preferredDefaultDevice()
+                    usingFallback = (device != nil)
+                    if !loggedFallback {
+                        loggedFallback = true
+                        GALog.log("camera 选定设备缺席超 \(Int(fallbackGrace))s，判为已拔出，临时回退 \(device?.localizedName ?? "(无可用设备)")")
+                    }
+                } else {
+                    device = nil   // 宽限期内：继续等枚举
+                }
+            }
         } else {
-            let discovery = AVCaptureDevice.DiscoverySession(
-                deviceTypes: [.builtInWideAngleCamera, .external, .continuityCamera],
-                mediaType: .video, position: .unspecified)
-            device = discovery.devices.first(where: { $0.deviceType == .builtInWideAngleCamera })
-                ?? discovery.devices.first
-                ?? AVCaptureDevice.default(for: .video)
+            device = VideoInputs.preferredDefaultDevice()
         }
         guard let device,
               let input = try? AVCaptureDeviceInput(device: device),
               session.canAddInput(input) else {
-            GALog.log("camera 选定设备未就绪(等待枚举) \(deviceUniqueID ?? "默认")")
-            session.commitConfiguration(); return
+            session.commitConfiguration(); return   // 未就绪：看门狗下一拍重试（缺席日志已在首次记过）
         }
-        GALog.log("camera 使用 \(device.localizedName)")
+        GALog.log("camera 使用 \(device.localizedName)\(usingFallback ? "（临时回退）" : "")")
         session.addInput(input)
         output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
         output.alwaysDiscardsLateVideoFrames = true
@@ -167,8 +256,11 @@ final class CameraFrameSource: NSObject, FrameSource, AVCaptureVideoDataOutputSa
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
         lastFrameAt = Date()   // 喂帧时间戳，供看门狗判断会话是否还活着
-        deliveredFrame = true  // 已出过首帧：之后断流才按 staleThreshold 快速判卡死（在 queue 上，无需加锁）
         guard let pb = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        if !deliveredFrame {   // 首帧记尺寸：核对高格式是否真生效（16:9 尺寸=被 preset 覆盖，回归标志）
+            GALog.log("camera 首帧 \(CVPixelBufferGetWidth(pb))x\(CVPixelBufferGetHeight(pb))")
+        }
+        deliveredFrame = true  // 已出过首帧：之后断流才按 staleThreshold 快速判卡死（在 queue 上，无需加锁）
         var ci = CIImage(cvPixelBuffer: pb)
         // 下采样到高 ~240，减小传给 MediaPipe 的体积并加速
         let h = ci.extent.height

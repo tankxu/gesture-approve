@@ -21,31 +21,27 @@ enum VideoInputs {
         return list
     }
 
-    /// 首选默认：优先**内置**摄像头（避开 OBS/Camo 等没推流就黑屏的虚拟相机），
-    /// 其次第一个真实设备，最后 ESP32。
-    static func preferredDefaultID() -> String {
+    /// 首选默认设备：优先**内置**摄像头（避开 OBS/Camo 等没推流就黑屏的虚拟相机），
+    /// 其次第一个真实设备。审批的临时回退（选定设备被拔）也用它，保证两处口径一致。
+    static func preferredDefaultDevice() -> AVCaptureDevice? {
         let types: [AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera, .external, .continuityCamera]
         let ds = AVCaptureDevice.DiscoverySession(deviceTypes: types, mediaType: .video, position: .unspecified)
-        if let builtin = ds.devices.first(where: { $0.deviceType == .builtInWideAngleCamera }) {
-            return builtin.uniqueID
-        }
-        return ds.devices.first?.uniqueID ?? esp32ID
+        return ds.devices.first(where: { $0.deviceType == .builtInWideAngleCamera })
+            ?? ds.devices.first
+            ?? AVCaptureDevice.default(for: .video)
     }
 
-    /// 当前选择的输入 id；未设置或所选设备已不存在时回退到首选默认。
-    static func currentID() -> String {
-        if let saved = UserDefaults.standard.string(forKey: defaultsKey), !saved.isEmpty {
-            if saved == esp32ID || available().contains(where: { $0.id == saved }) {
-                return saved
-            }
-        }
-        return preferredDefaultID()
+    static func preferredDefaultID() -> String {
+        preferredDefaultDevice()?.uniqueID ?? esp32ID
     }
 
     /// 实际要打开的设备 id：**坚持用户保存的选择**，即使此刻 `available()` 里看不到它
-    /// （USB 采集卡刚从睡眠唤醒、还没重新枚举完是常态）。与 `currentID()` 的区别是**不回退**——
-    /// 回退会在唤醒瞬间把选定的 AVerMedia 误判成"不存在"而换成内置摄像头。没保存过才用首选默认。
-    /// 设备真的被永久移除时，配合下游"严格用选定设备、找不到就等"，宁可暂时黑屏也不偷偷用错摄像头。
+    /// （USB 采集卡刚从睡眠唤醒、还没重新枚举完是常态）——立即回退会在唤醒瞬间把选定的
+    /// AVerMedia 误判成"不存在"而换成内置摄像头。没保存过才用首选默认。
+    /// 设备被**永久拔掉**的情形不在这里处理：由 CameraFrameSource 在缺席超过宽限期后
+    /// 临时回退到默认设备（不改写这里保存的选择，插回自动切回）。
+    /// 注意别再引入"所选设备不在列表就回退"的读取函数——曾经的 currentID() 就是这么
+    /// 造成设置 UI 与审批表里不一的（UI 显示回退结果、持久值还是死设备）。
     static func savedOrDefaultID() -> String {
         if let saved = UserDefaults.standard.string(forKey: defaultsKey), !saved.isEmpty {
             return saved

@@ -16,8 +16,28 @@ final class SettingsState: ObservableObject {
 
 struct SettingsView: View {
     @ObservedObject var state: SettingsState
-    @State private var inputs: [VideoInput] = VideoInputs.available()
-    @State private var selectedID: String = VideoInputs.currentID()
+    // 显示**真实持久化的选择**（savedOrDefaultID，不回退）：所选设备被拔掉时插入"已断开"占位，
+    // 让 UI 与审批行为一致。以前用带回退的读取，UI 显示内置摄像头且预览有画面、
+    // 但持久值仍是已拔掉的设备 → 审批黑屏，用户完全无从排查（真实事故）。
+    @State private var inputs: [VideoInput] = SettingsView.initialInputs()
+    @State private var selectedID: String = VideoInputs.savedOrDefaultID()
+    @State private var missingID: String? = SettingsView.disconnectedID()
+
+    /// 保存的选择指向已不存在的相机时返回它（ESP32 无所谓在不在，排除）。
+    private static func disconnectedID() -> String? {
+        let saved = VideoInputs.savedOrDefaultID()
+        guard saved != VideoInputs.esp32ID,
+              !VideoInputs.available().contains(where: { $0.id == saved }) else { return nil }
+        return saved
+    }
+
+    private static func initialInputs() -> [VideoInput] {
+        var list = VideoInputs.available()
+        if let missing = disconnectedID() {
+            list.insert(VideoInput(id: missing, name: L("video.disconnected")), at: 0)
+        }
+        return list
+    }
     @State private var claudeInstalled = HookInstaller.isClaudeInstalled()
     @State private var codexInstalled = HookInstaller.isCodexInstalled()
     @State private var geminiInstalled = HookInstaller.isGeminiInstalled()
@@ -289,6 +309,10 @@ struct SettingsView: View {
                 .onChange(of: selectedID) { _, newValue in
                     VideoInputs.setCurrentID(newValue)
                     if newValue == VideoInputs.esp32ID { onPrimeESP32() }   // 选中 ESP32 即复位预热
+                    if let missing = missingID, newValue != missing {       // 改选了真实设备：撤掉"已断开"占位
+                        missingID = nil
+                        inputs.removeAll { $0.id == missing }
+                    }
                 }
                 Button(action: reload) { Image(systemName: "arrow.clockwise") }
                     .help(L("settings.refresh.help"))
@@ -314,6 +338,17 @@ struct SettingsView: View {
                         Image(systemName: "cable.connector.horizontal").font(.system(size: 28))
                         Text(L("settings.esp32.noPreview"))
                         Text(L("settings.esp32.noPreviewHint"))
+                            .font(.system(size: 11))
+                    }
+                    .foregroundStyle(.white.opacity(0.6))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 12)
+                } else if missingID != nil && selectedID == missingID {
+                    // 所选相机已被拔掉：说清运行时行为（临时回退），别黑屏装死
+                    VStack(spacing: 10) {
+                        Image(systemName: "video.slash").font(.system(size: 28))
+                        Text(L("video.disconnected"))
+                        Text(L("video.disconnected.hint"))
                             .font(.system(size: 11))
                     }
                     .foregroundStyle(.white.opacity(0.6))
@@ -517,10 +552,16 @@ struct SettingsView: View {
 
     private func reload() {
         inputs = VideoInputs.available()
-        if !inputs.contains(where: { $0.id == selectedID }) {
-            selectedID = inputs.first?.id ?? VideoInputs.esp32ID
-            VideoInputs.setCurrentID(selectedID)
+        let saved = VideoInputs.savedOrDefaultID()
+        if saved != VideoInputs.esp32ID, !inputs.contains(where: { $0.id == saved }) {
+            // 所选设备仍缺席：保留"已断开"占位而不是悄悄改写用户的选择——
+            // 审批时 CameraFrameSource 会临时回退，插回设备后一切自动恢复。
+            missingID = saved
+            inputs.insert(VideoInput(id: saved, name: L("video.disconnected")), at: 0)
+        } else {
+            missingID = nil
         }
+        selectedID = saved
         if selectedID == VideoInputs.esp32ID { onPrimeESP32() }   // 刷新时若用 ESP32，复位预热
     }
 }

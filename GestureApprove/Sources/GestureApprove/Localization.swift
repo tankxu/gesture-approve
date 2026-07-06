@@ -867,6 +867,19 @@ private let table: [String: [String: String]] = [
         "ja": "ESP32-CAM（シリアル）", "ko": "ESP32-CAM(시리얼)",
         "es": "ESP32-CAM (serie)", "fr": "ESP32-CAM (série)",
     ],
+    "video.disconnected": [
+        "en": "⚠️ Selected camera disconnected", "zh": "⚠️ 所选摄像头已断开",
+        "ja": "⚠️ 選択したカメラが切断されました", "ko": "⚠️ 선택한 카메라 연결 끊김",
+        "es": "⚠️ Cámara seleccionada desconectada", "fr": "⚠️ Caméra sélectionnée déconnectée",
+    ],
+    "video.disconnected.hint": [
+        "en": "The selected camera is unplugged. Approvals temporarily use the default camera and switch back automatically once it's reconnected. Pick another camera above to change it for good.",
+        "zh": "所选摄像头已拔出。审批将临时改用默认摄像头，插回后自动切回；也可在上方直接改选其它摄像头。",
+        "ja": "選択したカメラが取り外されています。承認時は一時的にデフォルトカメラを使用し、再接続すると自動的に戻ります。上で別のカメラを選ぶこともできます。",
+        "ko": "선택한 카메라가 분리되었습니다. 승인 시 임시로 기본 카메라를 사용하며, 다시 연결되면 자동으로 전환됩니다. 위에서 다른 카메라를 선택할 수도 있습니다.",
+        "es": "La cámara seleccionada está desconectada. Las aprobaciones usarán temporalmente la cámara predeterminada y volverán automáticamente al reconectarla. También puedes elegir otra cámara arriba.",
+        "fr": "La caméra sélectionnée est débranchée. Les approbations utiliseront temporairement la caméra par défaut et rebasculeront automatiquement une fois reconnectée. Vous pouvez aussi choisir une autre caméra ci-dessus.",
+    ],
     "script.preparing": [
         "en": "Preparing…", "zh": "准备中…", "ja": "準備中…",
         "ko": "준비 중…", "es": "Preparando…", "fr": "Préparation…",

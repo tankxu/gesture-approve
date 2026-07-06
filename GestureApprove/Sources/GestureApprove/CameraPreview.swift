@@ -59,6 +59,9 @@ final class PreviewNSView: NSView {
                 self.session.commitConfiguration()
                 self.setRotation(self.currentRotation)   // 换源后连接重建，重新应用旋转
                 if !self.session.isRunning { self.session.startRunning() }
+                // 与审批采集同一取景范围（尽量方的格式），预览所见即审批所得。
+                // 必须 startRunning 后设置，否则被 preset 打回 16:9（见 applyTallFormat）
+                CameraFrameSource.applyTallFormat(to: device, session: self.session)
             } else {
                 self.session.commitConfiguration()
                 if self.session.isRunning { self.session.stopRunning() }
