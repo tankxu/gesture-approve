@@ -14,99 +14,327 @@
     "pattern 为不区分大小写的正则，匹配 hook 传来的 \"<工具>: <详情>\" 串，例如 \"Bash: rm -rf /\"。",
     "JSON 里反斜杠要写两道：\\\\b 表示正则的 \\b 单词边界，\\\\s 表示空白。"
   ],
-
   "dangerPatterns": [
-    { "pattern": "\\brm\\b",                                                "desc": "删除文件 rm（含 rm file.txt，不只是 rm -rf）" },
-    { "pattern": "\\bunlink\\b",                                            "desc": "unlink 删除" },
-    { "pattern": "\\b(shred|srm)\\b",                                        "desc": "安全擦除删除" },
-    { "pattern": "\\btruncate\\b",                                          "desc": "truncate 截断文件" },
-    { "pattern": "\\bfind\\b[^|]*-delete\\b",                                "desc": "find … -delete 批量删" },
-    { "pattern": "\\bfind\\b[^|]*-exec\\s+rm",                               "desc": "find … -exec rm 批量删" },
-    { "pattern": "\\brsync\\b[^|]*--delete",                                 "desc": "rsync --delete 镜像式删除" },
-
-    { "pattern": "\\b(mkfs|newfs|newfs_\\w+)\\b",                            "desc": "创建文件系统 / 格式化" },
-    { "pattern": "\\b(fdisk|gpt)\\b",                                        "desc": "改分区表" },
-    { "pattern": "\\bdd\\s+(if|of)=",                                       "desc": "dd 读写裸数据" },
-    { "pattern": "\\bdiskutil\\s+(erase\\w*|partition\\w*|reformat|apfs|secureErase)", "desc": "diskutil 抹盘/分区/重格" },
-    { "pattern": "\\basr\\b",                                              "desc": "Apple Software Restore 镜像还原" },
-    { "pattern": "\\bnvram\\b",                                            "desc": "读写 NVRAM" },
-    { "pattern": "\\bhdiutil\\s+(erase|burn)",                              "desc": "磁盘镜像擦除/刻录" },
-    { "pattern": ">\\s*/dev/(disk|rdisk|sd)",                              "desc": "重定向写裸设备" },
-
-    { "pattern": "\\bchmod\\s+-R\\b",                                       "desc": "递归改权限" },
-    { "pattern": "\\bchmod\\b[^|]*\\b(777|666|000)\\b",                      "desc": "危险权限位 777/666/000" },
-    { "pattern": "\\bchown\\s+-R\\b",                                       "desc": "递归改属主" },
-    { "pattern": "\\bchflags\\b",                                          "desc": "改文件标志（schg/uchg 等）" },
-
-    { "pattern": "\\bsudo\\b",                                             "desc": "sudo 提权" },
-    { "pattern": "\\bsu\\b",                                               "desc": "su 切换用户" },
-    { "pattern": "\\bdoas\\b",                                             "desc": "doas 提权" },
-    { "pattern": "\\bcsrutil\\b[^|]*disable",                               "desc": "关闭 SIP 系统完整性保护" },
-    { "pattern": "\\bspctl\\b[^|]*--(master-)?disable",                     "desc": "关闭 Gatekeeper" },
-    { "pattern": "\\btccutil\\b",                                          "desc": "重置隐私授权库 TCC" },
-    { "pattern": "\\bvisudo\\b",                                           "desc": "编辑 sudoers" },
-    { "pattern": "\\bdscl\\b",                                             "desc": "目录服务（增删用户/组）" },
-    { "pattern": "\\bsecurity\\s+(delete|dump|set-|add-|import|export|unlock)", "desc": "Keychain 钥匙串操作" },
-    { "pattern": "\\bdefaults\\s+(delete|write)\\b",                        "desc": "改/删 系统偏好" },
-
-    { "pattern": "\\b(curl|wget|fetch)\\b[^|]*\\|\\s*(sudo\\s+)?(sh|bash|zsh|ksh|fish|python3?|ruby|perl|node|php)\\b", "desc": "下载即执行 curl … | sh" },
-    { "pattern": "\\beval\\b",                                             "desc": "eval 执行拼接字符串" },
-    { "pattern": "\\bosascript\\b",                                        "desc": "AppleScript（可操控全机）" },
-    { "pattern": "\\b(nc|ncat|netcat)\\b[^|]*-e\\b",                         "desc": "nc -e 反弹 shell" },
-    { "pattern": "\\bnpx\\b",                                              "desc": "npx 运行任意远端包" },
-    { "pattern": "<\\(\\s*(curl|wget)",                                     "desc": "进程替换执行远端脚本" },
-
-    { "pattern": "\\b(pip3?|pipx|npm|yarn|pnpm|bun|brew|gem|cargo|conda|poetry|composer)\\s+(install|add|i|ci)\\b", "desc": "装包（可触发任意安装脚本）" },
-    { "pattern": "\\bgo\\s+install\\b",                                     "desc": "go install" },
-    { "pattern": "\\b(apt|apt-get|yum|dnf|pacman|port|snap)\\b[^|]*(install|upgrade|remove|purge)", "desc": "系统包管理" },
-    { "pattern": "\\bsoftwareupdate\\b",                                   "desc": "系统软件更新" },
-    { "pattern": "\\bmake\\s+install\\b",                                   "desc": "make install" },
-
-    { "pattern": "\\b(kill|killall|pkill)\\b",                              "desc": "杀进程（含 kill -9 1）" },
-    { "pattern": "\\b(shutdown|reboot|halt|poweroff)\\b",                    "desc": "关机 / 重启" },
-    { "pattern": "\\blaunchctl\\s+(unload|remove|bootout|disable|stop|kickstart|load)\\b", "desc": "装卸/启停系统服务" },
-    { "pattern": "\\bpmset\\b",                                            "desc": "电源管理设置" },
-    { "pattern": "\\bsystemsetup\\b",                                      "desc": "系统级设置（需 root）" },
-
-    { "pattern": "\\bgit\\s+push\\b[^|]*(--force|-f)\\b",                    "desc": "git 强推（覆盖远端历史）" },
-    { "pattern": "\\bgit\\s+reset\\s+--hard\\b",                            "desc": "git reset --hard（丢弃改动）" },
-    { "pattern": "\\bgit\\s+clean\\b",                                     "desc": "git clean（删未跟踪文件）" },
-    { "pattern": "\\bgit\\s+(filter-branch|filter-repo)\\b",                 "desc": "重写整段提交历史" },
-    { "pattern": "\\bgit\\s+branch\\s+-D\\b",                               "desc": "强删分支" },
-    { "pattern": "\\bgit\\s+update-ref\\s+-d\\b",                           "desc": "删除引用" },
-    { "pattern": "\\bgit\\s+reflog\\s+(expire|delete)\\b",                   "desc": "清 reflog（失去找回点）" },
-    { "pattern": "\\bgit\\s+stash\\s+(clear|drop)\\b",                       "desc": "丢弃 stash" },
-
-    { "pattern": "\\bdocker\\s+(rm|rmi|kill)\\b|\\bdocker\\s+(system|image|container|volume)\\s+(prune|rm)\\b", "desc": "删容器/镜像/卷" },
-    { "pattern": "\\bdocker\\b[^|]*--privileged",                           "desc": "特权容器" },
-    { "pattern": "\\bdocker-compose\\s+down\\b[^|]*-v",                      "desc": "docker-compose 连卷销毁" },
-    { "pattern": "\\bkubectl\\s+delete\\b",                                 "desc": "删除 K8s 资源" },
-    { "pattern": "\\bhelm\\s+(delete|uninstall)\\b",                        "desc": "卸载 helm release" },
-    { "pattern": "\\bterraform\\s+(destroy|apply)\\b",                      "desc": "销毁/变更基础设施" },
-    { "pattern": "\\baws\\s+\\w+[^|]*\\b(rm|rb|delete|terminate)\\b",         "desc": "AWS 删除/销毁资源" },
-    { "pattern": "\\bgcloud\\b[^|]*\\bdelete\\b",                            "desc": "GCP 删除资源" },
-    { "pattern": "\\bgh\\s+repo\\s+delete\\b",                              "desc": "删除 GitHub 仓库" },
-
-    { "pattern": "\\bdrop\\s+(table|database|schema)\\b",                    "desc": "SQL DROP" },
-    { "pattern": "\\btruncate\\s+table\\b",                                 "desc": "SQL TRUNCATE TABLE" },
-    { "pattern": "\\bredis-cli\\b[^|]*\\b(flushall|flushdb)\\b",             "desc": "Redis 清库" },
-    { "pattern": "\\bdropdb\\b",                                           "desc": "删除 PostgreSQL 库" },
-
-    { "pattern": "^Read: .*(/\\.ssh/|/\\.aws/|/\\.gnupg/|/\\.config/(gcloud|gh)/|/\\.kube/config|/\\.docker/config\\.json|/\\.netrc|/\\.npmrc|/\\.pypirc|/\\.git-credentials|/\\.env(\\.[\\w.-]+)?$|/id_(rsa|dsa|ecdsa|ed25519)\\b|\\.pem$|\\.p12$|\\.pfx$|\\.key$|/credentials$|/secrets?(\\.[\\w-]+)?$)", "desc": "读敏感凭证/密钥文件（.ssh、.env、私钥、云厂商凭证等）—— 优先级高于下面 Read 整体放行" },
-
-    { "pattern": "\\bmv\\b",                                               "desc": "移动/覆盖文件" },
-    { "pattern": "\\btee\\b[^|]*/(etc|usr|bin|sbin|System|Library)\\b",      "desc": "tee 写入系统目录" },
-    { "pattern": "\\bcrontab\\s+-[re]\\b",                                  "desc": "crontab 清空/编辑（持久化）" },
-    { "pattern": "\\bhistory\\s+-c\\b",                                     "desc": "清空 shell 历史" },
-    { "pattern": ":\\s*\\(\\s*\\)\\s*\\{",                                    "desc": "fork bomb :(){ :|:& };:" }
+    {
+      "pattern": "\\brm\\b",
+      "desc": "删除文件 rm（含 rm file.txt，不只是 rm -rf）"
+    },
+    {
+      "pattern": "\\bunlink\\b",
+      "desc": "unlink 删除"
+    },
+    {
+      "pattern": "\\b(shred|srm)\\b",
+      "desc": "安全擦除删除"
+    },
+    {
+      "pattern": "\\btruncate\\b",
+      "desc": "truncate 截断文件"
+    },
+    {
+      "pattern": "\\bfind\\b[^|]*-delete\\b",
+      "desc": "find … -delete 批量删"
+    },
+    {
+      "pattern": "\\bfind\\b[^|]*-exec\\s+rm",
+      "desc": "find … -exec rm 批量删"
+    },
+    {
+      "pattern": "\\brsync\\b[^|]*--delete",
+      "desc": "rsync --delete 镜像式删除"
+    },
+    {
+      "pattern": "\\b(mkfs|newfs|newfs_\\w+)\\b",
+      "desc": "创建文件系统 / 格式化"
+    },
+    {
+      "pattern": "\\b(fdisk|gpt)\\b",
+      "desc": "改分区表"
+    },
+    {
+      "pattern": "\\bdd\\s+(if|of)=",
+      "desc": "dd 读写裸数据"
+    },
+    {
+      "pattern": "\\bdiskutil\\s+(erase\\w*|partition\\w*|reformat|apfs|secureErase)",
+      "desc": "diskutil 抹盘/分区/重格"
+    },
+    {
+      "pattern": "\\basr\\b",
+      "desc": "Apple Software Restore 镜像还原"
+    },
+    {
+      "pattern": "\\bnvram\\b",
+      "desc": "读写 NVRAM"
+    },
+    {
+      "pattern": "\\bhdiutil\\s+(erase|burn)",
+      "desc": "磁盘镜像擦除/刻录"
+    },
+    {
+      "pattern": ">\\s*/dev/(disk|rdisk|sd)",
+      "desc": "重定向写裸设备"
+    },
+    {
+      "pattern": "\\bchmod\\s+-R\\b",
+      "desc": "递归改权限"
+    },
+    {
+      "pattern": "\\bchmod\\b[^|]*\\b(777|666|000)\\b",
+      "desc": "危险权限位 777/666/000"
+    },
+    {
+      "pattern": "\\bchown\\s+-R\\b",
+      "desc": "递归改属主"
+    },
+    {
+      "pattern": "\\bchflags\\b",
+      "desc": "改文件标志（schg/uchg 等）"
+    },
+    {
+      "pattern": "\\bsudo\\b",
+      "desc": "sudo 提权"
+    },
+    {
+      "pattern": "\\bsu\\b",
+      "desc": "su 切换用户"
+    },
+    {
+      "pattern": "\\bdoas\\b",
+      "desc": "doas 提权"
+    },
+    {
+      "pattern": "\\bcsrutil\\b[^|]*disable",
+      "desc": "关闭 SIP 系统完整性保护"
+    },
+    {
+      "pattern": "\\bspctl\\b[^|]*--(master-)?disable",
+      "desc": "关闭 Gatekeeper"
+    },
+    {
+      "pattern": "\\btccutil\\b",
+      "desc": "重置隐私授权库 TCC"
+    },
+    {
+      "pattern": "\\bvisudo\\b",
+      "desc": "编辑 sudoers"
+    },
+    {
+      "pattern": "\\bdscl\\b",
+      "desc": "目录服务（增删用户/组）"
+    },
+    {
+      "pattern": "\\bsecurity\\s+(delete|dump|set-|add-|import|export|unlock)",
+      "desc": "Keychain 钥匙串操作"
+    },
+    {
+      "pattern": "\\bdefaults\\s+(delete|write)\\b",
+      "desc": "改/删 系统偏好"
+    },
+    {
+      "pattern": "\\b(curl|wget|fetch)\\b[^|]*\\|\\s*(sudo\\s+)?(sh|bash|zsh|ksh|fish|python3?|ruby|perl|node|php)\\b",
+      "desc": "下载即执行 curl … | sh"
+    },
+    {
+      "pattern": "\\beval\\b",
+      "desc": "eval 执行拼接字符串"
+    },
+    {
+      "pattern": "\\bosascript\\b",
+      "desc": "AppleScript（可操控全机）"
+    },
+    {
+      "pattern": "\\b(nc|ncat|netcat)\\b[^|]*-e\\b",
+      "desc": "nc -e 反弹 shell"
+    },
+    {
+      "pattern": "\\bnpx\\b",
+      "desc": "npx 运行任意远端包"
+    },
+    {
+      "pattern": "<\\(\\s*(curl|wget)",
+      "desc": "进程替换执行远端脚本"
+    },
+    {
+      "pattern": "\\b(pip3?|pipx|npm|yarn|pnpm|bun|brew|gem|cargo|conda|poetry|composer)\\s+(install|add|i|ci)\\b",
+      "desc": "装包（可触发任意安装脚本）"
+    },
+    {
+      "pattern": "\\bgo\\s+install\\b",
+      "desc": "go install"
+    },
+    {
+      "pattern": "\\b(apt|apt-get|yum|dnf|pacman|port|snap)\\b[^|]*(install|upgrade|remove|purge)",
+      "desc": "系统包管理"
+    },
+    {
+      "pattern": "\\bsoftwareupdate\\b",
+      "desc": "系统软件更新"
+    },
+    {
+      "pattern": "\\bmake\\s+install\\b",
+      "desc": "make install"
+    },
+    {
+      "pattern": "\\b(kill|killall|pkill)\\b",
+      "desc": "杀进程（含 kill -9 1）"
+    },
+    {
+      "pattern": "\\b(shutdown|reboot|halt|poweroff)\\b",
+      "desc": "关机 / 重启"
+    },
+    {
+      "pattern": "\\blaunchctl\\s+(unload|remove|bootout|disable|stop|kickstart|load)\\b",
+      "desc": "装卸/启停系统服务"
+    },
+    {
+      "pattern": "\\bpmset\\b",
+      "desc": "电源管理设置"
+    },
+    {
+      "pattern": "\\bsystemsetup\\b",
+      "desc": "系统级设置（需 root）"
+    },
+    {
+      "pattern": "\\bgit\\s+push\\b[^|]*(--force|-f)\\b",
+      "desc": "git 强推（覆盖远端历史）"
+    },
+    {
+      "pattern": "\\bgit\\s+reset\\s+--hard\\b",
+      "desc": "git reset --hard（丢弃改动）"
+    },
+    {
+      "pattern": "\\bgit\\s+clean\\b",
+      "desc": "git clean（删未跟踪文件）"
+    },
+    {
+      "pattern": "\\bgit\\s+(filter-branch|filter-repo)\\b",
+      "desc": "重写整段提交历史"
+    },
+    {
+      "pattern": "\\bgit\\s+branch\\s+-D\\b",
+      "desc": "强删分支"
+    },
+    {
+      "pattern": "\\bgit\\s+update-ref\\s+-d\\b",
+      "desc": "删除引用"
+    },
+    {
+      "pattern": "\\bgit\\s+reflog\\s+(expire|delete)\\b",
+      "desc": "清 reflog（失去找回点）"
+    },
+    {
+      "pattern": "\\bgit\\s+stash\\s+(clear|drop)\\b",
+      "desc": "丢弃 stash"
+    },
+    {
+      "pattern": "\\bdocker\\s+(rm|rmi|kill)\\b|\\bdocker\\s+(system|image|container|volume)\\s+(prune|rm)\\b",
+      "desc": "删容器/镜像/卷"
+    },
+    {
+      "pattern": "\\bdocker\\b[^|]*--privileged",
+      "desc": "特权容器"
+    },
+    {
+      "pattern": "\\bdocker-compose\\s+down\\b[^|]*-v",
+      "desc": "docker-compose 连卷销毁"
+    },
+    {
+      "pattern": "\\bkubectl\\s+delete\\b",
+      "desc": "删除 K8s 资源"
+    },
+    {
+      "pattern": "\\bhelm\\s+(delete|uninstall)\\b",
+      "desc": "卸载 helm release"
+    },
+    {
+      "pattern": "\\bterraform\\s+(destroy|apply)\\b",
+      "desc": "销毁/变更基础设施"
+    },
+    {
+      "pattern": "\\baws\\s+\\w+[^|]*\\b(rm|rb|delete|terminate)\\b",
+      "desc": "AWS 删除/销毁资源"
+    },
+    {
+      "pattern": "\\bgcloud\\b[^|]*\\bdelete\\b",
+      "desc": "GCP 删除资源"
+    },
+    {
+      "pattern": "\\bgh\\s+repo\\s+delete\\b",
+      "desc": "删除 GitHub 仓库"
+    },
+    {
+      "pattern": "\\bdrop\\s+(table|database|schema)\\b",
+      "desc": "SQL DROP"
+    },
+    {
+      "pattern": "\\btruncate\\s+table\\b",
+      "desc": "SQL TRUNCATE TABLE"
+    },
+    {
+      "pattern": "\\bredis-cli\\b[^|]*\\b(flushall|flushdb)\\b",
+      "desc": "Redis 清库"
+    },
+    {
+      "pattern": "\\bdropdb\\b",
+      "desc": "删除 PostgreSQL 库"
+    },
+    {
+      "pattern": "^(Read|Bash): .*(/\\.ssh/|/\\.aws/|/\\.gnupg/|/\\.config/(gcloud|gh)/|/\\.kube/config|/\\.docker/config\\.json|/\\.netrc|/\\.npmrc|/\\.pypirc|/\\.git-credentials|/\\.env(\\.[\\w.-]+)?(?=[\\s;|&]|$)|/id_(rsa|dsa|ecdsa|ed25519)\\b|\\.pem(?=[\\s;|&]|$)|\\.p12(?=[\\s;|&]|$)|\\.pfx(?=[\\s;|&]|$)|\\.key(?=[\\s;|&]|$)|/credentials(?=[\\s;|&]|$)|/secrets?(\\.[\\w-]+)?(?=[\\s;|&]|$))",
+      "desc": "读敏感凭证/密钥文件（.ssh、.env、私钥、云厂商凭证等），Read 与 Bash 都拦 —— 优先级高于白名单"
+    },
+    {
+      "pattern": "\\bmv\\b",
+      "desc": "移动/覆盖文件"
+    },
+    {
+      "pattern": "\\btee\\b[^|]*/(etc|usr|bin|sbin|System|Library)\\b",
+      "desc": "tee 写入系统目录"
+    },
+    {
+      "pattern": "\\bcrontab\\s+-[re]\\b",
+      "desc": "crontab 清空/编辑（持久化）"
+    },
+    {
+      "pattern": "\\bhistory\\s+-c\\b",
+      "desc": "清空 shell 历史"
+    },
+    {
+      "pattern": ":\\s*\\(\\s*\\)\\s*\\{",
+      "desc": "fork bomb :(){ :|:& };:"
+    }
   ],
-
   "autoAllowPatterns": [
-    { "pattern": "^Bash: git (status|log|diff|branch|show|remote|stash list|describe|blame|shortlog)", "desc": "git 只读子命令" },
-    { "pattern": "^Bash: (ls|pwd|cat|head|tail|less|more|grep|rg|ag|find|fd|echo|which|whoami|id|date|env|printenv|wc|file|stat|tree|du|df|ps|top|uname|hostname|sw_vers|uptime|open|say)\\b", "desc": "常见只读/查看命令" },
-    { "pattern": "^Read: ", "desc": "Read 工具读文件默认放行；敏感路径已被上面 dangerPatterns 拦下强制手势（deny-list 优先级更高）" },
-    { "pattern": "^mcp__.+__(get|list|search|read|fetch|query|view|describe|find|lookup|count|whoami|resolve|check|status)(_|$)", "desc": "只读类 MCP 工具放行（get/list/search/read/query… 等无副作用动词）；写操作(create/update/delete/add/send/upload/generate/authenticate…)不匹配，仍弹手势" }
+    {
+      "pattern": "^Bash: git (status|log|diff|branch|show|remote|stash list|describe|blame|shortlog)",
+      "desc": "git 只读子命令"
+    },
+    {
+      "pattern": "^Bash: (ls|pwd|cat|head|tail|less|more|grep|rg|ag|find|fd|echo|which|whoami|id|date|env|printenv|wc|file|stat|tree|du|df|ps|top|uname|hostname|sw_vers|uptime|open|say|cd|type|dirname|basename|realpath|readlink|sort|uniq|cut|diff|cmp|shasum|md5|nl|column|jq|true|test)\\b",
+      "desc": "常见只读/无副作用命令。整条匹配放行；前缀匹配需无拼接符，或复合命令逐段全命中本表（Allowlist 第 5 层）"
+    },
+    {
+      "pattern": "^Read: ",
+      "desc": "Read 工具读文件默认放行；敏感路径已被上面 dangerPatterns 拦下强制手势（deny-list 优先级更高）"
+    },
+    {
+      "pattern": "^mcp__.+__(get|list|search|read|fetch|query|view|describe|find|lookup|count|whoami|resolve|check|status)(_|$)",
+      "desc": "只读类 MCP 工具放行（get/list/search/read/query… 等无副作用动词）；写操作(create/update/delete/add/send/upload/generate/authenticate…)不匹配，仍弹手势"
+    },
+    {
+      "pattern": "^mcp__Claude_Preview__preview_",
+      "desc": "Claude Code 本地预览调试工具（起停 dev server、截图、查日志、页面取值），只作用于本机开发服务器"
+    }
   ],
-
-  "compoundTokens": ["&&", "||", ";", "|", "`", "$(", ">", "<", "\n"]
+  "compoundTokens": [
+    "&&",
+    "||",
+    ";",
+    "|",
+    "`",
+    "$(",
+    ">",
+    "<",
+    "\n"
+  ]
 }
