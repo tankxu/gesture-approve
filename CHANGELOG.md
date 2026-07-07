@@ -2,11 +2,13 @@
 
 All notable changes to GestureApprove. Versions follow the GitHub releases.
 
-## v0.7.11
+## v0.8.0
 
 ### Big mode
 
-- **New "Big mode" menu-bar toggle.** When on, the approval card fills the entire screen with the command and gesture buttons shown at large size — readable from across the room. Toggle it from the 👍 menu-bar menu; it applies to the next approval. Off by default (normal notch-sized card).
+- **New "Big mode" menu-bar toggle.** When on, the approval card fills the entire screen so you can read it from across the room. Toggle it from the 👍 menu-bar menu; it applies to the next approval. Off by default (normal notch-sized card).
+- **Full-screen layout puts the command front and center.** A dedicated partitioned layout: the title is pinned near the top (clearing the notch camera), the hint sits at the bottom, and the command — the largest element — is centered with the gesture buttons. Chrome text stays small so the reviewed content dominates. A very long command or path automatically shrinks to fit within half the screen instead of overflowing.
+- **No layout jitter on recognition.** Recognizing a gesture no longer shifts the command around: the three regions are laid out independently, and the always-allow button / countdown ring reserve their space instead of appearing and disappearing.
 
 ### Security & robustness hardening (full-codebase audit)
 
