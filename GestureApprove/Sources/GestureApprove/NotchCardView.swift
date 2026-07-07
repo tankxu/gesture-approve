@@ -25,6 +25,10 @@ struct NotchCardView: View {
     /// 是否可“总是允许”（危险/空操作时不提供），及其回调。
     var canAlwaysAllow: Bool = false
     var onAlwaysAllow: (() -> Void)? = nil
+    /// 整体放大系数（Big Mode）：所有字号/尺寸/间距乘以它，1 为常规。
+    var scale: CGFloat = 1
+    /// Big Mode：给定则卡片铺满该尺寸（全屏黑卡）、内容垂直居中、无圆角；nil 为常规自适应卡片。
+    var fillFrame: CGSize? = nil
 
     /// 点击命令文字展开/收起完整命令——浮层 panel 上 .help tooltip 不触发，改用点击。
     @State private var commandExpanded = false
@@ -65,36 +69,36 @@ struct NotchCardView: View {
     private var zoomedIn: Bool { locked != nil || live.isDecisive }
 
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 14 * scale) {
             // 顶部留白，让卡片从刘海下沿“长出来”
             Text(L("card.needApproval"))
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 12 * scale, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.55))
-                .tracking(2)
-                .padding(.top, 10)
+                .tracking(2 * scale)
+                .padding(.top, 10 * scale)
 
             // 上下文：📁 项目名 · 工具（有信息才显示，让你知道是哪个会话/项目在请求）
             if !contextLabel.isEmpty {
                 Text(contextLabel)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 11 * scale, weight: .medium))
                     .foregroundStyle(.white.opacity(0.5))
                     .lineLimit(1)
                     .truncationMode(.middle)
-                    .padding(.horizontal, 18)
+                    .padding(.horizontal, 18 * scale)
             }
 
             // 命令本身：危险片段(rm -rf / |sh / sudo …)标红加粗。小字号 + 多行 + 左对齐，长命令更易读；
             // hover 显示完整命令（长命令仍可能尾部省略，但危险片段尽量可见，悬停可看全）。
             Text(styledOperation)
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .font(.system(size: 11 * scale, weight: .medium, design: .monospaced))
                 .lineLimit(commandExpanded ? nil : 3)
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 18)
+                .padding(.horizontal, 18 * scale)
                 .contentShape(Rectangle())
                 .onTapGesture { commandExpanded.toggle() }
 
-            HStack(spacing: 28) {
+            HStack(spacing: 28 * scale) {
                 gestureIcon(symbol: "hand.thumbsup.fill",
                             label: L("card.approve"),
                             tint: Color.green,
@@ -109,40 +113,44 @@ struct NotchCardView: View {
                             action: onDeny)
             }
 
-            VStack(spacing: 7) {
+            VStack(spacing: 7 * scale) {
                 Text(locked == nil ? L("card.hint") : (locked == .thumbUp ? L("card.approved") : L("card.denied")))
-                    .font(.system(size: 11))
+                    .font(.system(size: 11 * scale))
                     .foregroundStyle(.white.opacity(0.4))
                 if locked == nil, canAlwaysAllow, let onAlwaysAllow {
                     Button(action: onAlwaysAllow) {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 4 * scale) {
                             Image(systemName: "checkmark.seal")
                             Text(L("card.alwaysAllow"))
                         }
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.system(size: 10 * scale, weight: .medium))
                         .foregroundStyle(.white.opacity(0.6))
-                        .padding(.horizontal, 10).padding(.vertical, 4)
+                        .padding(.horizontal, 10 * scale).padding(.vertical, 4 * scale)
                         .background(Capsule().fill(.white.opacity(0.08)))
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.bottom, 14)
+            .padding(.bottom, 14 * scale)
         }
-        .frame(width: 360)
+        // 常规：宽 360*scale、高自适应。Big Mode：铺满 fillFrame（全屏），内容在其中垂直居中。
+        .frame(maxWidth: fillFrame != nil ? .infinity : nil,
+               maxHeight: fillFrame != nil ? .infinity : nil)
+        .frame(width: fillFrame?.width ?? 360 * scale, height: fillFrame?.height)
         .background(cardBackground)
         .overlay(alignment: .topTrailing) {
             if locked == nil {
-                CountdownRing(duration: timeout, sessionID: sessionID)
-                    .frame(width: 16, height: 16)
-                    .padding(14)
+                CountdownRing(duration: timeout, sessionID: sessionID, scale: scale)
+                    .frame(width: 16 * scale, height: 16 * scale)
+                    .padding(14 * scale)
             }
         }
     }
 
     /// 黑玻璃卡片背景：黑底 → 实时画面(压暗/模糊/低透明) → 暗角渐变 → 描边。
     private var cardBackground: some View {
-        let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
+        // 全屏 Big Mode 不用圆角（铺满屏幕边缘），常规卡片保留圆角
+        let shape = RoundedRectangle(cornerRadius: fillFrame != nil ? 0 : 26 * scale, style: .continuous)
         return ZStack {
             shape.fill(Color.black)
             if let previewImage {
@@ -195,31 +203,31 @@ struct NotchCardView: View {
     @ViewBuilder
     private func iconBody(symbol: String, label: String, tint: Color,
                           active: Bool, done: Bool) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 8 * scale) {
             ZStack {
                 Circle()
                     .fill(active ? tint.opacity(0.22) : Color.white.opacity(0.05))
-                    .frame(width: 70, height: 70)
+                    .frame(width: 70 * scale, height: 70 * scale)
                     .overlay(
                         Circle().strokeBorder(active ? tint : .white.opacity(0.12),
-                                              lineWidth: active ? 2.5 : 1)
+                                              lineWidth: (active ? 2.5 : 1) * scale)
                     )
                 Image(systemName: symbol)
-                    .font(.system(size: 30, weight: .medium))
+                    .font(.system(size: 30 * scale, weight: .medium))
                     .foregroundStyle(active ? tint : .white.opacity(0.35))
                 if done {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 20))
+                        .font(.system(size: 20 * scale))
                         .foregroundStyle(tint)
                         .background(Circle().fill(.black))
-                        .offset(x: 26, y: -26)
+                        .offset(x: 26 * scale, y: -26 * scale)
                 }
             }
             .scaleEffect(active ? 1.08 : 1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: active)
 
             Text(label)
-                .font(.system(size: 12, weight: active ? .semibold : .regular))
+                .font(.system(size: 12 * scale, weight: active ? .semibold : .regular))
                 .foregroundStyle(active ? tint : .white.opacity(0.5))
         }
     }
@@ -229,15 +237,16 @@ struct NotchCardView: View {
 struct CountdownRing: View {
     let duration: TimeInterval
     let sessionID: Int
+    var scale: CGFloat = 1
     @State private var progress: CGFloat = 1
 
     var body: some View {
         ZStack {
-            Circle().stroke(Color.white.opacity(0.15), lineWidth: 2)
+            Circle().stroke(Color.white.opacity(0.15), lineWidth: 2 * scale)
             Circle()
                 .trim(from: 0, to: progress)
                 .stroke(Color.white.opacity(0.7),
-                        style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                        style: StrokeStyle(lineWidth: 2 * scale, lineCap: .round))
                 .rotationEffect(.degrees(-90))   // 从 12 点方向开始
         }
         .onAppear { restart() }

@@ -51,6 +51,11 @@ private let table: [String: [String: String]] = [
         "ja": "承認ゲートを有効化", "ko": "승인 게이트 사용",
         "es": "Activar control de aprobación", "fr": "Activer le contrôle d'approbation",
     ],
+    "menu.bigMode": [
+        "en": "Big mode (large card)", "zh": "大字模式（放大卡片）",
+        "ja": "ビッグモード（拡大カード）", "ko": "빅 모드(카드 확대)",
+        "es": "Modo grande (tarjeta ampliada)", "fr": "Mode grand (carte agrandie)",
+    ],
     "menu.launchAtLogin": [
         "en": "Launch at login", "zh": "开机自启",
         "ja": "ログイン時に起動", "ko": "로그인 시 실행",

@@ -27,7 +27,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         set { UserDefaults.standard.set(newValue, forKey: "approvalEnabled") }
     }
     private var enabledItem: NSMenuItem?
+    private var bigModeItem: NSMenuItem?                                     // Big Mode 开关（放大审批卡片）
     private var updateItem: NSMenuItem?                                      // 「更新到 vX」菜单项（默认隐藏）
+
+    private var bigMode: Bool {
+        get { UserDefaults.standard.bool(forKey: "bigMode") }
+        set { UserDefaults.standard.set(newValue, forKey: "bigMode") }
+    }
     private var updateTimer: Timer?
     private var pendingUpdate: (version: String, asset: URL, page: URL, notes: String)?
 
@@ -191,6 +197,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         enabledItem?.state = approvalEnabled ? .on : .off
     }
 
+    @objc private func toggleBigMode() {
+        bigMode.toggle()
+        bigModeItem?.state = bigMode ? .on : .off
+    }
+
     // MARK: 菜单
 
     private func setupStatusItem() {
@@ -223,6 +234,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         enabled.image = NSImage(systemSymbolName: "lock.shield", accessibilityDescription: nil)
         menu.addItem(enabled)
         self.enabledItem = enabled
+
+        let big = NSMenuItem(title: L("menu.bigMode"), action: #selector(toggleBigMode), keyEquivalent: "")
+        big.target = self
+        big.state = bigMode ? .on : .off
+        big.image = NSImage(systemSymbolName: "arrow.up.left.and.arrow.down.right", accessibilityDescription: nil)
+        menu.addItem(big)
+        self.bigModeItem = big
 
         menu.addItem(.separator())
 

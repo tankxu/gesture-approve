@@ -4,6 +4,10 @@ All notable changes to GestureApprove. Versions follow the GitHub releases.
 
 ## v0.7.11
 
+### Big mode
+
+- **New "Big mode" menu-bar toggle.** When on, the approval card fills the entire screen with the command and gesture buttons shown at large size — readable from across the room. Toggle it from the 👍 menu-bar menu; it applies to the next approval. Off by default (normal notch-sized card).
+
 ### Security & robustness hardening (full-codebase audit)
 
 - **Closed several "dangerous command auto-allowed" bypasses.** `find … -exec/-execdir <anything>` (arbitrary code execution) was allowed by the `find` prefix; `open <app/dmg/url>` was auto-allowed despite its side effects; credential reads via relative path (`cat .env`, `cat id_rsa`, `Read: .env`) slipped past the sensitive-path deny rule because every branch required a leading `/`; and the new `>/dev/null` redirect exemption had no boundary, so `>/dev/nullhijack` / `>/dev/null/../real.txt` wrote real files while passing as read-only. All now pop a card.

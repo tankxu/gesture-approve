@@ -13,6 +13,8 @@ final class ApprovalViewModel: ObservableObject {
     @Published var timeout: TimeInterval = 90   // 倒计时环时长
     @Published var sessionID: Int = 0           // 每次审批 +1，用于重启环动画
     @Published var canAlwaysAllow: Bool = false // 是否在卡片上提供“总是允许”
+    @Published var scale: CGFloat = 1           // Big Mode 放大系数（1 常规），字号/图标/间距按此放大
+    @Published var fullScreen: CGSize? = nil     // Big Mode：卡片铺满该尺寸（全屏）；nil 为常规卡片
 }
 
 /// SwiftUI 根视图：组合操作信息(vm)与即时手势(engine)，并处理展开/收起动画。
@@ -38,7 +40,9 @@ struct RootCardView: View {
                               onApprove: onApprove,
                               onDeny: onDeny,
                               canAlwaysAllow: vm.canAlwaysAllow,
-                              onAlwaysAllow: onAlwaysAllow)
+                              onAlwaysAllow: onAlwaysAllow,
+                              scale: vm.scale,
+                              fillFrame: vm.fullScreen)
                     .transition(.asymmetric(
                         insertion: .scale(scale: 0.7, anchor: .top).combined(with: .opacity),
                         removal: .scale(scale: 0.85, anchor: .top).combined(with: .opacity)))
@@ -80,12 +84,18 @@ final class ApprovalController {
     private var requestedAt = Date()
     private let cardShowCap: TimeInterval = 2.0
 
+    // Big Mode：菜单栏勾选后，卡片铺满整个屏幕、内容大字居中，方便离电脑较远时看清审批内容。
+    // 字号/图标按 bigScale 放大（命令是主角，放到很大）；卡片尺寸则铺满全屏（见 requestApproval）。
+    static let bigScale: CGFloat = 3.2
+    private var bigMode: Bool { UserDefaults.standard.bool(forKey: "bigMode") }
+    private static let baseSize = NSSize(width: 400, height: 240)   // 常规模式 panel 尺寸（卡片 360 + 余量）
+
     init() {
         buildPanel()
     }
 
     private func buildPanel() {
-        let size = NSSize(width: 400, height: 240)   // 卡片 360 + 左右各 20 余量
+        let size = Self.baseSize
         let panel = NSPanel(contentRect: NSRect(origin: .zero, size: size),
                             styleMask: [.borderless, .nonactivatingPanel],
                             backing: .buffered, defer: false)
@@ -115,6 +125,12 @@ final class ApprovalController {
         NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 })
             ?? NSScreen.main
             ?? NSScreen.screens[0]
+    }
+
+    /// 调整浮层尺寸：Big Mode 铺满刘海屏，常规用固定小尺寸。contentView 用 autoresizing 跟随。
+    private func applyPanelSize() {
+        guard let panel else { return }
+        panel.setContentSize(vm.fullScreen ?? Self.baseSize)
     }
 
     private func positionPanel() {
@@ -149,6 +165,15 @@ final class ApprovalController {
         vm.locked = nil
         vm.timeout = timeout
         vm.sessionID += 1
+        // Big Mode：卡片铺满刘海屏、字号放大；常规模式恢复小卡片。弹卡前定好尺寸。
+        if bigMode {
+            vm.scale = Self.bigScale
+            vm.fullScreen = notchScreen().frame.size
+        } else {
+            vm.scale = 1
+            vm.fullScreen = nil
+        }
+        applyPanelSize()
 
         engine.reset()   // 清掉上一次的画面/状态（previewImage 置 nil，首帧监听才可靠）
         engine.onStable = { [weak self] gesture in
