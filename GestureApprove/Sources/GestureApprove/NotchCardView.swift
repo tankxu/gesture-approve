@@ -118,7 +118,7 @@ struct NotchCardView: View {
                     .lineLimit(commandExpanded ? nil : 12)
                     .minimumScaleFactor(0.3)   // 超长命令/路径自动缩小字号，塞进高度上限，不撑爆
                     .multilineTextAlignment(.center)
-                    .frame(maxHeight: fill.height * 0.5)   // 命令区最多占半屏高
+                    .frame(maxHeight: fill.height * 0.42)   // 命令区高度上限（收一点，避免整组过高把图标压到底部）
                     .padding(.horizontal, margin)
                     .contentShape(Rectangle())
                     .onTapGesture { commandExpanded.toggle() }
@@ -132,6 +132,11 @@ struct NotchCardView: View {
                                 action: onDeny, diameter: iconD, symbolSize: iconD * 0.42, labelSize: iconLabel)
                 }
             }
+            // 限定在「标题下方 ~ 提示上方」的安全区内居中，两端都不顶：
+            // 顶部留 14% 给标题、底部留 18% 给提示+总是允许，命令组在剩余区居中。
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.top, fill.height * 0.14)
+            .padding(.bottom, fill.height * 0.18)
 
             // 底层：提示 + 总是允许（贴底，内容变化不影响上面两层）
             VStack(spacing: 12) {
