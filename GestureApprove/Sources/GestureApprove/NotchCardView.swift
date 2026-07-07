@@ -90,8 +90,11 @@ struct NotchCardView: View {
         let iconLabel = max(16, 22 * unit)
         let margin: CGFloat = 24              // 贴边距离（固定小值，让标题真正贴顶、提示真正贴底）
 
-        return VStack(spacing: 0) {
-            // 贴顶：标题 + 上下文
+        // 三层独立定位，互不推挤：标题固定贴顶、提示固定贴底、命令+图标固定居中。
+        // 之前用弹性 Spacer 均分——识别后 locked 变化会改动底部（提示文案/总是允许/倒计时），
+        // 高度一变就把中间命令重新挤位、造成布局波动。ZStack 分层后底部怎么变都不动命令。
+        return ZStack {
+            // 顶层：标题 + 上下文（贴顶，多让 10pt 避开刘海摄像头）
             VStack(spacing: 10) {
                 Text(L("card.needApproval"))
                     .font(.system(size: titleSize, weight: .semibold))
@@ -105,18 +108,17 @@ struct NotchCardView: View {
                         .padding(.horizontal, margin)
                 }
             }
-            .padding(.top, margin + 10)   // 多让 10pt，避免标题贴到刘海摄像头
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .padding(.top, margin + 10)
 
-            Spacer(minLength: 24)   // 弹性：把标题顶到最上
-
-            // 垂直居中的主区：命令（最大）+ 手势图标
+            // 中层：命令（最大）+ 手势图标，垂直居中固定
             VStack(spacing: iconD * 0.5) {
                 Text(styledOperation)
                     .font(.system(size: cmdSize, weight: .semibold, design: .monospaced))
                     .lineLimit(commandExpanded ? nil : 12)
-                    .minimumScaleFactor(0.3)   // 超长命令/路径自动缩小字号，塞进下面的高度上限，不撑爆布局
+                    .minimumScaleFactor(0.3)   // 超长命令/路径自动缩小字号，塞进高度上限，不撑爆
                     .multilineTextAlignment(.center)
-                    .frame(maxHeight: fill.height * 0.5)   // 命令区最多占半屏高，标题/图标/提示始终有位置
+                    .frame(maxHeight: fill.height * 0.5)   // 命令区最多占半屏高
                     .padding(.horizontal, margin)
                     .contentShape(Rectangle())
                     .onTapGesture { commandExpanded.toggle() }
@@ -131,37 +133,39 @@ struct NotchCardView: View {
                 }
             }
 
-            Spacer(minLength: 24)   // 弹性：把提示沉到最下
-
-            // 贴底：提示 + 总是允许
+            // 底层：提示 + 总是允许（贴底，内容变化不影响上面两层）
             VStack(spacing: 12) {
                 Text(locked == nil ? L("card.hint") : (locked == .thumbUp ? L("card.approved") : L("card.denied")))
                     .font(.system(size: hintSize))
                     .foregroundStyle(.white.opacity(0.4))
-                if locked == nil, canAlwaysAllow, let onAlwaysAllow {
-                    Button(action: onAlwaysAllow) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "checkmark.seal")
-                            Text(L("card.alwaysAllow"))
+                // 用固定高度容器占位：总是允许按钮出现/消失时不改变本层高度，避免回跳
+                ZStack {
+                    if locked == nil, canAlwaysAllow, let onAlwaysAllow {
+                        Button(action: onAlwaysAllow) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "checkmark.seal")
+                                Text(L("card.alwaysAllow"))
+                            }
+                            .font(.system(size: hintSize * 0.9, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.6))
+                            .padding(.horizontal, 16).padding(.vertical, 8)
+                            .background(Capsule().fill(.white.opacity(0.08)))
                         }
-                        .font(.system(size: hintSize * 0.9, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.6))
-                        .padding(.horizontal, 16).padding(.vertical, 8)
-                        .background(Capsule().fill(.white.opacity(0.08)))
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
+                .frame(height: hintSize * 2.4)   // 预留按钮高度，锁定/未锁定时本层高度一致
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
             .padding(.bottom, margin)
         }
         .frame(width: fill.width, height: fill.height)
         .background(cardBackground)
         .overlay(alignment: .topTrailing) {
-            if locked == nil {
-                CountdownRing(duration: timeout, sessionID: sessionID, scale: 1.4)
-                    .frame(width: 24, height: 24)
-                    .padding(margin * 0.6)
-            }
+            CountdownRing(duration: timeout, sessionID: sessionID, scale: 1.4)
+                .frame(width: 24, height: 24)
+                .padding(margin * 0.6)
+                .opacity(locked == nil ? 1 : 0)   // 用透明度隐藏而非移除，不触发布局变化
         }
     }
 
