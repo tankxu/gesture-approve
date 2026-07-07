@@ -84,9 +84,8 @@ final class ApprovalController {
     private var requestedAt = Date()
     private let cardShowCap: TimeInterval = 2.0
 
-    // Big Mode：菜单栏勾选后，卡片铺满整个屏幕、内容大字居中，方便离电脑较远时看清审批内容。
-    // 字号/图标按 bigScale 放大（命令是主角，放到很大）；卡片尺寸则铺满全屏（见 requestApproval）。
-    static let bigScale: CGFloat = 3.2
+    // Big Mode：菜单栏勾选后，卡片铺满整个屏幕。全屏用 NotchCardView 的专门分区布局
+    // （标题置顶、提示贴底、命令内容占中间且字号最大），不再等比缩放，所以这里只给 fullScreen 尺寸。
     private var bigMode: Bool { UserDefaults.standard.bool(forKey: "bigMode") }
     private static let baseSize = NSSize(width: 400, height: 240)   // 常规模式 panel 尺寸（卡片 360 + 余量）
 
@@ -165,14 +164,9 @@ final class ApprovalController {
         vm.locked = nil
         vm.timeout = timeout
         vm.sessionID += 1
-        // Big Mode：卡片铺满刘海屏、字号放大；常规模式恢复小卡片。弹卡前定好尺寸。
-        if bigMode {
-            vm.scale = Self.bigScale
-            vm.fullScreen = notchScreen().frame.size
-        } else {
-            vm.scale = 1
-            vm.fullScreen = nil
-        }
+        // Big Mode：卡片铺满刘海屏（全屏专门布局）；常规模式小卡片。弹卡前定好尺寸。
+        vm.scale = 1
+        vm.fullScreen = bigMode ? notchScreen().frame.size : nil
         applyPanelSize()
 
         engine.reset()   // 清掉上一次的画面/状态（previewImage 置 nil，首帧监听才可靠）

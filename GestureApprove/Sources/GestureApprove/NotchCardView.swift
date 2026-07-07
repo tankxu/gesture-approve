@@ -69,6 +69,104 @@ struct NotchCardView: View {
     private var zoomedIn: Bool { locked != nil || live.isDecisive }
 
     var body: some View {
+        if let fill = fillFrame {
+            fullScreenBody(fill)
+        } else {
+            regularBody
+        }
+    }
+
+    // MARK: 全屏 Big Mode 布局
+    // 标题贴顶、提示贴底（都用小 padding 紧贴屏幕边缘），命令+图标成一组由两个弹性 Spacer
+    // 顶到垂直中心——审核内容是最大项、居中占据屏幕主区。UI 文本（标题/标签/提示）克制。
+    private func fullScreenBody(_ fill: CGSize) -> some View {
+        // 字号随屏尺寸微调，保证不同分辨率都协调；命令是最大项。
+        let unit = min(fill.width, fill.height * 1.6) / 1000
+        let cmdSize = max(34, 52 * unit)      // 审核内容：最大
+        let titleSize = max(15, 20 * unit)    // "APPROVAL NEEDED"：小
+        let ctxSize = max(15, 19 * unit)      // 📁 项目·工具
+        let hintSize = max(14, 18 * unit)     // 底部提示
+        let iconD = max(96, 132 * unit)       // 手势大圆
+        let iconLabel = max(16, 22 * unit)
+        let margin: CGFloat = 24              // 贴边距离（固定小值，让标题真正贴顶、提示真正贴底）
+
+        return VStack(spacing: 0) {
+            // 贴顶：标题 + 上下文
+            VStack(spacing: 10) {
+                Text(L("card.needApproval"))
+                    .font(.system(size: titleSize, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.5))
+                    .tracking(titleSize * 0.25)
+                if !contextLabel.isEmpty {
+                    Text(contextLabel)
+                        .font(.system(size: ctxSize, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.5))
+                        .lineLimit(1).truncationMode(.middle)
+                        .padding(.horizontal, margin)
+                }
+            }
+            .padding(.top, margin + 10)   // 多让 10pt，避免标题贴到刘海摄像头
+
+            Spacer(minLength: 24)   // 弹性：把标题顶到最上
+
+            // 垂直居中的主区：命令（最大）+ 手势图标
+            VStack(spacing: iconD * 0.5) {
+                Text(styledOperation)
+                    .font(.system(size: cmdSize, weight: .semibold, design: .monospaced))
+                    .lineLimit(commandExpanded ? nil : 12)
+                    .minimumScaleFactor(0.3)   // 超长命令/路径自动缩小字号，塞进下面的高度上限，不撑爆布局
+                    .multilineTextAlignment(.center)
+                    .frame(maxHeight: fill.height * 0.5)   // 命令区最多占半屏高，标题/图标/提示始终有位置
+                    .padding(.horizontal, margin)
+                    .contentShape(Rectangle())
+                    .onTapGesture { commandExpanded.toggle() }
+
+                HStack(spacing: iconD * 0.7) {
+                    gestureIcon(symbol: "hand.thumbsup.fill", label: L("card.approve"),
+                                tint: .green, active: approveActive, done: locked == .thumbUp,
+                                action: onApprove, diameter: iconD, symbolSize: iconD * 0.42, labelSize: iconLabel)
+                    gestureIcon(symbol: "hand.raised.fill", label: L("card.deny"),
+                                tint: .red, active: denyActive, done: locked == .openPalm,
+                                action: onDeny, diameter: iconD, symbolSize: iconD * 0.42, labelSize: iconLabel)
+                }
+            }
+
+            Spacer(minLength: 24)   // 弹性：把提示沉到最下
+
+            // 贴底：提示 + 总是允许
+            VStack(spacing: 12) {
+                Text(locked == nil ? L("card.hint") : (locked == .thumbUp ? L("card.approved") : L("card.denied")))
+                    .font(.system(size: hintSize))
+                    .foregroundStyle(.white.opacity(0.4))
+                if locked == nil, canAlwaysAllow, let onAlwaysAllow {
+                    Button(action: onAlwaysAllow) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.seal")
+                            Text(L("card.alwaysAllow"))
+                        }
+                        .font(.system(size: hintSize * 0.9, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.6))
+                        .padding(.horizontal, 16).padding(.vertical, 8)
+                        .background(Capsule().fill(.white.opacity(0.08)))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.bottom, margin)
+        }
+        .frame(width: fill.width, height: fill.height)
+        .background(cardBackground)
+        .overlay(alignment: .topTrailing) {
+            if locked == nil {
+                CountdownRing(duration: timeout, sessionID: sessionID, scale: 1.4)
+                    .frame(width: 24, height: 24)
+                    .padding(margin * 0.6)
+            }
+        }
+    }
+
+    // MARK: 常规刘海卡片布局
+    private var regularBody: some View {
         VStack(spacing: 14 * scale) {
             // 顶部留白，让卡片从刘海下沿“长出来”
             Text(L("card.needApproval"))
@@ -133,10 +231,7 @@ struct NotchCardView: View {
             }
             .padding(.bottom, 14 * scale)
         }
-        // 常规：宽 360*scale、高自适应。Big Mode：铺满 fillFrame（全屏），内容在其中垂直居中。
-        .frame(maxWidth: fillFrame != nil ? .infinity : nil,
-               maxHeight: fillFrame != nil ? .infinity : nil)
-        .frame(width: fillFrame?.width ?? 360 * scale, height: fillFrame?.height)
+        .frame(width: 360 * scale)
         .background(cardBackground)
         .overlay(alignment: .topTrailing) {
             if locked == nil {
@@ -192,42 +287,44 @@ struct NotchCardView: View {
 
     @ViewBuilder
     private func gestureIcon(symbol: String, label: String, tint: Color,
-                            active: Bool, done: Bool, action: (() -> Void)? = nil) -> some View {
+                            active: Bool, done: Bool, action: (() -> Void)? = nil,
+                            diameter: CGFloat = 70, symbolSize: CGFloat = 30, labelSize: CGFloat = 12) -> some View {
         Button(action: { action?() }) {
-            iconBody(symbol: symbol, label: label, tint: tint, active: active, done: done)
+            iconBody(symbol: symbol, label: label, tint: tint, active: active, done: done,
+                     diameter: diameter, symbolSize: symbolSize, labelSize: labelSize)
         }
         .buttonStyle(.plain)
         .disabled(action == nil)
     }
 
     @ViewBuilder
-    private func iconBody(symbol: String, label: String, tint: Color,
-                          active: Bool, done: Bool) -> some View {
-        VStack(spacing: 8 * scale) {
+    private func iconBody(symbol: String, label: String, tint: Color, active: Bool, done: Bool,
+                          diameter: CGFloat, symbolSize: CGFloat, labelSize: CGFloat) -> some View {
+        VStack(spacing: labelSize * 0.7) {
             ZStack {
                 Circle()
                     .fill(active ? tint.opacity(0.22) : Color.white.opacity(0.05))
-                    .frame(width: 70 * scale, height: 70 * scale)
+                    .frame(width: diameter, height: diameter)
                     .overlay(
                         Circle().strokeBorder(active ? tint : .white.opacity(0.12),
-                                              lineWidth: (active ? 2.5 : 1) * scale)
+                                              lineWidth: active ? 2.5 : 1)
                     )
                 Image(systemName: symbol)
-                    .font(.system(size: 30 * scale, weight: .medium))
+                    .font(.system(size: symbolSize, weight: .medium))
                     .foregroundStyle(active ? tint : .white.opacity(0.35))
                 if done {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 20 * scale))
+                        .font(.system(size: symbolSize * 0.66))
                         .foregroundStyle(tint)
                         .background(Circle().fill(.black))
-                        .offset(x: 26 * scale, y: -26 * scale)
+                        .offset(x: diameter * 0.37, y: -diameter * 0.37)
                 }
             }
             .scaleEffect(active ? 1.08 : 1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: active)
 
             Text(label)
-                .font(.system(size: 12 * scale, weight: active ? .semibold : .regular))
+                .font(.system(size: labelSize, weight: active ? .semibold : .regular))
                 .foregroundStyle(active ? tint : .white.opacity(0.5))
         }
     }
