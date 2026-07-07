@@ -578,6 +578,11 @@ if CommandLine.arguments.contains("--serial-test") {
     }
 }
 
+// 忽略 SIGPIPE：MediaPipe daemon 崩溃后，若还有一帧往已关闭的 stdin 管道写
+// （MediaPipeClassifier.submit），默认 SIGPIPE 会直接终止整个 app。改为忽略，
+// write 转而返回 EPIPE（由 daemon 生命周期逻辑处理），app 不再被写管道拖垮。
+signal(SIGPIPE, SIG_IGN)
+
 MainActor.assumeIsolated {
     let app = NSApplication.shared
     let delegate = AppDelegate()

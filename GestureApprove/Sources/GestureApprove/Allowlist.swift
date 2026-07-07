@@ -121,8 +121,9 @@ enum Allowlist {
         guard segments.count > 1 else { return false }   // 单段命令走第 3/4 层，不重复判
         for seg in segments {
             // 豁免安全重定向：丢弃输出（>/dev/null、2>/dev/null）与 fd 合并（2>&1）；
-            // 清理后仍含 > 即写文件 → 不放行
-            var s = seg.replacingOccurrences(of: #"\d?>>?\s*/dev/null"#, with: " ", options: .regularExpression)
+            // 清理后仍含 > 即写文件 → 不放行。/dev/null 后加边界，堵住 >/dev/nullhijack、
+            // >/dev/null/../real.txt 这类"以 /dev/null 开头却写真实文件"的绕过。
+            var s = seg.replacingOccurrences(of: #"\d?>>?\s*/dev/null(?=[\s;|&]|$)"#, with: " ", options: .regularExpression)
             s = s.replacingOccurrences(of: #"\d?>&\d"#, with: " ", options: .regularExpression)
             guard !s.contains(">") else { return false }
             s = s.trimmingCharacters(in: .whitespaces)
@@ -156,6 +157,8 @@ enum Allowlist {
                 cur.append(c)
                 let n = cmd.index(after: i)
                 if n < cmd.endIndex { cur.append(cmd[n]); i = n }
+            } else if c == "&", cur.hasSuffix(">") {
+                cur.append(c)   // fd 复制重定向（2>&1）：& 不是分隔符。&> 写文件的 > 会留在段里被拒，方向保守
             } else if c == "&" || c == "|" || c == ";" || c == "\n" {
                 parts.append(cur)
                 cur = ""
@@ -179,7 +182,12 @@ enum Allowlist {
     private static func matchesAny(_ op: String, _ pats: [String]) -> Bool {
         let range = NSRange(op.startIndex..., in: op)
         for pat in pats {
-            if let re = try? NSRegularExpression(pattern: pat, options: [.caseInsensitive]),
+            // 跳过空/纯空白 pattern：空正则匹配一切。设置窗的白名单 TextEditor 每敲一键就落库，
+            // 用户在末尾留个空行就会写入空串——若不过滤，第 5 层复合拆段判定会把任意命令段
+            // 都判成"命中白名单"，整条自动放行，闸门失效。
+            let p = pat.trimmingCharacters(in: .whitespaces)
+            if !p.isEmpty,
+               let re = try? NSRegularExpression(pattern: p, options: [.caseInsensitive]),
                re.firstMatch(in: op, range: range) != nil {
                 return true
             }

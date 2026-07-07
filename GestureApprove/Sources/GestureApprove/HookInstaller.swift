@@ -24,9 +24,25 @@ enum HookInstaller {
     private static var execPath: String { Bundle.main.executablePath ?? "" }
     private static func jsonHookCommand(_ target: String) -> String { "'\(execPath)' --hook \(target)" }       // JSON(Claude/Gemini)
     private static func tomlHookCommand(_ target: String) -> String { "\"\(execPath)\" --hook \(target)" }      // TOML(Codex/Kimi，放进 ''' 内)
-    /// 兼容旧的 gesture_hook.py 写法，便于卸载/重装识别。
+    /// 识别是不是「我们」写入的 hook（用于卸载/重装去重）。要够精确：只匹配本 app 的
+    /// `--hook <target>` 或 gesture_hook.py，别用裸 `contains("--hook")`——用户自己命令里
+    /// 含 `--hook`（如 `my-guard --hook-mode=pre`）会被误删,连带删掉同 entry 的其它 hook。
     private static func isOurHook(_ cmd: String) -> Bool {
-        cmd.contains("--hook") || cmd.contains("gesture_hook.py")
+        if cmd.contains("gesture_hook.py") { return true }
+        guard cmd.contains("--hook ") || cmd.hasSuffix("--hook") else { return false }
+        return cmd.contains("GestureApprove") || cmd.contains(execPath)
+    }
+
+    /// 读已有 JSON 配置为字典。文件不存在 → 空字典（正常，首次接入）；
+    /// 文件存在但解析失败（损坏 / 恰逢对方半截写入 / 顶层非字典）→ **抛错中止**，
+    /// 绝不用空字典覆盖——否则会把用户的 permissions/env/model 等设置全部清空。
+    private static func loadJSONObjectOrThrow(_ url: URL) throws -> [String: Any] {
+        guard let data = try? Data(contentsOf: url), !data.isEmpty else { return [:] }
+        guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw NSError(domain: "HookInstaller", code: 1, userInfo: [NSLocalizedDescriptionKey:
+                "\(url.lastPathComponent) 无法解析，已中止以免覆盖你的配置。请检查该文件的 JSON 是否有效。"])
+        }
+        return obj
     }
 
     private static var claudeSettings: URL {
@@ -65,11 +81,7 @@ enum HookInstaller {
     }
 
     static func installClaude() throws {
-        var dict: [String: Any] = [:]
-        if let data = try? Data(contentsOf: claudeSettings),
-           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            dict = obj
-        }
+        var dict = try loadJSONObjectOrThrow(claudeSettings)
         backup(claudeSettings)
         var hooks = dict["hooks"] as? [String: Any] ?? [:]
         var pre = hooks["PreToolUse"] as? [[String: Any]] ?? []
@@ -129,9 +141,7 @@ enum HookInstaller {
     }
 
     static func installGemini() throws {
-        var dict: [String: Any] = [:]
-        if let data = try? Data(contentsOf: geminiSettings),
-           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] { dict = obj }
+        var dict = try loadJSONObjectOrThrow(geminiSettings)
         backup(geminiSettings)
         var hooks = dict["hooks"] as? [String: Any] ?? [:]
         var arr = hooks["BeforeTool"] as? [[String: Any]] ?? []
@@ -195,9 +205,14 @@ enum HookInstaller {
     }
 
     private static func stripCodexBlock(_ s: String) -> String {
-        guard let r1 = s.range(of: codexBegin), let r2 = s.range(of: codexEnd) else { return s }
         var out = s
-        out.removeSubrange(r1.lowerBound..<r2.upperBound)
+        // 循环删掉每一对 begin…end（同步冲突可能残留多个重复块）。
+        // 只在 begin 之后再找配套 end：避免"end 在 begin 之前"构成非法区间导致 removeSubrange 崩溃；
+        // 有 begin 无配套 end（用户误删尾行）时直接停手，绝不从孤儿 begin 一路删到文件尾伤及用户配置。
+        while let r1 = out.range(of: codexBegin) {
+            guard let r2 = out.range(of: codexEnd, range: r1.upperBound..<out.endIndex) else { break }
+            out.removeSubrange(r1.lowerBound..<r2.upperBound)
+        }
         return out.replacingOccurrences(of: "\n\n\n", with: "\n\n")
     }
 

@@ -63,6 +63,10 @@ final class ApprovalController {
     private var panel: NSPanel?
 
     private var inFlight = false
+    private var resolving = false   // finish 已执行、还在结果展示(dwell)期：拒绝一切后续输入。
+                                    // 没有它，dwell 0.7s 内热键/图标/「总是允许」都还能触发第二次
+                                    // finish——UI 显示第二次的结果、hook 收到第一次的，正好相反；
+                                    // 「总是允许」还会把已被拒绝的命令写进白名单。
     private var completion: ((ApprovalOutcome) -> Void)?
     private var timeoutWork: DispatchWorkItem?
     private var alwaysAllowTapped = false   // 本次审批是否点了「总是允许」（区分普通 👍 与写白名单）
@@ -133,6 +137,7 @@ final class ApprovalController {
             return
         }
         inFlight = true
+        resolving = false
         alwaysAllowTapped = false
         self.completion = completion
 
@@ -249,7 +254,8 @@ final class ApprovalController {
     }
 
     private func finish(with gesture: Gesture) {
-        guard inFlight else { return }
+        guard inFlight, !resolving else { return }
+        resolving = true
         timeoutWork?.cancel()
         timeoutWork = nil
         showWork?.cancel()      // 卡片可能还在等首帧没弹出（快捷键提前解决/超时）

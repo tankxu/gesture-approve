@@ -26,6 +26,10 @@ final class CameraFrameSource: NSObject, FrameSource, AVCaptureVideoDataOutputSa
     // 帧看门狗：USB 采集卡可能在 session.isRunning 仍为 true 时静默停吐帧（无运行时错误）。
     // 审批期间(active)定期检查，若超过阈值没有新帧就整体重建会话自愈，避免“刘海黑屏”。
     private var active = false
+    // 看门狗代次：每次 start() +1。stop() 不取消已排队的 asyncAfter，若 <0.8s 内又 start()
+    // （背靠背审批常见），旧 tick 会看到 active=true 而续出第二条链——链只增不减，多条并行
+    // 会把 stale 判定频率翻倍、连续 rebuild 造成黑屏抖动。tick 只在自己那代仍是当前代时才续链。
+    private var watchdogGen = 0
     private var lastFrameAt = Date.distantPast
     private let staleThreshold: TimeInterval = 1.5
     private let watchdogInterval: TimeInterval = 0.8
@@ -102,7 +106,8 @@ final class CameraFrameSource: NSObject, FrameSource, AVCaptureVideoDataOutputSa
             }
             self.configureIfNeeded()
             if self.configured { self.startSessionEnforcingTallFormat() }
-            self.scheduleWatchdog()
+            self.watchdogGen &+= 1               // 作废上一轮可能仍在排队的 tick
+            self.scheduleWatchdog(gen: self.watchdogGen)
         }
     }
 
@@ -144,9 +149,9 @@ final class CameraFrameSource: NSObject, FrameSource, AVCaptureVideoDataOutputSa
     /// - 设备还没枚举回来(!configured，USB 唤醒慢)：重试配置，直到选定设备出现。
     /// - 正开着临时回退设备：探测选定设备是否已插回，回来就重建切回。
     /// - 已配置但无新帧：还没出过首帧给 firstFrameGrace(避免误判)，出过帧后断流用 staleThreshold 快速恢复。
-    private func scheduleWatchdog() {
+    private func scheduleWatchdog(gen: Int) {
         queue.asyncAfter(deadline: .now() + watchdogInterval) { [weak self] in
-            guard let self, self.active else { return }
+            guard let self, self.active, gen == self.watchdogGen else { return }
             if !self.configured {
                 self.rebuild()   // 设备未就绪：重试配置等它枚举回来（configureIfNeeded 严格用选定设备）
             } else if self.usingFallback, let id = self.deviceUniqueID, AVCaptureDevice(uniqueID: id) != nil {
@@ -158,7 +163,7 @@ final class CameraFrameSource: NSObject, FrameSource, AVCaptureVideoDataOutputSa
                     self.rebuild()
                 }
             }
-            self.scheduleWatchdog()
+            self.scheduleWatchdog(gen: gen)
         }
     }
 

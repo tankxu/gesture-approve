@@ -7,10 +7,11 @@ final class MediaPipeClassifier {
     /// (gesture, 手部包围盒归一化矩形) 回调，在后台线程调用。
     var onResult: ((Gesture, CGRect?) -> Void)?
 
-    private let process = Process()
-    private let inPipe = Pipe()
-    private let outPipe = Pipe()
-    private let errPipe = Pipe()
+    // process 与三个 pipe 是 var：daemon 崩溃后不能二次 run() 同一 Process，需重建（见 rebuildProcess）。
+    private var process = Process()
+    private var inPipe = Pipe()
+    private var outPipe = Pipe()
+    private var errPipe = Pipe()
     private let ioQueue = DispatchQueue(label: "com.tankxu.gestureapprove.mp")
     private var started = false
     private var pending = false
@@ -48,6 +49,29 @@ final class MediaPipeClassifier {
         outPipe.fileHandleForReading.readabilityHandler = { [weak self] h in
             self?.handleOutput(h.availableData)
         }
+        // 排空 stderr：daemon 的 READY 与 MediaPipe/TFLite 的告警都往这里写，没人读的话
+        // 管道缓冲（~64KB）写满后 daemon 会阻塞在 write、不再吐结果 → 识别静默冻结。
+        errPipe.fileHandleForReading.readabilityHandler = { h in
+            let d = h.availableData
+            if !d.isEmpty, let s = String(data: d, encoding: .utf8) {
+                let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !t.isEmpty && t != "READY" { GALog.log("MediaPipe daemon stderr: \(t.prefix(300))") }
+            }
+        }
+        // daemon 崩溃/退出（OOM、venv 被系统 Python 升级破坏、收到超大帧主动退出等）：
+        // 复位状态并清背压，避免 pending 永久卡 true 让识别静默死亡；active 时自动重启一次。
+        process.terminationHandler = { [weak self] proc in
+            guard let self else { return }
+            self.ioQueue.async {
+                guard self.started else { return }   // 主动 stop() 已置 false，不算崩溃
+                GALog.log("MediaPipe daemon 意外退出(code \(proc.terminationStatus))，重启")
+                self.started = false
+                self.pending = false
+                self.lineBuffer.removeAll()
+                self.rebuildProcess()
+                self.startLocked()
+            }
+        }
         do {
             try process.run()
             GALog.log("MediaPipe daemon 已启动")
@@ -55,6 +79,16 @@ final class MediaPipeClassifier {
             GALog.log("MediaPipe daemon 启动失败：\(error)")
             started = false
         }
+    }
+
+    /// 崩溃重启前重建 Process 与管道：Process 不能二次 run()，Pipe 也已随旧进程失效。
+    private func rebuildProcess() {
+        outPipe.fileHandleForReading.readabilityHandler = nil
+        errPipe.fileHandleForReading.readabilityHandler = nil
+        process = Process()
+        inPipe = Pipe()
+        outPipe = Pipe()
+        errPipe = Pipe()
     }
 
     func stop() {
@@ -74,7 +108,13 @@ final class MediaPipeClassifier {
             var len = UInt32(jpeg.count).littleEndian
             var frame = Data(bytes: &len, count: 4)
             frame.append(jpeg)
-            self.inPipe.fileHandleForWriting.write(frame)
+            // 可抛版写：daemon 刚崩、管道已断时返回 EPIPE 而非 raise（SIGPIPE 已忽略）。
+            // 失败就清 pending，交给 terminationHandler 重启，不让背压永久卡死。
+            do {
+                try self.inPipe.fileHandleForWriting.write(contentsOf: frame)
+            } catch {
+                self.pending = false
+            }
         }
     }
 

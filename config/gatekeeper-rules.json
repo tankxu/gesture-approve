@@ -40,6 +40,10 @@
       "desc": "find … -exec rm 批量删"
     },
     {
+      "pattern": "\\bfind\\b[^|]*-execdir?\\b",
+      "desc": "find … -exec/-execdir 执行任意命令(RCE),不止删文件"
+    },
+    {
       "pattern": "\\brsync\\b[^|]*--delete",
       "desc": "rsync --delete 镜像式删除"
     },
@@ -280,8 +284,8 @@
       "desc": "删除 PostgreSQL 库"
     },
     {
-      "pattern": "^(Read|Bash): .*(/\\.ssh/|/\\.aws/|/\\.gnupg/|/\\.config/(gcloud|gh)/|/\\.kube/config|/\\.docker/config\\.json|/\\.netrc|/\\.npmrc|/\\.pypirc|/\\.git-credentials|/\\.env(\\.[\\w.-]+)?(?=[\\s;|&]|$)|/id_(rsa|dsa|ecdsa|ed25519)\\b|\\.pem(?=[\\s;|&]|$)|\\.p12(?=[\\s;|&]|$)|\\.pfx(?=[\\s;|&]|$)|\\.key(?=[\\s;|&]|$)|/credentials(?=[\\s;|&]|$)|/secrets?(\\.[\\w-]+)?(?=[\\s;|&]|$))",
-      "desc": "读敏感凭证/密钥文件（.ssh、.env、私钥、云厂商凭证等），Read 与 Bash 都拦 —— 优先级高于白名单"
+      "pattern": "^(Read|Bash):.*([/\\s]\\.ssh/|[/\\s]\\.aws/|[/\\s]\\.gnupg/|[/\\s]\\.config/(gcloud|gh)/|[/\\s]\\.kube/config|[/\\s]\\.docker/config\\.json|[/\\s]\\.netrc|[/\\s]\\.npmrc|[/\\s]\\.pypirc|[/\\s]\\.git-credentials|[/\\s][\\w.-]*\\.env(\\.[\\w.-]+)?(?=[\\s;|&]|$)|[/\\s]id_(rsa|dsa|ecdsa|ed25519)\\b|\\.pem(?=[\\s;|&]|$)|\\.p12(?=[\\s;|&]|$)|\\.pfx(?=[\\s;|&]|$)|\\.key(?=[\\s;|&]|$)|[/\\s]credentials(?=[\\s;|&]|$)|[/\\s]secrets?(\\.[\\w-]+)?(?=[\\s;|&]|$))",
+      "desc": "读敏感凭证/密钥文件(.ssh、.env、私钥、云厂商凭证等),Read 与 Bash 都拦,含相对路径 —— 优先级高于白名单"
     },
     {
       "pattern": "\\bmv\\b",
@@ -310,7 +314,7 @@
       "desc": "git 只读子命令"
     },
     {
-      "pattern": "^Bash: (ls|pwd|cat|head|tail|less|more|grep|rg|ag|find|fd|echo|which|whoami|id|date|env|printenv|wc|file|stat|tree|du|df|ps|top|uname|hostname|sw_vers|uptime|open|say|cd|type|dirname|basename|realpath|readlink|sort|uniq|cut|diff|cmp|shasum|md5|nl|column|jq|true|test)\\b",
+      "pattern": "^Bash: (ls|pwd|cat|head|tail|less|more|grep|rg|ag|find|fd|echo|which|whoami|id|date|env|printenv|wc|file|stat|tree|du|df|ps|top|uname|hostname|sw_vers|uptime|say|cd|type|dirname|basename|realpath|readlink|sort|uniq|cut|diff|cmp|shasum|md5|nl|column|jq|true|test)\\b",
       "desc": "常见只读/无副作用命令。整条匹配放行；前缀匹配需无拼接符，或复合命令逐段全命中本表（Allowlist 第 5 层）"
     },
     {

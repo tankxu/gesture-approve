@@ -36,7 +36,9 @@ def operation_label(payload: dict) -> str:
     ti = payload.get("tool_input", {}) or {}
     detail = ti.get("command") or ti.get("file_path") or ti.get("description") or ""
     label = f"{tool}: {detail}".strip(": ").strip()
-    return label[:600]  # 放宽截断：长命令尾部可能藏危险操作，别轻易丢（卡片再做行数/hover 处理）
+    # 判定必须看到完整命令：截断会把尾部危险藏起来（deny-list 看不到被截掉的 rm/sudo，
+    # 前缀白名单却命中 → 放行）。只设防病态输入的超大上限；显示端截断由 app 卡片自己做。
+    return label[:100_000]
 
 
 def ask_app(operation: str, cwd: str = "", tool: str = "") -> tuple[str, str]:

@@ -115,14 +115,31 @@ enum Updater {
         let pid = ProcessInfo.processInfo.processIdentifier
         // detached 脚本：等本进程退出 → 替换 → 清隔离 → 重启 → 清理临时目录
         let script = work.appendingPathComponent("swap.sh")
+        // 先把新版拷到同级暂存名，再用原子 mv 换名；任一步失败都把旧版原样留住/回滚，
+        // 绝不"先 rm 旧版再 ditto"——那样中途失败（磁盘满、/Applications 无写权限、
+        // App Translocation 只读卷）会把 app 删光留下空目录。旧脚本正是这个隐患。
         let body = """
         #!/bin/bash
+        DEST="\(dest.path)"
+        NEW="\(newApp.path)"
+        WORK="\(work.path)"
+        STAGE="${DEST}.update-new"
+        BACKUP="${DEST}.update-old"
         while /bin/kill -0 \(pid) 2>/dev/null; do /bin/sleep 0.3; done
-        /bin/rm -rf "\(dest.path)"
-        /usr/bin/ditto "\(newApp.path)" "\(dest.path)"
-        /usr/bin/xattr -dr com.apple.quarantine "\(dest.path)" 2>/dev/null || true
-        /usr/bin/open "\(dest.path)"
-        /bin/rm -rf "\(work.path)"
+
+        /bin/rm -rf "$STAGE"
+        if ! /usr/bin/ditto "$NEW" "$STAGE"; then   # 拷不进目标卷：旧版没动，直接重开
+            /usr/bin/open "$DEST"; /bin/rm -rf "$WORK"; exit 1
+        fi
+        /bin/rm -rf "$BACKUP"
+        /bin/mv "$DEST" "$BACKUP" 2>/dev/null        # 旧版挪到备份名（原子）
+        if ! /bin/mv "$STAGE" "$DEST"; then          # 暂存挪入目标（原子）；失败则回滚旧版
+            /bin/mv "$BACKUP" "$DEST" 2>/dev/null
+            /bin/rm -rf "$STAGE"; /usr/bin/open "$DEST"; /bin/rm -rf "$WORK"; exit 1
+        fi
+        /usr/bin/xattr -dr com.apple.quarantine "$DEST" 2>/dev/null || true
+        /usr/bin/open "$DEST"
+        /bin/rm -rf "$WORK" "$BACKUP"
         """
         try body.write(to: script, atomically: true, encoding: .utf8)
         let swap = Process()

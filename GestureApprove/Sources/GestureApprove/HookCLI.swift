@@ -15,7 +15,10 @@ enum HookCLI {
         let detail = (ti["command"] as? String) ?? (ti["file_path"] as? String) ?? (ti["description"] as? String) ?? ""
         var op = "\(tool): \(detail)".trimmingCharacters(in: CharacterSet(charactersIn: ": "))
             .trimmingCharacters(in: .whitespaces)
-        op = String(op.prefix(600))
+        // 判定必须看到完整命令：截断会把尾部危险藏起来（"<600 字安全前缀> && rm -rf ~" 截断后
+        // deny-list 看不到 rm、前缀白名单却命中 → 放行）。只设防病态输入的超大上限；
+        // 卡片显示的截断由 NotchCardView 自己做（lineLimit）。
+        op = String(op.prefix(100_000))
 
         let decision: String
         let reason: String
