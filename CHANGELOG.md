@@ -2,6 +2,12 @@
 
 All notable changes to GestureApprove. Versions follow the GitHub releases.
 
+## v0.8.1
+
+### Fixes
+
+- **The hook no longer forces manual approval when Gesture Approve is idle, offline, or times out.** When the app returned `ask` — because it was closed, unreachable, or the approval card timed out — the Claude Code hook emitted `permissionDecision: "ask"`, which *overrides* auto-mode: it forced a manual confirmation for every matched `Edit`/`Write`/`Bash`, defeating your `acceptEdits` mode, your `permissions.allow` allowlist, and even `--dangerously-skip-permissions`. It now stays silent on `ask` (emits nothing, i.e. `defer`), handing the decision back to Claude Code's own permission logic — matching how the Codex and Gemini paths already behaved. `allow`/`deny` from an actual gesture are still honored. (Kimi shares this path.)
+
 ## v0.8.0
 
 ### Big mode

@@ -81,6 +81,12 @@ enum HookCLI {
             else { out = [:] }
         default:
             // claude / kimi：hookSpecificOutput.permissionDecision（Kimi 只认 deny，其余放行，兼容）。
+            // 关键：Claude Code 里 permissionDecision:"ask" 会「强制弹确认框并覆盖 auto-mode」——
+            // 它盖过 acceptEdits 模式、permissions.allow 白名单，甚至 --dangerously-skip-permissions，
+            // 导致 app 离线/超时/未介入时每个 Edit 都要手动点。真正的「交回 Claude 默认权限判定」
+            // 是 exit 0 不输出任何东西（等价 permissionDecision:"defer"）。所以只有 allow/deny 才发
+            // 决策，ask 保持沉默——与上面 codex/gemini 分支的处理一致。
+            guard decision == "allow" || decision == "deny" else { return }
             out = ["hookSpecificOutput": [
                 "hookEventName": "PreToolUse",
                 "permissionDecision": decision,

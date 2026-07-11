@@ -55,7 +55,14 @@ def ask_app(operation: str, cwd: str = "", tool: str = "") -> tuple[str, str]:
 
 
 def emit_claude(decision: str, reason: str) -> None:
-    # decision ∈ {"allow","deny","ask"}；ask 即回退 Claude Code 正常审批流程
+    # decision ∈ {"allow","deny","ask"}。
+    # 关键：Claude Code 里 permissionDecision:"ask" 会「强制弹确认框并覆盖 auto-mode」——
+    # 它会盖掉用户当前的 acceptEdits 模式和 permissions.allow 白名单，让本该自动放行的
+    # Edit/Read 每次都要手动点。这不是我们想要的「交回 Claude 正常审批流程」。
+    # 真正的「交回默认权限判定」(尊重 acceptEdits / allow 白名单) = exit 0 不输出任何东西
+    # (等价于 permissionDecision:"defer")。所以 ask 时保持沉默，只有 allow/deny 才发决策。
+    if decision not in ("allow", "deny"):
+        return
     print(json.dumps({"hookSpecificOutput": {
         "hookEventName": "PreToolUse",
         "permissionDecision": decision,
