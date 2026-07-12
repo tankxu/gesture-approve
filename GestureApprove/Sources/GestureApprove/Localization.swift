@@ -724,6 +724,43 @@ private let table: [String: [String: String]] = [
         "es": "Cuando está activo, un pequeño modelo local (Qwen3-1.7B) evalúa cada comando; solo los obviamente seguros omiten el gesto. Funciona totalmente en el dispositivo (privado), añade ~1s. Los comandos peligrosos siempre requieren gesto (lista de denegación). Lo incierto o sin conexión vuelve al gesto.",
         "fr": "Activé, un petit modèle local (Qwen3-1.7B) évalue chaque commande ; seules les commandes manifestement sûres évitent le geste. Entièrement sur l'appareil (privé), ajoute ~1s. Les commandes dangereuses exigent toujours un geste (liste de refus). En cas de doute ou hors ligne, retour au geste.",
     ],
+    "settings.section.deviceapi": [
+        "en": "Remote approval devices", "zh": "远程审批设备",
+        "ja": "リモート承認デバイス", "ko": "원격 승인 장치",
+        "es": "Dispositivos de aprobación remota", "fr": "Appareils d'approbation à distance",
+    ],
+    "settings.deviceapi.enable": [
+        "en": "Approve from network devices (ESP32, etc.) via API",
+        "zh": "允许网络设备（ESP32 等）经 API 审批",
+        "ja": "ネットワーク機器（ESP32 など）から API で承認",
+        "ko": "네트워크 장치(ESP32 등)에서 API로 승인",
+        "es": "Aprobar desde dispositivos de red (ESP32, etc.) vía API",
+        "fr": "Approuver depuis des appareils réseau (ESP32, etc.) via l'API",
+    ],
+    "settings.deviceapi.desc": [
+        "en": "Opens a token-protected LAN port so a device can watch for pending approvals and approve/deny — same effect as a gesture or click. The local hook port stays loopback-only. Command text is sent over the LAN in the clear, so use it only on a network you trust.",
+        "zh": "开放一个受 token 保护的局域网端口，设备可监听待审批并通过/拒绝——效果等同手势或点击。本地 hook 端口仍只绑回环。命令内容以明文经局域网传输，请仅在可信网络使用。",
+        "ja": "トークンで保護された LAN ポートを開き、デバイスが承認待ちを監視して承認/拒否できます（ジェスチャーやクリックと同じ効果）。ローカルの hook ポートはループバック限定のままです。コマンド内容は LAN 上を平文で送るため、信頼できるネットワークでのみ使用してください。",
+        "ko": "토큰으로 보호된 LAN 포트를 열어 장치가 대기 중인 승인을 감시하고 승인/거부할 수 있습니다(제스처·클릭과 동일 효과). 로컬 hook 포트는 루프백 전용을 유지합니다. 명령 내용은 LAN에서 평문으로 전송되므로 신뢰하는 네트워크에서만 사용하세요.",
+        "es": "Abre un puerto LAN protegido con token para que un dispositivo vigile las aprobaciones pendientes y apruebe/rechace, con el mismo efecto que un gesto o clic. El puerto local del hook sigue siendo solo loopback. El texto del comando se envía por la LAN sin cifrar; úsalo solo en una red de confianza.",
+        "fr": "Ouvre un port LAN protégé par jeton pour qu'un appareil surveille les approbations en attente et approuve/refuse — même effet qu'un geste ou un clic. Le port local du hook reste en loopback uniquement. Le texte des commandes transite en clair sur le LAN ; à n'utiliser que sur un réseau de confiance.",
+    ],
+    "settings.deviceapi.address": [
+        "en": "Address", "zh": "地址", "ja": "アドレス", "ko": "주소",
+        "es": "Dirección", "fr": "Adresse",
+    ],
+    "settings.deviceapi.otherAddr": [
+        "en": "Other:", "zh": "其它：", "ja": "その他：", "ko": "기타:",
+        "es": "Otras:", "fr": "Autres :",
+    ],
+    "settings.deviceapi.noIP": [
+        "en": "no network", "zh": "无网络", "ja": "ネットワークなし", "ko": "네트워크 없음",
+        "es": "sin red", "fr": "aucun réseau",
+    ],
+    "settings.deviceapi.copy": [
+        "en": "Copy", "zh": "复制", "ja": "コピー", "ko": "복사",
+        "es": "Copiar", "fr": "Copier",
+    ],
     "settings.section.allowlist": [
         "en": "Auto-allow rules", "zh": "自动放行规则", "ja": "自動承認ルール",
         "ko": "자동 통과 규칙", "es": "Reglas de auto-aprobación", "fr": "Règles d'auto-autorisation",

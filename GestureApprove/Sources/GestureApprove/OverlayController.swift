@@ -66,6 +66,11 @@ final class ApprovalController {
     private var esp32Source: ESP32FrameSource?
     private var panel: NSPanel?
 
+    // 网络审批设备（ESP32 等）下行状态源：发起时置 pending、结束时清空，供 /state 长轮询。
+    // 注入式（可空）：不接设备也照常工作。
+    var deviceState: DeviceApprovalState?
+    private var currentApprovalID = ""
+
     private var inFlight = false
     private var resolving = false   // finish 已执行、还在结果展示(dwell)期：拒绝一切后续输入。
                                     // 没有它，dwell 0.7s 内热键/图标/「总是允许」都还能触发第二次
@@ -168,6 +173,13 @@ final class ApprovalController {
         vm.scale = 1
         vm.fullScreen = bigMode ? notchScreen().frame.size : nil
         applyPanelSize()
+
+        // 发布"审批动态"给网络设备：带一次性 id + 剩余时限，设备据此显示并回裁决。
+        currentApprovalID = String(UUID().uuidString.prefix(8))
+        deviceState?.setPending(id: currentApprovalID,
+                                operation: operation, tool: tool, cwd: cwd,
+                                expiresAt: Date().addingTimeInterval(timeout),
+                                dangerous: Allowlist.isDangerous(operation))
 
         engine.reset()   // 清掉上一次的画面/状态（previewImage 置 nil，首帧监听才可靠）
         engine.onStable = { [weak self] gesture in
@@ -306,6 +318,7 @@ final class ApprovalController {
             completion = nil
             inFlight = false
             vm.locked = nil
+            deviceState?.clear(id: currentApprovalID)
             done?(outcome)
             return
         }
@@ -324,7 +337,18 @@ final class ApprovalController {
             let done = self.completion
             self.completion = nil
             self.inFlight = false
+            self.deviceState?.clear(id: self.currentApprovalID)
             done?(outcome)
         }
+    }
+
+    /// 由网络审批设备（ESP32 等，经 /resolve）调用：id 匹配当前审批才生效，效果同热键。
+    /// 与 resolveByHotkey 不同，**不要求卡片已弹出**——设备有自己的显示，不依赖 Mac 卡片可见，
+    /// 且可在摄像头暖机那 ~2s 内就裁决（finish 的 !cardShown 分支会直接回结果）。
+    /// 返回是否被接受（未在审批中 / 正在收尾 / id 不匹配 → false）。
+    func resolveByExternal(id: String, approve: Bool) -> Bool {
+        guard inFlight, !resolving, id == currentApprovalID else { return false }
+        finish(with: approve ? .thumbUp : .openPalm)
+        return true
     }
 }

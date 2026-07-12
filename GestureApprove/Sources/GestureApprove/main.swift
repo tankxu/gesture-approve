@@ -22,6 +22,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return 47600
     }
 
+    // MARK: 网络审批设备（ESP32 等）API —— 独立 LAN 端口 + Bearer token，与可信的本地 hook 口隔离。
+    // 端口/token/开关等配置见 DeviceApi；开关默认关，可在设置窗「远程审批设备」里打开。
+    private let deviceState = DeviceApprovalState()
+
     private var approvalEnabled: Bool {
         get { (UserDefaults.standard.object(forKey: "approvalEnabled") as? Bool) ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "approvalEnabled") }
@@ -70,6 +74,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AVCaptureDevice.requestAccess(for: .video) { _ in }   // 首次弹相机授权
         setupStatusItem()
         registerHotkeys()
+        controller.deviceState = deviceState   // 让审批控制器发布/清空设备可见的审批动态
         startServer()
         Gatekeeper.shared.startIfNeeded()   // 智能放行守门员 daemon（仅开关开+已装才起；会先清残留）
         observeSystemState()
@@ -128,7 +133,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func startServer() {
-        let server = ApprovalServer(port: port) { [weak self] req, reply in
+        // 设备参数始终传入；是否真正开放由 deviceEnabled 开关控制（设置窗可运行时起停）。
+        if DeviceApi.isEnabled {
+            let ips = DeviceApi.localIPv4Addresses().joined(separator: ", ")
+            GALog.log("设备 API 已开放：http://\(ips.isEmpty ? "<本机IP>" : ips):\(DeviceApi.port) token=\(DeviceApi.token)")
+        }
+        let server = ApprovalServer(
+            port: port,
+            devicePort: DeviceApi.port,
+            deviceToken: DeviceApi.token,
+            deviceState: deviceState,
+            deviceEnabled: DeviceApi.isEnabled,
+            onResolve: { [weak self] id, decision, reply in
+                Task { @MainActor in
+                    guard let self else { reply(false); return }
+                    reply(self.controller.resolveByExternal(id: id, approve: decision == "allow"))
+                }
+            }
+        ) { [weak self] req, reply in
             DispatchQueue.main.async {
                 guard let self else { reply("ask", L("reply.notReady")); return }
                 // 总开关关闭 -> 直接交回终端正常审批，不弹卡片
@@ -308,7 +330,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onPrimeESP32: { [weak self] in self?.controller.primeESP32() },
             onEngineChanged: { [weak self] in self?.controller.applyEngine() },
             openMediaPipeInstall: { [weak self] in self?.openMediaPipeInstall() },
-            openGatekeeperInstall: { [weak self] in self?.openGatekeeperInstall() })
+            openGatekeeperInstall: { [weak self] in self?.openGatekeeperInstall() },
+            onDeviceApiChanged: { [weak self] on in self?.server?.setDeviceEnabled(on) })
     }
 
     private func openMediaPipeInstall() {

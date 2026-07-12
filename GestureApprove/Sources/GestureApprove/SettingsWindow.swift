@@ -62,11 +62,13 @@ struct SettingsView: View {
     @State private var updateVersion = ""         // 新版本号（弹窗标题用）
     @State private var updateNotes = ""           // 新版 changelog（弹窗正文用）
     @State private var installing = false
+    @State private var deviceApiOn: Bool = DeviceApi.isEnabled
     let openFlash: () -> Void
     let onPrimeESP32: () -> Void
     let onEngineChanged: () -> Void
     let openMediaPipeInstall: () -> Void
     let openGatekeeperInstall: () -> Void
+    let onDeviceApiChanged: (Bool) -> Void
 
     // 统一的视觉节奏：分区之间 / 分区内元素之间
     private let sectionSpacing: CGFloat = 14
@@ -446,7 +448,59 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
 
+            Divider()
+
+            // 远程审批设备（ESP32 等经 HTTP API 审批）
+            header("settings.section.deviceapi")
+            VStack(alignment: .leading, spacing: itemSpacing) {
+                Toggle(L("settings.deviceapi.enable"), isOn: Binding(
+                    get: { deviceApiOn },
+                    set: { on in
+                        DeviceApi.isEnabled = on
+                        deviceApiOn = on
+                        onDeviceApiChanged(on)   // 运行时起停设备监听，无需重启
+                    }))
+                caption("settings.deviceapi.desc")
+                if deviceApiOn { deviceApiInfo }
+            }
+
             Spacer(minLength: 0)
+        }
+    }
+
+    /// 设备口开启后的配对信息：连接地址（本机 IP:端口）与 token，各带一键复制。
+    @ViewBuilder private var deviceApiInfo: some View {
+        let urls = DeviceApi.baseURLs()
+        VStack(alignment: .leading, spacing: 4) {
+            copyRow(label: L("settings.deviceapi.address"),
+                    value: urls.first ?? "http://<\(L("settings.deviceapi.noIP"))>:\(DeviceApi.port)",
+                    copyText: urls.first ?? "")
+            copyRow(label: "Token", value: DeviceApi.token, copyText: DeviceApi.token, mono: true)
+            if urls.count > 1 {
+                Text("\(L("settings.deviceapi.otherAddr")) \(urls.dropFirst().joined(separator: ", "))")
+                    .font(.system(size: 10)).foregroundStyle(.tertiary)
+                    .textSelection(.enabled)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    @ViewBuilder private func copyRow(label: String, value: String, copyText: String, mono: Bool = false) -> some View {
+        HStack(spacing: 6) {
+            Text(label).font(.system(size: 11)).foregroundStyle(.secondary).frame(width: 56, alignment: .leading)
+            Text(value)
+                .font(.system(size: 11, design: mono ? .monospaced : .default))
+                .lineLimit(1).truncationMode(.middle)
+                .textSelection(.enabled)
+            Spacer(minLength: 4)
+            Button {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(copyText, forType: .string)
+            } label: { Image(systemName: "doc.on.doc") }
+                .buttonStyle(.plain).foregroundStyle(.secondary)
+                .help(L("settings.deviceapi.copy"))
         }
     }
 
@@ -575,13 +629,14 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
               onPrimeESP32: @escaping () -> Void,
               onEngineChanged: @escaping () -> Void,
               openMediaPipeInstall: @escaping () -> Void,
-              openGatekeeperInstall: @escaping () -> Void) {
+              openGatekeeperInstall: @escaping () -> Void,
+              onDeviceApiChanged: @escaping (Bool) -> Void) {
         // 每次打开都重建视图：设置窗是复用的（关闭只隐藏），若沿用旧视图，其 @State 快照（信任命令、
         // 开机自启等）停留在上次打开时的值——比如刚在卡片上点的「总是允许」就不会显示。重建则重读最新。
         let hosting = NSHostingController(rootView: SettingsView(
             state: state, openFlash: openFlash, onPrimeESP32: onPrimeESP32,
             onEngineChanged: onEngineChanged, openMediaPipeInstall: openMediaPipeInstall,
-            openGatekeeperInstall: openGatekeeperInstall))
+            openGatekeeperInstall: openGatekeeperInstall, onDeviceApiChanged: onDeviceApiChanged))
         if window == nil {
             let w = NSWindow(contentViewController: hosting)
             w.title = L("settings.windowTitle")
