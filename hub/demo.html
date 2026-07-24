@@ -1,85 +1,136 @@
 <!doctype html>
 <html lang="zh"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Claude Session Hub · Demo</title>
+<title>Claude Session Hub</title>
 <style>
-  :root{color-scheme:light dark;--bg:#0f1115;--fg:#e7e9ee;--mut:#8b90a0;--card:rgba(127,127,127,.09);--bd:rgba(127,127,127,.18);--accent:#2563eb}
-  @media (prefers-color-scheme:light){:root{--bg:#f5f6f8;--fg:#1a1c22;--mut:#6b7280}}
+  :root{
+    color-scheme:light dark;
+    --bg:#f6f7f9; --surface:#fff; --surface-2:#f0f1f4; --line:#e6e8ec;
+    --text:#1c1e22; --text-2:#5b6470; --text-3:#98a0ab;
+    --accent:#e8792b; --accent-strong:#cf6a1f; --accent-weak:rgba(232,121,43,.10);
+    --green:#12a150; --amber:#d98207; --red:#e5484d;
+    --radius:12px; --shadow:0 1px 2px rgba(0,0,0,.04),0 1px 3px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --bg:#0e1013; --surface:#181b20; --surface-2:#20242a; --line:#282d34;
+    --text:#e9ebee; --text-2:#9aa2ad; --text-3:#6b727c;
+    --accent-weak:rgba(232,121,43,.15); --shadow:0 1px 2px rgba(0,0,0,.3);
+  }}
   *{box-sizing:border-box}
-  body{margin:0;font:14px/1.5 -apple-system,system-ui,sans-serif;background:var(--bg);color:var(--fg);display:flex;flex-direction:column;height:100dvh;overflow:hidden}
-  header,.pending,.recbar,.setup{flex:0 0 auto}
-  .cfglink{margin-left:auto;font-size:12px;color:var(--accent);text-decoration:none}
-  .setup{display:block;padding:10px 16px;background:var(--accent);color:#fff;font-size:13px;text-decoration:none;text-align:center}
-  header{padding:12px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px}
-  header h1{font-size:15px;margin:0}
-  .dot{width:8px;height:8px;border-radius:50%;background:#888;display:inline-block}
+  body{margin:0;font:13.5px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+       background:var(--bg);color:var(--text);display:flex;flex-direction:column;height:100dvh;overflow:hidden;
+       -webkit-font-smoothing:antialiased}
+  header,.setup,.pending{flex:0 0 auto}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px;border:3px solid transparent;background-clip:content-box}
+
+  /* top bar */
+  header{display:flex;align-items:center;gap:10px;padding:11px 18px;background:var(--surface);border-bottom:1px solid var(--line)}
+  .brand{width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,var(--accent),#e2a04d);
+         display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;flex:0 0 auto}
+  h1{font-size:14px;font-weight:650;margin:0;letter-spacing:-.01em}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--text-3);display:inline-block;flex:0 0 auto}
+  #stat{font-size:12px;color:var(--text-3)}
+  .cfglink{margin-left:auto;font-size:12.5px;color:var(--text-2);text-decoration:none;padding:5px 10px;border-radius:8px}
+  .cfglink:hover{background:var(--surface-2);color:var(--text)}
+
+  .setup{display:flex;align-items:center;gap:8px;justify-content:center;padding:10px 16px;
+         background:var(--accent-weak);color:var(--accent-strong);font-size:12.5px;font-weight:550;text-decoration:none;
+         border-bottom:1px solid var(--line)}
+  .pending{display:none;margin:10px 14px 0;padding:9px 13px;border-radius:10px;font-size:12.5px;font-weight:500;
+           background:rgba(217,130,7,.12);color:var(--amber);border:1px solid rgba(217,130,7,.25)}
+  @media (prefers-color-scheme:dark){.pending{color:#f0b45e}}
+
   .layout{display:flex;flex:1;min-height:0}
-  .list{width:340px;border-right:1px solid var(--bd);overflow:auto;flex:0 0 auto}
-  .chat{flex:1;min-height:0;overflow:auto;padding:16px}
-  .pending{margin:8px;padding:8px 12px;border-radius:10px;background:#7c2d12;color:#fed7aa;font-size:12px;display:none}
-  .row{padding:10px 14px;border-bottom:1px solid var(--bd);cursor:pointer}
-  .row:hover{background:var(--card)}
-  .row.sel{background:rgba(37,99,235,.14)}
-  .row .t{font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px}
-  .row .m{font-size:11px;color:var(--mut);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .badge{font-size:10px;padding:1px 6px;border-radius:999px;border:1px solid var(--bd);color:var(--mut)}
-  .st-wait{background:#7c2d12;color:#fed7aa;border:0}
-  .st-active,.st-tool{background:#14532d;color:#bbf7d0;border:0}
-  .st-done{color:var(--mut)}
-  .sd{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
-  .sd.wait{background:#f59e0b}.sd.active,.sd.tool{background:#16a34a}.sd.done{background:#6b7280}.sd.none{background:#374151}
-  .msg{margin:0 0 14px;max-width:80%}
-  .msg .who{font-size:11px;color:var(--mut);margin-bottom:3px}
-  .msg .bub{padding:9px 12px;border-radius:12px;white-space:pre-wrap;word-break:break-word;font-size:13px}
-  .user{margin-left:auto}.user .bub{background:var(--accent);color:#fff}
-  .assistant .bub{background:var(--card);border:1px solid var(--bd)}
-  .tool{opacity:.55;font-style:italic}
-  .chathdr{flex:0 0 auto;padding:10px 16px;border-bottom:1px solid var(--bd);background:var(--bg)}
-  .chathdr:empty{display:none}
-  .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .bar h2{font-size:14px;margin:0}
-  button{font:inherit;font-size:12px;padding:5px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:inherit;cursor:pointer}
-  a.link{font-size:12px;color:var(--accent);text-decoration:none}
-  .empty{color:var(--mut);padding:40px;text-align:center}
-  .recbar{padding:8px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px;font-size:13px}
-  .recbar button{font-size:13px}
-  .recbar button.recording{background:#dc2626;color:#fff;border:0}
-  #recout{color:var(--mut)}
+  .list{width:326px;flex:0 0 auto;overflow:auto;background:var(--surface);border-right:1px solid var(--line);padding:8px}
+  .seclabel{font-size:10.5px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);
+            padding:12px 10px 5px}
+
+  /* session row */
+  .row{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border-radius:9px;cursor:pointer;position:relative}
+  .row:hover{background:var(--surface-2)}
+  .row.sel{background:var(--accent-weak)}
+  .row.sel::before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:3px;background:var(--accent)}
+  .row.readonly{opacity:.62}
+  .statusdot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;margin-top:5px;background:var(--text-3)}
+  .statusdot.wait{background:var(--amber);box-shadow:0 0 0 3px rgba(217,130,7,.18)}
+  .statusdot.active,.statusdot.tool{background:var(--green);box-shadow:0 0 0 3px rgba(18,161,80,.16)}
+  .statusdot.done{background:var(--text-3)}
+  .rowbody{min-width:0;flex:1}
+  .rowtop{display:flex;align-items:center;gap:6px}
+  .rowtitle{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rowsub{font-size:11.5px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+  .chip{font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:999px;background:var(--surface-2);color:var(--text-2);flex:0 0 auto}
+  .chip.wait{background:rgba(217,130,7,.15);color:var(--amber)}
+  .chip.run{background:rgba(18,161,80,.14);color:var(--green)}
+  .src{font-size:10.5px;font-weight:600;color:var(--text-3)}
+
+  /* chat */
   .chatcol{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
-  .replybar{flex:0 0 auto;border-top:1px solid var(--bd);padding:10px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .replybar input{flex:1;min-width:180px;padding:8px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:inherit;font:inherit;font-size:13px}
-  .replybar button.send{background:#16a34a;color:#fff;border:0}
-  #recout{font-size:11px;color:var(--mut);flex-basis:100%}
-  .replybar button.mic{font-size:16px;padding:6px 11px}
-  .replybar button.recording{background:#dc2626;color:#fff;border:0}
+  .chathdr{flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--line)}
+  .chathdr:empty{display:none}
+  .hdrbar{display:flex;align-items:center;gap:10px;padding:12px 18px}
+  .hdrtitle{font-size:14px;font-weight:650;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pill{margin-left:auto;font-size:12px;font-weight:550;color:var(--accent-strong);text-decoration:none;
+        padding:5px 11px;border-radius:8px;background:var(--accent-weak);white-space:nowrap;flex:0 0 auto}
+  .pill:hover{background:rgba(232,121,43,.2)}
+  .hdrnote{margin-left:auto;font-size:11.5px;color:var(--text-3)}
+  .chat{flex:1;min-height:0;overflow:auto;padding:20px 18px}
+  .msg{max-width:76%;margin:0 0 16px}
+  .msg-user{margin-left:auto}
+  .msgrole{font-size:11px;font-weight:600;color:var(--text-3);margin:0 2px 4px}
+  .msg-user .msgrole{text-align:right}
+  .bubble{padding:10px 13px;border-radius:14px;white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.6}
+  .msg-assistant .bubble{background:var(--surface);border:1px solid var(--line);border-top-left-radius:5px}
+  .msg-user .bubble{background:var(--accent);color:#fff;border-top-right-radius:5px}
+  .bubble.tool{background:transparent;border:1px dashed var(--line);color:var(--text-3);font-size:12px;font-style:italic}
+
+  .empty{color:var(--text-3);padding:56px 24px;text-align:center;font-size:13px}
+
+  /* reply bar */
+  .replybar{flex:0 0 auto;border-top:1px solid var(--line);background:var(--surface);
+            padding:11px 14px;display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+  button{font:inherit;font-size:12.5px;font-weight:550;padding:8px 13px;border-radius:9px;border:1px solid var(--line);
+         background:var(--surface);color:var(--text);cursor:pointer;transition:background .12s,border-color .12s}
+  button:hover{background:var(--surface-2)}
+  button:active{transform:translateY(.5px)}
+  .replybar input{flex:1;min-width:180px;padding:9px 12px;border-radius:9px;border:1px solid var(--line);
+                  background:var(--bg);color:var(--text);font:inherit;font-size:13px}
+  .replybar input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-weak)}
+  .mic{font-size:15px;padding:7px 11px;line-height:1}
+  .mic.recording{background:var(--red);color:#fff;border-color:var(--red)}
+  .send{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .send:hover{background:var(--accent-strong)}
+  #recout{font-size:11.5px;color:var(--text-3);flex-basis:100%;min-height:14px}
+  #recout b{color:var(--text);font-weight:600}
+  .replybar input:disabled,.replybar button:disabled{opacity:.4;cursor:not-allowed}
+  .replybar input:disabled{background:var(--surface-2)}
+
   @media (max-width:760px){
     .layout{flex-direction:column}
-    .list{width:100%;flex:0 0 auto;max-height:34vh;border-right:0;border-bottom:1px solid var(--bd)}
-    input,button{font-size:16px}          /* 16px 防 iOS 聚焦缩放 */
-    .replybar button.send{padding:9px 16px}
-    header h1{font-size:14px}
+    .list{width:100%;flex:0 0 auto;max-height:36vh;border-right:0;border-bottom:1px solid var(--line)}
+    input,button{font-size:16px}
+    .msg{max-width:88%}
+    .hdrbar,.chat,.replybar{padding-left:14px;padding-right:14px}
   }
-  .row.readonly{opacity:.5}
-  .badge.ro{color:var(--mut)}
-  .divider{padding:6px 14px;font-size:11px;color:var(--mut);background:rgba(127,127,127,.06);border-bottom:1px solid var(--bd)}
-  .replybar input:disabled,.replybar button:disabled{opacity:.45;cursor:not-allowed}
 </style></head><body>
 <header>
+  <span class="brand">C</span>
+  <h1>Session Hub</h1>
   <span class="dot" id="dot"></span>
-  <h1>Claude Session Hub · Demo</h1>
-  <span id="stat" style="font-size:12px;color:var(--mut)"></span>
+  <span id="stat"></span>
   <a id="cfglink" class="cfglink" href="/config" style="display:none">⚙ 配置</a>
 </header>
-<a class="setup" id="setup" href="/config" style="display:none">⚙ 首次使用:点此进入配置页,设置语音识别(SiliconFlow)key →</a>
+<a class="setup" id="setup" href="/config" style="display:none">⚙ 首次使用 · 点此设置语音识别(SiliconFlow)key →</a>
 <div class="pending" id="pending"></div>
 <div class="layout">
   <div class="list" id="list"></div>
   <div class="chatcol">
     <div id="chathdr" class="chathdr"></div>
-    <div class="chat" id="chat"><div class="empty">← 选一个会话看聊天记录</div></div>
+    <div class="chat" id="chat"><div class="empty">← 选择左侧会话查看聊天记录</div></div>
     <div class="replybar">
       <button id="recbtn" class="mic" onclick="toggleRec()" title="点一下录音,再点停止识别">🎤</button>
-      <input id="replyin" placeholder="回复这个会话…(🎤 语音填到这里;Enter 发送)"
+      <input id="replyin" placeholder="回复这个会话…  语音会填到这里 · Enter 发送"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();doReply(true)}">
       <button class="send" onclick="doReply(true)">发送</button>
       <span id="recout"></span>
@@ -99,24 +150,29 @@ function shortCwd(c){if(!c)return'';const p=c.split('/');return p.slice(-2).join
 
 function rowHtml(s,ro){
   const st=s.state||'none';
-  const badge=s.waitingForUser?'<span class="badge st-wait">等你答</span>':
-    (st==='done'?'<span class="badge st-done">done</span>':(st?`<span class="badge st-${st}">${st}</span>`:''));
-  const link=ro?'':'🔗 ';
+  const dot=s.waitingForUser?'wait':st;
+  let chip='';
+  if(s.waitingForUser) chip='<span class="chip wait">等你答</span>';
+  else if(st==='active'||st==='tool') chip='<span class="chip run">运行中</span>';
   const src=s.entrypoint==='claude-desktop'?'桌面':'cli';
   return `<div class="row ${ro?'readonly':''} ${sel===s.sessionId?'sel':''}" data-id="${s.sessionId}">
-    <div class="t"><span class="sd ${s.waitingForUser?'wait':st}"></span>${link}${esc(s.title||s.name)} ${badge}</div>
-    <div class="m">${src} · ${esc(shortCwd(s.cwd))} · ${s.status||''}</div></div>`;
+    <span class="statusdot ${dot}"></span>
+    <div class="rowbody">
+      <div class="rowtop"><span class="rowtitle">${esc(s.title||s.name)}</span>${chip}</div>
+      <div class="rowsub"><span class="src">${src}</span> · ${esc(shortCwd(s.cwd))}</div>
+    </div></div>`;
 }
 function renderList(){
   const el=$('list');
   const rep=sessions.filter(s=>s.webUrl), ro=sessions.filter(s=>!s.webUrl);
-  let html=rep.map(s=>rowHtml(s,false)).join('');
-  if(ro.length) html+='<div class="divider">下面无 share link · 只读(不可回复)</div>'+ro.map(s=>rowHtml(s,true)).join('');
+  let html='';
+  if(rep.length) html+='<div class="seclabel">可回复会话</div>'+rep.map(s=>rowHtml(s,false)).join('');
+  if(ro.length) html+='<div class="seclabel">只读 · 无 share link</div>'+ro.map(s=>rowHtml(s,true)).join('');
   el.innerHTML=html||'<div class="empty">无活跃会话</div>';
   el.querySelectorAll('.row').forEach(r=>r.onclick=()=>openSession(r.dataset.id));
   const waiting=sessions.filter(s=>s.waitingForUser);
   const pb=$('pending');
-  if(waiting.length){pb.style.display='block';pb.textContent='⚠ 有 '+waiting.length+' 个会话在等你回答:'+waiting.map(s=>s.title).join('、');}
+  if(waiting.length){pb.style.display='block';pb.textContent='● 有 '+waiting.length+' 个会话在等你回答:'+waiting.map(s=>s.title).join('、');}
   else pb.style.display='none';
   updateReplyBar();
 }
@@ -126,28 +182,28 @@ function updateReplyBar(){
   const can=!!(s&&s.webUrl);
   inp.disabled=!can;
   document.querySelectorAll('.replybar button').forEach(b=>b.disabled=!can);
-  inp.placeholder=can?'回复这个会话…(🎤 录音结果会填到这里;Enter=填入)':'此会话无 share link,只读';
+  inp.placeholder=can?'回复这个会话…  语音会填到这里 · Enter 发送':'此会话无 share link,只读';
 }
 
 async function refresh(){
   try{
     const d=await api('/sessions');
     sessions=d.sessions;
-    $('dot').style.background='#16a34a';
+    $('dot').style.background='var(--green)';
     $('stat').textContent=sessions.length+' 个会话 · '+new Date().toLocaleTimeString();
     renderList();
-  }catch(e){$('dot').style.background='#dc2626';$('stat').textContent='hub 不可达 '+e;}
+  }catch(e){$('dot').style.background='var(--red)';$('stat').textContent='hub 不可达 '+e;}
 }
 
 function renderMessages(d,id){
   const s=sessions.find(x=>x.sessionId===id)||{};
   const msgs=d.messages.map(m=>{
     const tool=/^\[(工具|工具结果)/.test(m.text.trim());
-    return `<div class="msg ${m.role}"><div class="who">${m.role==='user'?'你':'Claude'}</div>
-      <div class="bub ${tool?'tool':''}">${esc(m.text)}</div></div>`;
+    return `<div class="msg msg-${m.role}"><div class="msgrole">${m.role==='user'?'你':'Claude'}</div>
+      <div class="bubble ${tool?'tool':''}">${esc(m.text)}</div></div>`;
   }).join('');
-  const web=s.webUrl?`<a class="link" href="${s.webUrl}" target="_blank">在 claude.ai 打开(接力)↗</a>`:'<span style="font-size:12px;color:var(--mut)">桌面会话无接力链接</span>';
-  $('chathdr').innerHTML=`<div class="bar"><h2>${esc(d.title||s.title||'')}</h2><span class="badge">${d.total} 条</span>${web}</div>`;
+  const web=s.webUrl?`<a class="pill" href="${s.webUrl}" target="_blank">在 claude.ai 打开 ↗</a>`:'<span class="hdrnote">桌面会话 · 无接力链接</span>';
+  $('chathdr').innerHTML=`<div class="hdrbar"><span class="hdrtitle">${esc(d.title||s.title||'')}</span><span class="chip">${d.total} 条</span>${web}</div>`;
   $('chat').innerHTML=msgs||'<div class=empty>(无消息)</div>';
 }
 function chatAtBottom(){const c=$('chat');return c.scrollHeight-c.scrollTop-c.clientHeight<80;}
@@ -158,8 +214,8 @@ async function loadMessages(id,force){
     const d=await api('/session/'+id+'/messages?limit=60&max_len=6000');
     const last=d.messages[d.messages.length-1];
     const key=id+':'+d.total+':'+(last?last.text.length:0);
-    if(!force&&key===lastMsgKey)return;   // 内容没变 → 不重渲染,避免闪烁
-    const stick=force||chatAtBottom();     // 在底部才自动跟到最新;上滑看历史不打断
+    if(!force&&key===lastMsgKey)return;
+    const stick=force||chatAtBottom();
     lastMsgKey=key;
     renderMessages(d,id);
     if(stick)$('chat').scrollTop=$('chat').scrollHeight;
@@ -173,7 +229,7 @@ async function openSession(id){
 }
 
 // ---- 录音 → WAV(16k 单声道) → /asr ----
-let audioCtx=null;                       // 复用同一个 AudioContext(每次录音前 resume,别 close)
+let audioCtx=null;
 let rec={stream:null,node:null,src:null,chunks:[],on:false};
 async function toggleRec(){
   const btn=$('recbtn'),out=$('recout');
@@ -183,7 +239,7 @@ async function toggleRec(){
     try{rec.stream=await navigator.mediaDevices.getUserMedia({audio:true});}
     catch(e){out.textContent='麦克风权限被拒: '+e;return;}
     if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-    try{await audioCtx.resume();}catch(e){}   // 关键:suspended 时不 resume,onaudioprocess 不触发(第二次录音空)
+    try{await audioCtx.resume();}catch(e){}
     rec.src=audioCtx.createMediaStreamSource(rec.stream);
     rec.node=audioCtx.createScriptProcessor(4096,1,1);
     rec.chunks=[];
@@ -246,17 +302,15 @@ async function doReply(send){
     else out.textContent='✗ '+(j.error||JSON.stringify(j));
   }catch(e){out.textContent='✗ '+e;}
 }
-// 浏览器不支持麦克风(手机 http)→ 隐藏 🎤,改用系统键盘听写往输入框说
 if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
   const rb=$('recbtn');if(rb)rb.style.display='none';
 }
-// config 入口 + 首次引导:config 是本机页(手机点会 403),故仅 localhost 显示
 const isLocal=['127.0.0.1','localhost','::1'].includes(location.hostname);
 async function checkSetup(){
   if(isLocal) $('cfglink').style.display='';
   try{
     const h=await (await fetch('/health')).json();
-    $('setup').style.display=(isLocal && h && h.siliconflowKeySet===false)?'block':'none';
+    $('setup').style.display=(isLocal && h && h.siliconflowKeySet===false)?'flex':'none';
   }catch(e){}
 }
 checkSetup();

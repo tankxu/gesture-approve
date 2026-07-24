@@ -640,6 +640,18 @@ class Handler(BaseHTTPRequestHandler):
             changed = set_config(o)
             self._json({"ok": True, "changed": changed})
             return
+        if path == "/config/stop":   # 仅 loopback:停掉 hub 自身(启动由 GA tray 负责)
+            if not self._is_loopback():
+                self._json({"error": "loopback-only"}, 403); return
+            self._json({"ok": True, "stopping": True})
+            import threading
+            import time as _t
+
+            def _bye():
+                _t.sleep(0.4)
+                os._exit(0)
+            threading.Thread(target=_bye, daemon=True).start()
+            return
         if self._need_auth(path) and not self._authed():
             self._json({"error": "unauthorized"}, 401)
             return

@@ -1,47 +1,70 @@
 <!doctype html>
 <html lang="zh"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Claude Session Hub · 配置</title>
+<title>Session Hub · 配置</title>
 <style>
-  :root{color-scheme:light dark;--bg:#0f1115;--fg:#e7e9ee;--mut:#8b90a0;--card:rgba(127,127,127,.09);--bd:rgba(127,127,127,.18);--accent:#2563eb;--ok:#16a34a;--warn:#f59e0b}
-  @media (prefers-color-scheme:light){:root{--bg:#f5f6f8;--fg:#1a1c22;--mut:#6b7280}}
+  :root{
+    color-scheme:light dark;
+    --bg:#f6f7f9; --surface:#fff; --surface-2:#f0f1f4; --line:#e6e8ec;
+    --text:#1c1e22; --text-2:#5b6470; --text-3:#98a0ab;
+    --accent:#e8792b; --accent-strong:#cf6a1f; --accent-weak:rgba(232,121,43,.10);
+    --ok:#12a150; --warn:#d98207; --red:#e5484d;
+    --shadow:0 1px 2px rgba(0,0,0,.04),0 1px 3px rgba(0,0,0,.05);
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --bg:#0e1013; --surface:#181b20; --surface-2:#20242a; --line:#282d34;
+    --text:#e9ebee; --text-2:#9aa2ad; --text-3:#6b727c;
+    --accent-weak:rgba(232,121,43,.15); --shadow:0 1px 2px rgba(0,0,0,.3);
+  }}
   *{box-sizing:border-box}
-  body{margin:0;font:14px/1.6 -apple-system,system-ui,sans-serif;background:var(--bg);color:var(--fg)}
-  .wrap{max-width:640px;margin:0 auto;padding:20px 16px 60px}
-  h1{font-size:17px;margin:0 0 2px}
-  .sub{color:var(--mut);font-size:12px;margin-bottom:20px}
-  .sub a{color:var(--accent);text-decoration:none}
-  .card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px;margin-bottom:16px}
-  .card h2{font-size:14px;margin:0 0 12px}
-  .row{display:flex;align-items:center;gap:8px;margin:8px 0}
-  .row .k{color:var(--mut);font-size:12px;flex:0 0 84px}
-  .row .v{flex:1;font:12px/1.5 ui-monospace,Menlo,monospace;word-break:break-all;background:rgba(0,0,0,.22);padding:7px 9px;border-radius:8px}
-  @media (prefers-color-scheme:light){.row .v{background:rgba(0,0,0,.05)}}
-  button{font:inherit;font-size:12px;padding:6px 11px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:inherit;cursor:pointer;white-space:nowrap}
-  button.primary{background:var(--accent);color:#fff;border:0}
-  input{flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--bd);background:rgba(0,0,0,.18);color:inherit;font:13px ui-monospace,Menlo,monospace}
-  @media (prefers-color-scheme:light){input{background:#fff}}
-  .badge{font-size:11px;padding:2px 8px;border-radius:999px}
-  .set{background:#14532d;color:#bbf7d0}.unset{background:#7c2d12;color:#fed7aa}
-  .hint{font-size:11px;color:var(--mut);margin-top:6px}
-  #msg{font-size:12px;margin-top:8px;min-height:16px}
+  body{margin:0;font:13.5px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+       background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+  .wrap{max-width:660px;margin:0 auto;padding:22px 18px 64px}
+  .top{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+  .brand{width:24px;height:24px;border-radius:7px;background:linear-gradient(135deg,var(--accent),#e2a04d);
+         display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700}
+  h1{font-size:16px;font-weight:650;margin:0;letter-spacing:-.01em}
+  .sub{color:var(--text-3);font-size:12px;margin:0 0 22px 34px}
+  .sub a{color:var(--accent-strong);text-decoration:none;font-weight:550}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px;box-shadow:var(--shadow)}
+  .card h2{font-size:13.5px;font-weight:650;margin:0 0 14px;display:flex;align-items:center;gap:8px}
+  .row{display:flex;align-items:center;gap:10px;margin:9px 0}
+  .row .k{color:var(--text-3);font-size:12px;font-weight:550;flex:0 0 82px}
+  .row .v{flex:1;min-width:0;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all;
+          background:var(--surface-2);padding:8px 11px;border-radius:8px;color:var(--text)}
+  button{font:inherit;font-size:12px;font-weight:550;padding:7px 13px;border-radius:9px;border:1px solid var(--line);
+         background:var(--surface);color:var(--text);cursor:pointer;white-space:nowrap;transition:background .12s}
+  button:hover{background:var(--surface-2)}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  button.primary:hover{background:var(--accent-strong)}
+  button.danger{color:var(--red);border-color:rgba(229,72,77,.35)}
+  button.danger:hover{background:rgba(229,72,77,.1)}
+  input{flex:1;min-width:0;padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:var(--bg);
+        color:var(--text);font:13px ui-monospace,Menlo,monospace}
+  input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-weak)}
+  .badge{font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;background:var(--surface-2);color:var(--text-2)}
+  .set{background:rgba(18,161,80,.14);color:var(--ok)}
+  .unset{background:rgba(217,130,7,.15);color:var(--warn)}
+  .hint{font-size:11.5px;color:var(--text-3);margin-top:8px;line-height:1.55}
+  .hint code{background:var(--surface-2);padding:1px 5px;border-radius:5px;font-size:11px}
+  #msg{font-size:12.5px;font-weight:550;margin-top:8px;min-height:18px}
 </style></head><body><div class="wrap">
-  <h1>Claude Session Hub · 配置</h1>
-  <div class="sub">本机专用页面(仅 loopback 可访问)· <a href="/">← 打开监控 demo</a></div>
+  <div class="top"><span class="brand">C</span><h1>Session Hub · 配置</h1></div>
+  <div class="sub">本机专用页面(仅 loopback 可访问)· <a href="/">打开监控 demo →</a></div>
 
   <div class="card">
     <h2>连接 / 配对设备</h2>
     <div class="row"><span class="k">Base URL</span><span class="v" id="base">…</span><button onclick="cp(base)">复制</button></div>
     <div class="row"><span class="k">Token</span><span class="v" id="token">…</span><button onclick="cp(token)">复制</button></div>
     <div class="row"><span class="k">手机/设备</span><span class="v" id="phone">…</span><button onclick="cp(phone)">复制</button></div>
-    <div class="hint">手机与 Mac 同一 Wi-Fi,打开上面"手机/设备"链接即用(局域网访问必须带 ?token)。ESP32 用 Base URL + Header <code>Authorization: Bearer &lt;token&gt;</code>。</div>
+    <div class="hint">手机与 Mac 同一 Wi-Fi,打开上面「手机/设备」链接即用(局域网访问必须带 <code>?token</code>)。ESP32 用 Base URL + Header <code>Authorization: Bearer &lt;token&gt;</code>。</div>
     <div class="hint" id="others"></div>
   </div>
 
   <div class="card">
-    <h2>语音识别 (SiliconFlow ASR) <span class="badge" id="asrbadge">…</span></h2>
+    <h2>语音识别 <span class="badge" id="asrbadge">…</span></h2>
     <div class="row">
-      <input id="key" type="password" placeholder="sk-…(SiliconFlow API Key)">
+      <input id="key" type="password" placeholder="sk-…  SiliconFlow API Key">
       <button class="primary" onclick="saveKey()">保存</button>
     </div>
     <div class="hint">key 只存本机 <code>~/.claude-session-hub/config.json</code>(600 权限),不下发设备。当前:<span id="keystat">…</span></div>
@@ -51,7 +74,8 @@
     <h2>状态</h2>
     <div class="row"><span class="k">监听</span><span class="v" id="bind">…</span></div>
     <div class="row"><span class="k">配置文件</span><span class="v" id="cfgpath">…</span></div>
-    <div class="row"><span class="k">Hub</span><span class="v" id="health">…</span></div>
+    <div class="row"><span class="k">Hub</span><span class="v" id="health">…</span><button class="danger" onclick="stopHub()">停止</button></div>
+    <div class="hint">停止后需在 GA 菜单栏「远程 Hub」重新开启(网页无法自启)。</div>
   </div>
 
   <div id="msg"></div>
@@ -86,6 +110,14 @@ async function saveKey(){
     if(j.ok){$('key').value='';msg('已保存 ✓',true);load();}
     else msg('保存失败: '+(j.error||''));
   }catch(e){msg('保存失败: '+e);}
+}
+async function stopHub(){
+  if(!confirm('停止 Hub?停止后设备/手机将断开,需在 GA 菜单栏重新开启。')) return;
+  try{
+    await fetch('/config/stop',{method:'POST'});
+  }catch(e){}
+  $('health').textContent='已停止';
+  msg('Hub 已停止 · 去 GA 菜单栏「远程 Hub」重新开启',true);
 }
 load();
 </script></body></html>

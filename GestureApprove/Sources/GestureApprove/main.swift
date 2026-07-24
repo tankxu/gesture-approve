@@ -26,6 +26,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // 端口/token/开关等配置见 DeviceApi；开关默认关，可在设置窗「远程审批设备」里打开。
     private let deviceState = DeviceApprovalState()
 
+    // Remote Hub(独立 hub/hub.py:远程会话/语音/回复)监管
+    private let hub = HubController()
+
     private var approvalEnabled: Bool {
         get { (UserDefaults.standard.object(forKey: "approvalEnabled") as? Bool) ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "approvalEnabled") }
@@ -77,6 +80,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.deviceState = deviceState   // 让审批控制器发布/清空设备可见的审批动态
         startServer()
         Gatekeeper.shared.startIfNeeded()   // 智能放行守门员 daemon（仅开关开+已装才起；会先清残留）
+        hub.startIfEnabled()                // Remote Hub：后台自动拉起 hub/hub.py(菜单入口点开即用)
         observeSystemState()
         // 后台检查更新：启动时 + 每 24h；有新版只在菜单栏菜单加一项，不弹窗不通知。
         checkForUpdate()
@@ -224,6 +228,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         bigModeItem?.state = bigMode ? .on : .off
     }
 
+    /// 远程 Hub:唯一入口。确保 hub 在跑(没跑先拉起),然后打开网页仪表盘。启停/配置都在网页里。
+    @objc private func openHub() {
+        let open = { _ = NSWorkspace.shared.open(URL(string: "http://127.0.0.1:\(HubController.port)/")!) }
+        hub.checkRunning { running in
+            if running {
+                DispatchQueue.main.async(execute: open)
+            } else {
+                DispatchQueue.main.async { [weak self] in
+                    self?.hub.start()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: open)
+                }
+            }
+        }
+    }
+
     // MARK: 菜单
 
     private func setupStatusItem() {
@@ -263,6 +282,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         big.image = NSImage(systemSymbolName: "arrow.up.left.and.arrow.down.right", accessibilityDescription: nil)
         menu.addItem(big)
         self.bigModeItem = big
+
+        menu.addItem(.separator())
+
+        // 远程 Hub:唯一入口,点开打开网页仪表盘(启停/配置都在网页里)
+        let hubItem = NSMenuItem(title: L("menu.hub"), action: #selector(openHub), keyEquivalent: "")
+        hubItem.target = self
+        hubItem.image = NSImage(systemSymbolName: "antenna.radiowaves.left.and.right", accessibilityDescription: nil)
+        menu.addItem(hubItem)
 
         menu.addItem(.separator())
 

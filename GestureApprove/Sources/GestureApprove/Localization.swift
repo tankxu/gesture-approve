@@ -56,6 +56,16 @@ private let table: [String: [String: String]] = [
         "ja": "ビッグモード（拡大カード）", "ko": "빅 모드(카드 확대)",
         "es": "Modo grande (tarjeta ampliada)", "fr": "Mode grand (carte agrandie)",
     ],
+    "menu.hub": [
+        "en": "Remote Hub (sessions)", "zh": "远程 Hub(会话中枢)",
+        "ja": "リモート Hub（セッション）", "ko": "원격 Hub(세션)",
+        "es": "Hub remoto (sesiones)", "fr": "Hub distant (sessions)",
+    ],
+    "menu.hubConfig": [
+        "en": "Hub config…", "zh": "Hub 配置…",
+        "ja": "Hub 設定…", "ko": "Hub 구성…",
+        "es": "Configuración del Hub…", "fr": "Config du Hub…",
+    ],
     "menu.launchAtLogin": [
         "en": "Launch at login", "zh": "开机自启",
         "ja": "ログイン時に起動", "ko": "로그인 시 실행",
