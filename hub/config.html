@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Session Hub · 配置</title>
+<style>
+  :root{color-scheme:light dark;--bg:#0f1115;--fg:#e7e9ee;--mut:#8b90a0;--card:rgba(127,127,127,.09);--bd:rgba(127,127,127,.18);--accent:#2563eb;--ok:#16a34a;--warn:#f59e0b}
+  @media (prefers-color-scheme:light){:root{--bg:#f5f6f8;--fg:#1a1c22;--mut:#6b7280}}
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.6 -apple-system,system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+  .wrap{max-width:640px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:17px;margin:0 0 2px}
+  .sub{color:var(--mut);font-size:12px;margin-bottom:20px}
+  .sub a{color:var(--accent);text-decoration:none}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px;margin-bottom:16px}
+  .card h2{font-size:14px;margin:0 0 12px}
+  .row{display:flex;align-items:center;gap:8px;margin:8px 0}
+  .row .k{color:var(--mut);font-size:12px;flex:0 0 84px}
+  .row .v{flex:1;font:12px/1.5 ui-monospace,Menlo,monospace;word-break:break-all;background:rgba(0,0,0,.22);padding:7px 9px;border-radius:8px}
+  @media (prefers-color-scheme:light){.row .v{background:rgba(0,0,0,.05)}}
+  button{font:inherit;font-size:12px;padding:6px 11px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:inherit;cursor:pointer;white-space:nowrap}
+  button.primary{background:var(--accent);color:#fff;border:0}
+  input{flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--bd);background:rgba(0,0,0,.18);color:inherit;font:13px ui-monospace,Menlo,monospace}
+  @media (prefers-color-scheme:light){input{background:#fff}}
+  .badge{font-size:11px;padding:2px 8px;border-radius:999px}
+  .set{background:#14532d;color:#bbf7d0}.unset{background:#7c2d12;color:#fed7aa}
+  .hint{font-size:11px;color:var(--mut);margin-top:6px}
+  #msg{font-size:12px;margin-top:8px;min-height:16px}
+</style></head><body><div class="wrap">
+  <h1>Claude Session Hub · 配置</h1>
+  <div class="sub">本机专用页面(仅 loopback 可访问)· <a href="/">← 打开监控 demo</a></div>
+
+  <div class="card">
+    <h2>连接 / 配对设备</h2>
+    <div class="row"><span class="k">Base URL</span><span class="v" id="base">…</span><button onclick="cp(base)">复制</button></div>
+    <div class="row"><span class="k">Token</span><span class="v" id="token">…</span><button onclick="cp(token)">复制</button></div>
+    <div class="row"><span class="k">手机/设备</span><span class="v" id="phone">…</span><button onclick="cp(phone)">复制</button></div>
+    <div class="hint">手机与 Mac 同一 Wi-Fi,打开上面"手机/设备"链接即用(局域网访问必须带 ?token)。ESP32 用 Base URL + Header <code>Authorization: Bearer &lt;token&gt;</code>。</div>
+    <div class="hint" id="others"></div>
+  </div>
+
+  <div class="card">
+    <h2>语音识别 (SiliconFlow ASR) <span class="badge" id="asrbadge">…</span></h2>
+    <div class="row">
+      <input id="key" type="password" placeholder="sk-…(SiliconFlow API Key)">
+      <button class="primary" onclick="saveKey()">保存</button>
+    </div>
+    <div class="hint">key 只存本机 <code>~/.claude-session-hub/config.json</code>(600 权限),不下发设备。当前:<span id="keystat">…</span></div>
+  </div>
+
+  <div class="card">
+    <h2>状态</h2>
+    <div class="row"><span class="k">监听</span><span class="v" id="bind">…</span></div>
+    <div class="row"><span class="k">配置文件</span><span class="v" id="cfgpath">…</span></div>
+    <div class="row"><span class="k">Hub</span><span class="v" id="health">…</span></div>
+  </div>
+
+  <div id="msg"></div>
+</div>
+<script>
+let base='',token='',phone='';
+const $=id=>document.getElementById(id);
+function cp(t){navigator.clipboard.writeText(t).then(()=>msg('已复制',true));}
+function msg(t,ok){const m=$('msg');m.textContent=t;m.style.color=ok?'var(--ok)':'var(--warn)';setTimeout(()=>{if(m.textContent===t)m.textContent='';},2500);}
+
+async function load(){
+  try{
+    const d=await (await fetch('/config/data')).json();
+    base=d.baseUrls[0]||'(无网络)'; token=d.token; phone=d.phoneUrl||'(无网络)';
+    $('base').textContent=base; $('token').textContent=token; $('phone').textContent=phone;
+    $('bind').textContent=d.bind+':'+d.port;
+    $('cfgpath').textContent=d.configPath;
+    if(d.baseUrls.length>1) $('others').textContent='其它网卡:'+d.baseUrls.slice(1).join('  ');
+    const b=$('asrbadge');
+    if(d.siliconflowKeySet){b.textContent='已配置';b.className='badge set';$('keystat').textContent=d.siliconflowKeyMasked;}
+    else{b.textContent='未配置';b.className='badge unset';$('keystat').textContent='未设置——录音识别不可用';}
+  }catch(e){msg('读取配置失败: '+e);}
+  try{const h=await (await fetch('/health')).json();$('health').textContent=h.ok?'运行中 ✓':'异常';}catch(e){$('health').textContent='不可达';}
+}
+async function saveKey(){
+  const v=$('key').value.trim();
+  if(!v){msg('请输入 key');return;}
+  if(!v.startsWith('sk-')){msg('SiliconFlow key 通常以 sk- 开头,请确认');}
+  try{
+    const r=await fetch('/config/set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({siliconflow_key:v})});
+    const j=await r.json();
+    if(j.ok){$('key').value='';msg('已保存 ✓',true);load();}
+    else msg('保存失败: '+(j.error||''));
+  }catch(e){msg('保存失败: '+e);}
+}
+load();
+</script></body></html>

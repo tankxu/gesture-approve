@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Session Hub · Demo</title>
+<style>
+  :root{color-scheme:light dark;--bg:#0f1115;--fg:#e7e9ee;--mut:#8b90a0;--card:rgba(127,127,127,.09);--bd:rgba(127,127,127,.18);--accent:#2563eb}
+  @media (prefers-color-scheme:light){:root{--bg:#f5f6f8;--fg:#1a1c22;--mut:#6b7280}}
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 -apple-system,system-ui,sans-serif;background:var(--bg);color:var(--fg);display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+  header,.pending,.recbar,.setup{flex:0 0 auto}
+  .cfglink{margin-left:auto;font-size:12px;color:var(--accent);text-decoration:none}
+  .setup{display:block;padding:10px 16px;background:var(--accent);color:#fff;font-size:13px;text-decoration:none;text-align:center}
+  header{padding:12px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px}
+  header h1{font-size:15px;margin:0}
+  .dot{width:8px;height:8px;border-radius:50%;background:#888;display:inline-block}
+  .layout{display:flex;flex:1;min-height:0}
+  .list{width:340px;border-right:1px solid var(--bd);overflow:auto;flex:0 0 auto}
+  .chat{flex:1;min-height:0;overflow:auto;padding:16px}
+  .pending{margin:8px;padding:8px 12px;border-radius:10px;background:#7c2d12;color:#fed7aa;font-size:12px;display:none}
+  .row{padding:10px 14px;border-bottom:1px solid var(--bd);cursor:pointer}
+  .row:hover{background:var(--card)}
+  .row.sel{background:rgba(37,99,235,.14)}
+  .row .t{font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px}
+  .row .m{font-size:11px;color:var(--mut);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .badge{font-size:10px;padding:1px 6px;border-radius:999px;border:1px solid var(--bd);color:var(--mut)}
+  .st-wait{background:#7c2d12;color:#fed7aa;border:0}
+  .st-active,.st-tool{background:#14532d;color:#bbf7d0;border:0}
+  .st-done{color:var(--mut)}
+  .sd{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
+  .sd.wait{background:#f59e0b}.sd.active,.sd.tool{background:#16a34a}.sd.done{background:#6b7280}.sd.none{background:#374151}
+  .msg{margin:0 0 14px;max-width:80%}
+  .msg .who{font-size:11px;color:var(--mut);margin-bottom:3px}
+  .msg .bub{padding:9px 12px;border-radius:12px;white-space:pre-wrap;word-break:break-word;font-size:13px}
+  .user{margin-left:auto}.user .bub{background:var(--accent);color:#fff}
+  .assistant .bub{background:var(--card);border:1px solid var(--bd)}
+  .tool{opacity:.55;font-style:italic}
+  .chathdr{flex:0 0 auto;padding:10px 16px;border-bottom:1px solid var(--bd);background:var(--bg)}
+  .chathdr:empty{display:none}
+  .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .bar h2{font-size:14px;margin:0}
+  button{font:inherit;font-size:12px;padding:5px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:inherit;cursor:pointer}
+  a.link{font-size:12px;color:var(--accent);text-decoration:none}
+  .empty{color:var(--mut);padding:40px;text-align:center}
+  .recbar{padding:8px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px;font-size:13px}
+  .recbar button{font-size:13px}
+  .recbar button.recording{background:#dc2626;color:#fff;border:0}
+  #recout{color:var(--mut)}
+  .chatcol{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+  .replybar{flex:0 0 auto;border-top:1px solid var(--bd);padding:10px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .replybar input{flex:1;min-width:180px;padding:8px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:inherit;font:inherit;font-size:13px}
+  .replybar button.send{background:#16a34a;color:#fff;border:0}
+  #recout{font-size:11px;color:var(--mut);flex-basis:100%}
+  .replybar button.mic{font-size:16px;padding:6px 11px}
+  .replybar button.recording{background:#dc2626;color:#fff;border:0}
+  @media (max-width:760px){
+    .layout{flex-direction:column}
+    .list{width:100%;flex:0 0 auto;max-height:34vh;border-right:0;border-bottom:1px solid var(--bd)}
+    input,button{font-size:16px}          /* 16px 防 iOS 聚焦缩放 */
+    .replybar button.send{padding:9px 16px}
+    header h1{font-size:14px}
+  }
+  .row.readonly{opacity:.5}
+  .badge.ro{color:var(--mut)}
+  .divider{padding:6px 14px;font-size:11px;color:var(--mut);background:rgba(127,127,127,.06);border-bottom:1px solid var(--bd)}
+  .replybar input:disabled,.replybar button:disabled{opacity:.45;cursor:not-allowed}
+</style></head><body>
+<header>
+  <span class="dot" id="dot"></span>
+  <h1>Claude Session Hub · Demo</h1>
+  <span id="stat" style="font-size:12px;color:var(--mut)"></span>
+  <a id="cfglink" class="cfglink" href="/config" style="display:none">⚙ 配置</a>
+</header>
+<a class="setup" id="setup" href="/config" style="display:none">⚙ 首次使用:点此进入配置页,设置语音识别(SiliconFlow)key →</a>
+<div class="pending" id="pending"></div>
+<div class="layout">
+  <div class="list" id="list"></div>
+  <div class="chatcol">
+    <div id="chathdr" class="chathdr"></div>
+    <div class="chat" id="chat"><div class="empty">← 选一个会话看聊天记录</div></div>
+    <div class="replybar">
+      <button id="recbtn" class="mic" onclick="toggleRec()" title="点一下录音,再点停止识别">🎤</button>
+      <input id="replyin" placeholder="回复这个会话…(🎤 语音填到这里;Enter 发送)"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();doReply(true)}">
+      <button class="send" onclick="doReply(true)">发送</button>
+      <span id="recout"></span>
+    </div>
+  </div>
+</div>
+<script>
+const TOKEN='__HUB_TOKEN__';
+const H={headers:{'Authorization':'Bearer '+TOKEN}};
+let sel=null, sessions=[];
+const $=id=>document.getElementById(id);
+const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+async function api(p){const r=await fetch(p,H);if(!r.ok)throw new Error(r.status);return r.json();}
+
+function shortCwd(c){if(!c)return'';const p=c.split('/');return p.slice(-2).join('/');}
+
+function rowHtml(s,ro){
+  const st=s.state||'none';
+  const badge=s.waitingForUser?'<span class="badge st-wait">等你答</span>':
+    (st==='done'?'<span class="badge st-done">done</span>':(st?`<span class="badge st-${st}">${st}</span>`:''));
+  const link=ro?'':'🔗 ';
+  const src=s.entrypoint==='claude-desktop'?'桌面':'cli';
+  return `<div class="row ${ro?'readonly':''} ${sel===s.sessionId?'sel':''}" data-id="${s.sessionId}">
+    <div class="t"><span class="sd ${s.waitingForUser?'wait':st}"></span>${link}${esc(s.title||s.name)} ${badge}</div>
+    <div class="m">${src} · ${esc(shortCwd(s.cwd))} · ${s.status||''}</div></div>`;
+}
+function renderList(){
+  const el=$('list');
+  const rep=sessions.filter(s=>s.webUrl), ro=sessions.filter(s=>!s.webUrl);
+  let html=rep.map(s=>rowHtml(s,false)).join('');
+  if(ro.length) html+='<div class="divider">下面无 share link · 只读(不可回复)</div>'+ro.map(s=>rowHtml(s,true)).join('');
+  el.innerHTML=html||'<div class="empty">无活跃会话</div>';
+  el.querySelectorAll('.row').forEach(r=>r.onclick=()=>openSession(r.dataset.id));
+  const waiting=sessions.filter(s=>s.waitingForUser);
+  const pb=$('pending');
+  if(waiting.length){pb.style.display='block';pb.textContent='⚠ 有 '+waiting.length+' 个会话在等你回答:'+waiting.map(s=>s.title).join('、');}
+  else pb.style.display='none';
+  updateReplyBar();
+}
+function updateReplyBar(){
+  const inp=$('replyin');if(!inp)return;
+  const s=sessions.find(x=>x.sessionId===sel);
+  const can=!!(s&&s.webUrl);
+  inp.disabled=!can;
+  document.querySelectorAll('.replybar button').forEach(b=>b.disabled=!can);
+  inp.placeholder=can?'回复这个会话…(🎤 录音结果会填到这里;Enter=填入)':'此会话无 share link,只读';
+}
+
+async function refresh(){
+  try{
+    const d=await api('/sessions');
+    sessions=d.sessions;
+    $('dot').style.background='#16a34a';
+    $('stat').textContent=sessions.length+' 个会话 · '+new Date().toLocaleTimeString();
+    renderList();
+  }catch(e){$('dot').style.background='#dc2626';$('stat').textContent='hub 不可达 '+e;}
+}
+
+function renderMessages(d,id){
+  const s=sessions.find(x=>x.sessionId===id)||{};
+  const msgs=d.messages.map(m=>{
+    const tool=/^\[(工具|工具结果)/.test(m.text.trim());
+    return `<div class="msg ${m.role}"><div class="who">${m.role==='user'?'你':'Claude'}</div>
+      <div class="bub ${tool?'tool':''}">${esc(m.text)}</div></div>`;
+  }).join('');
+  const web=s.webUrl?`<a class="link" href="${s.webUrl}" target="_blank">在 claude.ai 打开(接力)↗</a>`:'<span style="font-size:12px;color:var(--mut)">桌面会话无接力链接</span>';
+  $('chathdr').innerHTML=`<div class="bar"><h2>${esc(d.title||s.title||'')}</h2><span class="badge">${d.total} 条</span>${web}</div>`;
+  $('chat').innerHTML=msgs||'<div class=empty>(无消息)</div>';
+}
+function chatAtBottom(){const c=$('chat');return c.scrollHeight-c.scrollTop-c.clientHeight<80;}
+let lastMsgKey='';
+async function loadMessages(id,force){
+  if(!id)return;
+  try{
+    const d=await api('/session/'+id+'/messages?limit=60&max_len=6000');
+    const last=d.messages[d.messages.length-1];
+    const key=id+':'+d.total+':'+(last?last.text.length:0);
+    if(!force&&key===lastMsgKey)return;   // 内容没变 → 不重渲染,避免闪烁
+    const stick=force||chatAtBottom();     // 在底部才自动跟到最新;上滑看历史不打断
+    lastMsgKey=key;
+    renderMessages(d,id);
+    if(stick)$('chat').scrollTop=$('chat').scrollHeight;
+  }catch(e){if(force)$('chat').innerHTML='<div class="empty">加载失败 '+e+'</div>';}
+}
+async function openSession(id){
+  sel=id;lastMsgKey='';renderList();
+  $('chathdr').innerHTML='';
+  $('chat').innerHTML='<div class="empty">加载中…</div>';
+  loadMessages(id,true);
+}
+
+// ---- 录音 → WAV(16k 单声道) → /asr ----
+let audioCtx=null;                       // 复用同一个 AudioContext(每次录音前 resume,别 close)
+let rec={stream:null,node:null,src:null,chunks:[],on:false};
+async function toggleRec(){
+  const btn=$('recbtn'),out=$('recout');
+  if(!rec.on){
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+      out.textContent='此环境不支持麦克风(手机需 HTTPS;或在电脑 localhost 用)';return;}
+    try{rec.stream=await navigator.mediaDevices.getUserMedia({audio:true});}
+    catch(e){out.textContent='麦克风权限被拒: '+e;return;}
+    if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    try{await audioCtx.resume();}catch(e){}   // 关键:suspended 时不 resume,onaudioprocess 不触发(第二次录音空)
+    rec.src=audioCtx.createMediaStreamSource(rec.stream);
+    rec.node=audioCtx.createScriptProcessor(4096,1,1);
+    rec.chunks=[];
+    rec.node.onaudioprocess=e=>rec.chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+    rec.src.connect(rec.node);rec.node.connect(audioCtx.destination);
+    rec.on=true;btn.textContent='⏹';btn.classList.add('recording');out.textContent='录音中… 说句话再点停止';
+  }else{
+    rec.on=false;btn.textContent='🎤';btn.classList.remove('recording');
+    const rate=audioCtx.sampleRate;
+    try{rec.node.disconnect();rec.src.disconnect();}catch(e){}
+    rec.node.onaudioprocess=null;
+    rec.stream.getTracks().forEach(t=>t.stop());
+    let len=rec.chunks.reduce((a,c)=>a+c.length,0);
+    const secs=(len/rate).toFixed(2);
+    if(len<rate*0.3){out.textContent='录音太短('+secs+'s,采样'+len+'),再试';return;}
+    const buf=new Float32Array(len);let o=0;for(const c of rec.chunks){buf.set(c,o);o+=c.length;}
+    const wav=encodeWav(downsample(buf,rate,16000),16000);
+    out.textContent='识别中…('+secs+'s, '+(wav.size/1024|0)+'KB)';
+    try{
+      const r=await fetch('/asr',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'audio/wav'},body:wav});
+      const j=await r.json();
+      if(j.text!==undefined&&j.error===undefined){
+        const inp=$('replyin');
+        if(sel){inp.value=(inp.value?inp.value+' ':'')+j.text;inp.focus();out.innerHTML='识别并追加到回复框: <b>'+esc(j.text)+'</b>';}
+        else out.innerHTML='识别(未选会话,没填): <b>'+esc(j.text)+'</b>';
+      }else out.innerHTML='错误: '+esc(j.error||'')+(j.detail?(' '+esc(j.detail)):'');
+    }catch(e){out.textContent='上传失败: '+e;}
+  }
+}
+function downsample(buf,from,to){
+  if(to>=from)return buf;
+  const ratio=from/to,outLen=Math.floor(buf.length/ratio),out=new Float32Array(outLen);
+  for(let i=0;i<outLen;i++)out[i]=buf[Math.floor(i*ratio)];
+  return out;
+}
+function encodeWav(s,rate){
+  const b=new ArrayBuffer(44+s.length*2),v=new DataView(b);
+  const w=(o,str)=>{for(let i=0;i<str.length;i++)v.setUint8(o+i,str.charCodeAt(i));};
+  w(0,'RIFF');v.setUint32(4,36+s.length*2,true);w(8,'WAVE');w(12,'fmt ');
+  v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);
+  v.setUint32(24,rate,true);v.setUint32(28,rate*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);
+  w(36,'data');v.setUint32(40,s.length*2,true);
+  let o=44;for(let i=0;i<s.length;i++){let x=Math.max(-1,Math.min(1,s[i]));v.setInt16(o,x<0?x*0x8000:x*0x7fff,true);o+=2;}
+  return new Blob([b],{type:'audio/wav'});
+}
+
+async function doReply(send){
+  const inp=$('replyin'),out=$('recout');
+  if(!sel){out.textContent='先选一个会话';return;}
+  const s=sessions.find(x=>x.sessionId===sel)||{};
+  if(!s.webUrl){out.textContent='此会话无 share link(未连到 claude.ai),无法注入回复';return;}
+  const text=inp.value.trim();
+  if(!text){inp.focus();return;}
+  out.textContent=send?'发送中…(驱动 claude.ai 网页)':'填入中…';
+  try{
+    const r=await fetch('/reply',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},
+      body:JSON.stringify({sessionId:sel,text,send})});
+    const j=await r.json();
+    if(j.ok){out.textContent=send?'✓ 已发送到该会话(走订阅)':'✓ 已填入 claude 输入框,去那边确认发送';if(send)inp.value='';}
+    else out.textContent='✗ '+(j.error||JSON.stringify(j));
+  }catch(e){out.textContent='✗ '+e;}
+}
+// 浏览器不支持麦克风(手机 http)→ 隐藏 🎤,改用系统键盘听写往输入框说
+if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+  const rb=$('recbtn');if(rb)rb.style.display='none';
+}
+// config 入口 + 首次引导:config 是本机页(手机点会 403),故仅 localhost 显示
+const isLocal=['127.0.0.1','localhost','::1'].includes(location.hostname);
+async function checkSetup(){
+  if(isLocal) $('cfglink').style.display='';
+  try{
+    const h=await (await fetch('/health')).json();
+    $('setup').style.display=(isLocal && h && h.siliconflowKeySet===false)?'block':'none';
+  }catch(e){}
+}
+checkSetup();
+async function tick(){await refresh();if(sel)await loadMessages(sel,false);}
+tick();setInterval(tick,3000);
+</script></body></html>
