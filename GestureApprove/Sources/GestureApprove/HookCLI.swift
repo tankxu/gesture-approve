@@ -11,6 +11,11 @@ enum HookCLI {
         let tool = payload["tool_name"] as? String ?? ""
         let cwd = payload["cwd"] as? String ?? ""
         let session = payload["session_id"] as? String ?? ""
+        // 权限模式感知(仅 Claude/Kimi 的 PreToolUse 有 permission_mode):Claude 本来就不会弹窗的
+        // 场景直接 defer(输出空、连 app 都不惊动),把判断交回 Claude 自己更聪明的 auto——
+        // 这才是"审批来源=hook"该有的行为:只在 Claude 本来要问你时才接管。见 shouldDefer。
+        let mode = payload["permission_mode"] as? String ?? "default"
+        if shouldDefer(target: target, mode: mode, tool: tool) { exit(0) }
         let ti = payload["tool_input"] as? [String: Any] ?? [:]
         let detail = (ti["command"] as? String) ?? (ti["file_path"] as? String) ?? (ti["description"] as? String) ?? ""
         var op = "\(tool): \(detail)".trimmingCharacters(in: CharacterSet(charactersIn: ": "))
@@ -33,6 +38,37 @@ enum HookCLI {
         }
         emit(target: target, decision: decision, reason: reason)
         exit(0)
+    }
+
+    /// 是否把这次判定直接交回 Claude(输出空 = defer),不让 GA 接管。
+    /// 原则:GA 只在 **Claude Code 本来就会弹权限确认框** 的时刻介入;Claude 自己已"自动放行"的
+    /// 场景一律 defer——否则就是拿更笨的规则去盖 Claude 更聪明的 auto,把每个编辑都变成手动审批。
+    ///   · bypassPermissions / dontAsk:Claude 什么都不问 → 全 defer。
+    ///   · auto:Claude 自己按智能判断决定放行还是弹窗。hook 在此判断之前触发、无法"只截风险项"
+    ///     (要么全盖要么全放),而用户看重的正是 auto 的智能 → 全 defer,GA 不插手。
+    ///     ⇒ 设备/手势审批定位成 **default 模式**的能力:想让 GA/设备接管,就用 default。
+    ///   · plan:计划模式不执行工具(靠 ExitPlanMode 收口)→ defer,别注入 allow。
+    ///   · acceptEdits:文件编辑被自动接受、不弹窗 → 对 Edit/Write/MultiEdit/NotebookEdit defer;
+    ///     但 Bash 等仍会被 Claude 弹窗,继续交给 GA。
+    ///   · default(及未知模式):Claude 会照常弹窗 → 全部交给 GA(app 侧再按 Allowlist 自动放行/弹卡)。
+    ///
+    /// **仅对 claude 生效**:permission_mode 是 Claude Code 独有的 hook 负载字段。已查证(2026-07-25):
+    ///   · Kimi `PreToolUse` 的 stdin 只有 hook_event_name/session_id/cwd + tool_*,**不带 permission_mode**
+    ///     (它只是输出借用了 Claude 的 permissionDecision 风格,输入并不对齐)→ 纳入也永远读不到,反成误导。
+    ///   · Gemini `BeforeTool` 同样**不带** permission_mode(CLI 有 --yolo/approval-mode 但不下发给 hook)。
+    ///   · Codex `PermissionRequest` 只在它自己要问时才触发,天生只截真提示、已等价"智能 hook",误 defer
+    ///     反会跳过真实审批。
+    ///   ⇒ 三家都不 gate;它们维持"每次触发都路由给 GA"的原有行为(Codex 因事件语义本就只在该问时触发)。
+    static func shouldDefer(target: String, mode: String, tool: String) -> Bool {
+        guard target == "claude" else { return false }
+        switch mode {
+        case "bypassPermissions", "dontAsk", "plan", "auto":
+            return true
+        case "acceptEdits":
+            return ["Edit", "Write", "MultiEdit", "NotebookEdit"].contains(tool)
+        default:
+            return false
+        }
     }
 
     private static func readStdinJSON() -> [String: Any] {
