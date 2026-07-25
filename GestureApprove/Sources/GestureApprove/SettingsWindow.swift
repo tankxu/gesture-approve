@@ -78,13 +78,15 @@ struct SettingsView: View {
     private var selectedIsESP32: Bool { selectedID == VideoInputs.esp32ID }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 20) {
-            leftColumn.frame(width: columnWidth, alignment: .topLeading)
-            Divider()
-            rightColumn.frame(width: columnWidth, alignment: .topLeading)
+        ScrollView {
+            HStack(alignment: .top, spacing: 20) {
+                leftColumn.frame(width: columnWidth, alignment: .topLeading)
+                Divider()
+                rightColumn.frame(width: columnWidth, alignment: .topLeading)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(18)
         }
-        .fixedSize(horizontal: false, vertical: true)
-        .padding(18)
         .alert(L("settings.alert.title"), isPresented: Binding(get: { errorText != nil },
                                                 set: { if !$0 { errorText = nil } })) {
             Button(L("settings.alert.ok"), role: .cancel) { errorText = nil }
@@ -647,6 +649,14 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             window = w
         } else {
             window?.contentViewController = hosting   // 复用窗口但换新视图，刷新所有 @State
+        }
+        // 窗口高度钳到屏幕可视区(菜单栏/Dock 之外),内容超出则内部滚动——否则两栏自然高度会把
+        // 窗口撑得比屏幕还高、盖住 Dock。宽度用内容自然宽(两栏固定宽,横向不滚)。
+        if let w = window {
+            let vf = (w.screen ?? NSScreen.main)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 820)
+            let cw = max(hosting.view.fittingSize.width, 952)
+            let ch = min(vf.height - 44, 900)     // 44 ≈ 标题栏 + 上下余量;900 上限避免超大屏上过高
+            w.setContentSize(NSSize(width: cw, height: ch))
         }
         state.active = true              // 重新打开 -> 恢复预览
         NSApp.activate(ignoringOtherApps: true)
