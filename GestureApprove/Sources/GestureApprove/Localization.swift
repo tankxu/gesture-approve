@@ -734,6 +734,14 @@ private let table: [String: [String: String]] = [
         "es": "Cuando está activo, un pequeño modelo local (Qwen3-1.7B) evalúa cada comando; solo los obviamente seguros omiten el gesto. Funciona totalmente en el dispositivo (privado), añade ~1s. Los comandos peligrosos siempre requieren gesto (lista de denegación). Lo incierto o sin conexión vuelve al gesto.",
         "fr": "Activé, un petit modèle local (Qwen3-1.7B) évalue chaque commande ; seules les commandes manifestement sûres évitent le geste. Entièrement sur l'appareil (privé), ajoute ~1s. Les commandes dangereuses exigent toujours un geste (liste de refus). En cas de doute ou hors ligne, retour au geste.",
     ],
+    "settings.smartgate.hookNote": [
+        "en": "Claude and Codex already have a smart hook (mode-aware / fires only when they'd prompt), so they don't need this local model. It mainly helps CLIs like Gemini and Kimi that fire on every tool call.",
+        "zh": "Claude 和 Codex 已内置智能 hook(按权限模式 / 只在该问时才触发),无需本地 LLM 辅助。此功能主要惠及 Gemini、Kimi 这类每次工具调用都触发的 CLI。",
+        "ja": "Claude と Codex は既にスマート hook を備えており（モード対応／確認が必要な時のみ発火）、このローカルモデルは不要です。主にツール呼び出しごとに発火する Gemini や Kimi のような CLI に有効です。",
+        "ko": "Claude와 Codex는 이미 스마트 hook을 갖추고 있어(모드 인식 / 물어봐야 할 때만 발동) 이 로컬 모델이 필요 없습니다. 주로 모든 도구 호출마다 발동하는 Gemini, Kimi 같은 CLI에 유용합니다.",
+        "es": "Claude y Codex ya tienen un hook inteligente (según el modo / solo se activa cuando preguntarían), así que no necesitan este modelo local. Ayuda sobre todo a CLIs como Gemini y Kimi que se activan en cada llamada de herramienta.",
+        "fr": "Claude et Codex disposent déjà d'un hook intelligent (selon le mode / ne se déclenche que s'ils demanderaient), ils n'ont donc pas besoin de ce modèle local. Utile surtout pour des CLI comme Gemini et Kimi qui se déclenchent à chaque appel d'outil.",
+    ],
     "settings.section.deviceapi": [
         "en": "Remote approval devices", "zh": "远程审批设备",
         "ja": "リモート承認デバイス", "ko": "원격 승인 장치",

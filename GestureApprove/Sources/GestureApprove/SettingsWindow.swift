@@ -256,6 +256,7 @@ struct SettingsView: View {
                     .font(.system(size: 11))
                 }
                 caption("settings.smartgate.desc")
+                caption("settings.smartgate.hookNote")
             }
 
             Divider()
