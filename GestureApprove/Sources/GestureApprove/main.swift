@@ -26,7 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // 端口/token/开关等配置见 DeviceApi；开关默认关，可在设置窗「远程审批设备」里打开。
     private let deviceState = DeviceApprovalState()
 
-    // Remote Hub(独立 hub/hub.py:远程会话/语音/回复)监管
+    // Remote Hub(Swift 原生 HubServer/HubApp:远程会话/语音/回复)监管
     private let hub = HubController()
 
     private var approvalEnabled: Bool {
@@ -80,7 +80,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.deviceState = deviceState   // 让审批控制器发布/清空设备可见的审批动态
         startServer()
         Gatekeeper.shared.startIfNeeded()   // 智能放行守门员 daemon（仅开关开+已装才起；会先清残留）
-        hub.startIfEnabled()                // Remote Hub：后台自动拉起 hub/hub.py(菜单入口点开即用)
+        hub.startIfEnabled()                // Remote Hub：后台自动起 Swift 原生服务(菜单入口点开即用)
         observeSystemState()
         // 后台检查更新：启动时 + 每 24h；有新版只在菜单栏菜单加一项，不弹窗不通知。
         checkForUpdate()

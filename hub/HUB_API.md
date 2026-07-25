@@ -1,6 +1,6 @@
 # Claude Session Hub — API 对接文档(给 ESP32 / 客户端)
 
-一个跑在 Mac 上的本地服务(`hub/hub.py`,纯 Python 标准库),把本机的 Claude Code 会话
+一个跑在 Mac 上的本地服务(**GestureApprove 内置,Swift 原生**,零外部依赖),把本机的 Claude Code 会话
 暴露成 HTTP API:**看会话列表、看聊天记录、语音转写(ASR)、回复注入**。设备(ESP32)
 通过局域网 HTTP 调用即可,**不需要 HTTPS/TLS**(secure-context 那套只限浏览器;设备直接 HTTP+token)。
 
@@ -19,7 +19,7 @@
 | token 来源 | `~/.claude-session-hub/config.json` 的 `token` 字段(hub 启动日志也会打印) |
 
 - **IP 会变**:探活用 `GET /health`(免认证);IP 做成可配置,或给 Mac 设静态 IP。
-- 前提:设备与 Mac 同一 Wi-Fi;hub 在 Mac 上运行(`python3 hub/hub.py`)。
+- 前提:设备与 Mac 同一 Wi-Fi;hub 随 GestureApprove 运行(菜单栏 →「远程 Hub」;局域网开关在配置页)。
 
 ---
 
