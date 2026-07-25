@@ -16,6 +16,7 @@ import glob
 import json
 import os
 import subprocess
+import sys
 import urllib.request
 import urllib.error
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -24,14 +25,28 @@ import secrets
 import socket
 
 HUB_PORT = int(os.environ.get("HUB_PORT", "8787"))
-HUB_BIND = os.environ.get("HUB_BIND", "0.0.0.0")   # 绑全网卡,ESP32 可连;设 127.0.0.1 可只本机
 CLAUDE_HOME = os.path.expanduser("~/.claude")
 GA_DEV_PORT = os.environ.get("GESTURE_DEVICE_PORT", "47602")   # GA 设备 API(审批)
 GA_HOOK_PORT = os.environ.get("GESTURE_APPROVE_PORT", "47600")
 
-# hub 自己的配置(token 等)存用户目录,不进仓库。
+# hub 自己的配置(token / lan 等)存用户目录,不进仓库。
 HUB_CONFIG_DIR = os.path.expanduser("~/.claude-session-hub")
 HUB_CONFIG_PATH = os.path.join(HUB_CONFIG_DIR, "config.json")
+
+
+def _lan_enabled() -> bool:
+    """局域网是否可访问:env HUB_BIND 优先;否则读 config.json 的 lan(缺省 True,保持现状)。"""
+    env = os.environ.get("HUB_BIND")
+    if env:
+        return env == "0.0.0.0"
+    try:
+        v = json.load(open(HUB_CONFIG_PATH)).get("lan")
+    except Exception:
+        v = None
+    return True if v is None else bool(v)
+
+
+HUB_BIND = "0.0.0.0" if _lan_enabled() else "127.0.0.1"   # 局域网可达 / 仅本机(loopback)
 
 
 def _load_config() -> dict:
@@ -93,17 +108,26 @@ HUB_TOKEN = hub_token()
 
 def config_data() -> dict:
     ips = local_ips()
-    base = f"http://{ips[0]}:{HUB_PORT}" if ips else ""
+    lan = (HUB_BIND == "0.0.0.0")
     key = siliconflow_key()
     masked = (key[:6] + "…" + key[-4:]) if len(key) > 12 else ("已设置" if key else "")
     dev_tok = ga_token()
     dev_urls = [f"http://{ip}:{GA_DEV_PORT}" for ip in ips]
+    if lan:
+        base_urls = [f"http://{ip}:{HUB_PORT}" for ip in ips]
+        base = base_urls[0] if base_urls else ""
+        phone = f"{base}/?token={HUB_TOKEN}" if base else ""
+    else:
+        # 仅本机:局域网设备/手机连不上,地址收敛到 loopback,不给会误导的 LAN 地址
+        base_urls = [f"http://127.0.0.1:{HUB_PORT}"]
+        phone = ""
     return {
         "port": HUB_PORT,
         "bind": HUB_BIND,
+        "lan": lan,
         "token": HUB_TOKEN,
-        "baseUrls": [f"http://{ip}:{HUB_PORT}" for ip in ips],
-        "phoneUrl": (f"{base}/?token={HUB_TOKEN}" if base else ""),
+        "baseUrls": base_urls,
+        "phoneUrl": phone,
         "siliconflowKeySet": bool(key),
         "siliconflowKeyMasked": masked,
         "configPath": HUB_CONFIG_PATH,
@@ -126,6 +150,9 @@ def set_config(updates: dict) -> list:
         if v:
             cfg["siliconflow_key"] = v
             changed.append("siliconflow_key")
+    if "lan" in updates:
+        cfg["lan"] = bool(updates["lan"])
+        changed.append("lan")
     if changed:
         os.makedirs(HUB_CONFIG_DIR, exist_ok=True)
         with open(HUB_CONFIG_PATH, "w") as f:
@@ -648,6 +675,25 @@ class Handler(BaseHTTPRequestHandler):
                 o = {}
             changed = set_config(o)
             self._json({"ok": True, "changed": changed})
+            return
+        if path == "/config/lan":    # 仅 loopback:切局域网可访问/仅本机,re-exec 换绑定
+            if not self._is_loopback():
+                self._json({"error": "loopback-only"}, 403); return
+            try:
+                o = json.loads(body) if body else {}
+            except Exception:
+                o = {}
+            on = bool(o.get("on", True))
+            set_config({"lan": on})
+            self._json({"ok": True, "lan": on, "rebinding": True})
+            # 换绑定要重开监听 socket → 直接 re-exec 自身(同 PID 重读配置,最干净)。
+            import threading
+            import time as _t
+
+            def _reexec():
+                _t.sleep(0.4)
+                os.execv(sys.executable, [sys.executable] + sys.argv)
+            threading.Thread(target=_reexec, daemon=True).start()
             return
         if path == "/config/stop":   # 仅 loopback:停掉 hub 自身(启动由 GA tray 负责)
             if not self._is_loopback():

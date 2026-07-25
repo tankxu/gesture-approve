@@ -48,12 +48,23 @@
   .hint{font-size:11.5px;color:var(--text-3);margin-top:8px;line-height:1.55}
   .hint code{background:var(--surface-2);padding:1px 5px;border-radius:5px;font-size:11px}
   #msg{font-size:12.5px;font-weight:550;margin-top:8px;min-height:18px}
+  .switch{position:relative;display:inline-block;width:38px;height:22px;flex:0 0 auto}
+  .switch input{opacity:0;width:0;height:0}
+  .switch .sl{position:absolute;inset:0;background:var(--line);border-radius:999px;transition:.15s;cursor:pointer}
+  .switch .sl::before{content:"";position:absolute;width:18px;height:18px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+  .switch input:checked+.sl{background:var(--accent)}
+  .switch input:checked+.sl::before{transform:translateX(16px)}
+  .lanstate{font-size:12px;color:var(--text-2)}
 </style></head><body><div class="wrap">
   <div class="top"><span class="brand">C</span><h1>Session Hub · 配置</h1></div>
   <div class="sub">本机专用页面(仅 loopback 可访问)· <a href="/">打开监控 demo →</a></div>
 
   <div class="card">
     <h2>连接 / 配对设备</h2>
+    <div class="row"><span class="k">局域网访问</span>
+      <label class="switch"><input type="checkbox" id="lan" onchange="setLan(this.checked)"><span class="sl"></span></label>
+      <span class="lanstate" id="lanstate">…</span></div>
+    <div class="hint" style="margin:2px 0 12px">开 = 同一 Wi-Fi 的手机/设备可连(绑 0.0.0.0);关 = 仅本机 loopback,谁都连不进来。切换会重启 Hub、短暂断开。</div>
     <div class="row"><span class="k">Base URL</span><span class="v" id="base">…</span><button onclick="cp(base)">复制</button></div>
     <div class="row"><span class="k">Token</span><span class="v" id="token">…</span><button onclick="cp(token)">复制</button></div>
     <div class="row"><span class="k">手机/设备</span><span class="v" id="phone">…</span><button onclick="cp(phone)">复制</button></div>
@@ -97,8 +108,11 @@ function msg(t,ok){const m=$('msg');m.textContent=t;m.style.color=ok?'var(--ok)'
 async function load(){
   try{
     const d=await (await fetch('/config/data')).json();
-    base=d.baseUrls[0]||'(无网络)'; token=d.token; phone=d.phoneUrl||'(无网络)';
+    base=d.baseUrls[0]||'(无网络)'; token=d.token;
+    phone = d.lan ? (d.phoneUrl||'(无网络)') : '已关局域网 · 仅本机';
     $('base').textContent=base; $('token').textContent=token; $('phone').textContent=phone;
+    $('lan').checked=!!d.lan;
+    $('lanstate').textContent=d.lan?'开 · 手机/设备可连':'关 · 仅本机';
     $('bind').textContent=d.bind+':'+d.port;
     $('cfgpath').textContent=d.configPath;
     if(d.baseUrls.length>1) $('others').textContent='其它网卡:'+d.baseUrls.slice(1).join('  ');
@@ -128,6 +142,16 @@ async function saveKey(){
     if(j.ok){$('key').value='';msg('已保存 ✓',true);load();}
     else msg('保存失败: '+(j.error||''));
   }catch(e){msg('保存失败: '+e);}
+}
+async function setLan(on){
+  $('lan').disabled=true;
+  msg(on?'开启局域网访问,重启 Hub…':'切为仅本机,重启 Hub…',true);
+  try{ await fetch('/config/lan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on})}); }catch(e){}
+  waitBack(0);   // re-exec 期间会短暂断连,轮询 /health 恢复后重载
+}
+function waitBack(n){
+  fetch('/health').then(r=>{ if(r.ok) location.reload(); else throw 0; })
+    .catch(()=>{ if(n<25) setTimeout(()=>waitBack(n+1),400); else { $('lan').disabled=false; msg('Hub 未恢复,请手动刷新',false); } });
 }
 async function stopHub(){
   if(!confirm('停止 Hub?停止后设备/手机将断开,需在 GA 菜单栏重新开启。')) return;
