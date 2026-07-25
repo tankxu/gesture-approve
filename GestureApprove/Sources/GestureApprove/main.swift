@@ -236,8 +236,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 DispatchQueue.main.async(execute: open)
             } else {
                 DispatchQueue.main.async { [weak self] in
-                    self?.hub.start()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: open)
+                    // 缺命令行工具时 start 会弹安装提示并返回 false → 不打开连不上的空白页。
+                    if self?.hub.start(promptIfMissing: true) == true {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: open)
+                    }
                 }
             }
         }
@@ -370,8 +372,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 DispatchQueue.main.async(execute: open)
             } else {
                 DispatchQueue.main.async { [weak self] in
-                    self?.hub.start()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: open)
+                    if self?.hub.start(promptIfMissing: true) == true {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: open)
+                    }
                 }
             }
         }

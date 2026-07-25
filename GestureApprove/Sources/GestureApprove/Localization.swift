@@ -831,6 +831,26 @@ private let table: [String: [String: String]] = [
         "en": "Cancel", "zh": "取消", "ja": "キャンセル",
         "ko": "취소", "es": "Cancelar", "fr": "Annuler",
     ],
+    "hub.needCLT.title": [
+        "en": "Remote Hub needs Command Line Tools",
+        "zh": "远程 Hub 需要命令行工具",
+        "ja": "リモート Hub にはコマンドラインツールが必要です",
+        "ko": "리모트 Hub에는 명령줄 도구가 필요합니다",
+        "es": "El Hub remoto necesita las Command Line Tools",
+        "fr": "Le Hub distant nécessite les Command Line Tools",
+    ],
+    "hub.needCLT.body": [
+        "en": "Remote Hub runs on the system python3, but your Mac doesn't have the Command Line Tools yet. macOS's installer has been opened for you — install them, then open Remote Hub again.",
+        "zh": "远程 Hub 用系统自带的 python3 运行,但你的 Mac 还没装命令行工具。已为你唤起系统安装框,装好后再打开远程 Hub 即可。",
+        "ja": "リモート Hub はシステムの python3 で動作しますが、この Mac にはまだコマンドラインツールがありません。macOS のインストーラを開きました。インストール後、もう一度リモート Hub を開いてください。",
+        "ko": "리모트 Hub는 시스템 python3로 실행되지만 이 Mac에는 아직 명령줄 도구가 없습니다. macOS 설치 창을 열었습니다. 설치 후 리모트 Hub를 다시 여세요.",
+        "es": "El Hub remoto usa el python3 del sistema, pero tu Mac aún no tiene las Command Line Tools. Se ha abierto el instalador de macOS; instálalas y vuelve a abrir el Hub remoto.",
+        "fr": "Le Hub distant utilise le python3 du système, mais votre Mac n'a pas encore les Command Line Tools. L'installateur de macOS a été ouvert ; installez-les puis rouvrez le Hub distant.",
+    ],
+    "hub.needCLT.install": [
+        "en": "Install", "zh": "安装", "ja": "インストール",
+        "ko": "설치", "es": "Instalar", "fr": "Installer",
+    ],
     "settings.version": [
         "en": "Version", "zh": "版本", "ja": "バージョン",
         "ko": "버전", "es": "Versión", "fr": "Version",
