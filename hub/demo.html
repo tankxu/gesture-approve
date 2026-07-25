@@ -31,7 +31,10 @@
   h1{font-size:14px;font-weight:650;margin:0;letter-spacing:-.01em}
   .dot{width:7px;height:7px;border-radius:50%;background:var(--text-3);display:inline-block;flex:0 0 auto}
   #stat{font-size:12px;color:var(--text-3)}
-  .cfglink{margin-left:4px;font-size:12.5px;color:var(--text-2);text-decoration:none;padding:5px 10px;border-radius:8px}
+  .cfglink{margin-left:4px;font-size:12.5px;color:var(--text-2);text-decoration:none;padding:5px 10px;border-radius:8px;
+           display:inline-flex;align-items:center;gap:5px}
+  .ic-gear{width:13px;height:13px;flex:0 0 auto;vertical-align:-2px}
+  #introCfgBtn{display:inline-flex;align-items:center;justify-content:center;gap:6px}
   .cfglink:hover{background:var(--surface-2);color:var(--text)}
 
   .setup{display:flex;align-items:center;gap:8px;justify-content:center;padding:10px 16px;
@@ -116,8 +119,8 @@
   }
 
   /* help button + intro modal */
-  .help{width:22px;height:22px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--text-2);
-        font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-left:auto}
+  .help{width:22px;height:22px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--text-2);
+        font-size:12px;font-weight:700;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-left:auto}
   .help:hover{background:var(--surface-2);color:var(--text)}
   .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.42);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
   .backdrop.show{display:flex}
@@ -156,9 +159,9 @@
   <span class="dot" id="dot"></span>
   <span id="stat"></span>
   <button class="help" onclick="openIntro()" title="介绍 / 帮助">?</button>
-  <a id="cfglink" class="cfglink" href="/config" style="display:none">⚙ 配置</a>
+  <a id="cfglink" class="cfglink" href="/config" style="display:none">配置</a>
 </header>
-<a class="setup" id="setup" href="/config" style="display:none">⚙ 首次使用 · 点此设置语音识别(SiliconFlow)key →</a>
+<a class="setup" id="setup" href="/config" style="display:none">首次使用 · 点此设置语音识别(SiliconFlow)key →</a>
 
 <div class="backdrop" id="introBk">
   <div class="modal">
@@ -171,7 +174,7 @@
     <label class="dontshow"><span class="switch"><input type="checkbox" id="dontShow" checked><span class="sl"></span></span><span class="dtext">不再自动显示(右上角 ? 可重开)</span></label>
     <div class="modal-actions">
       <button class="grow" onclick="closeIntro()">开始使用</button>
-      <button class="btn-primary" id="introCfgBtn" onclick="gotoConfig()">进入配置 ⚙</button>
+      <button class="btn-primary" id="introCfgBtn" onclick="gotoConfig()">进入配置</button>
     </div>
   </div>
 </div>
@@ -193,6 +196,8 @@
 <script>
 const TOKEN='__HUB_TOKEN__';
 const H={headers:{'Authorization':'Bearer '+TOKEN}};
+// 统一的齿轮图标(内联 SVG,跟随文字色/字号;替换渲染不一致又偏小的 emoji ⚙)
+const GEAR='<svg class="ic-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
 let sel=null, sessions=[];
 const $=id=>document.getElementById(id);
 const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
@@ -377,14 +382,14 @@ function gotoConfig(){
   // LAN/手机:配置页只在本机 loopback 开放,无法远程进入 —— 就地说明,别给死按钮
   const st=$('introStatus');
   st.style.display='flex';st.className='status warn';
-  st.innerHTML='⚙ 配置页仅在运行 Hub 的 Mac 上开放(loopback)。请到那台电脑访问 <b>http://127.0.0.1:'+(location.port||'8787')+'/config</b>';
+  st.innerHTML=GEAR+' 配置页仅在运行 Hub 的 Mac 上开放(loopback)。请到那台电脑访问 <b>http://127.0.0.1:'+(location.port||'8787')+'/config</b>';
 }
 function renderIntroStatus(){
   const st=$('introStatus'),btn=$('introCfgBtn');
   if(CFG.keySet===false){st.style.display='flex';st.className='status warn';st.innerHTML='🎤 语音识别未配置 —— 进入配置填入 SiliconFlow key 即可开启语音输入';}
   else if(CFG.keySet===true){st.style.display='flex';st.className='status ok';st.textContent='✓ 语音识别已就绪';}
   else{st.style.display='none';}
-  if(btn) btn.textContent=isLocal?'进入配置 ⚙':'配置在 Mac 上 ⚙';
+  if(btn) btn.innerHTML=(isLocal?'进入配置':'配置在 Mac 上')+GEAR;
 }
 // 弹出条件:没勾过"不再显示"就在首次打开时弹
 function maybeIntro(){ if(!localStorage.getItem('hub_introSeen')) openIntro(); }
@@ -401,6 +406,9 @@ async function checkSetup(){
 }
 // 点背景空白处关闭
 $('introBk').addEventListener('click',e=>{if(e.target===$('introBk'))closeIntro();});
+// 给顶栏配置链接、首次设置横条注入统一齿轮图标
+$('cfglink').insertAdjacentHTML('afterbegin',GEAR);
+$('setup').insertAdjacentHTML('afterbegin',GEAR+' ');
 checkSetup();
 async function tick(){await refresh();if(sel)await loadMessages(sel,false);}
 tick();setInterval(tick,3000);
