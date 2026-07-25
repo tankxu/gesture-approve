@@ -1,7 +1,7 @@
 <!doctype html>
-<html lang="zh"><head><meta charset="utf-8">
+<html lang="__HUB_LANG__"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Session Hub · 配置</title>
+<title>Session Hub</title>
 <style>
   :root{
     color-scheme:light dark;
@@ -19,13 +19,18 @@
   *{box-sizing:border-box}
   body{margin:0;font:13.5px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
        background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
-  .wrap{max-width:660px;margin:0 auto;padding:22px 18px 64px}
+  .wrap{max-width:660px;margin:0 auto;padding:22px 18px 40px}
   .top{display:flex;align-items:center;gap:10px;margin-bottom:4px}
   .brand{width:24px;height:24px;border-radius:7px;background:linear-gradient(135deg,var(--accent),#e2a04d);
          display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700}
   h1{font-size:16px;font-weight:650;margin:0;letter-spacing:-.01em}
-  .sub{color:var(--text-3);font-size:12px;margin:0 0 22px 34px}
+  .sub{color:var(--text-3);font-size:12px;margin:0 0 20px 34px}
   .sub a{color:var(--accent-strong);text-decoration:none;font-weight:550}
+  /* 顶部 Hub 总开关栏 */
+  .hubbar{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);
+          border:1px solid var(--line);border-radius:14px;padding:13px 18px;margin-bottom:16px;box-shadow:var(--shadow)}
+  .hubbar-t{font-size:14px;font-weight:650;display:flex;align-items:center;gap:8px}
+  .hubbar-s{font-size:12px;color:var(--text-2);margin-top:2px}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px;box-shadow:var(--shadow)}
   .card h2{font-size:13.5px;font-weight:650;margin:0 0 14px;display:flex;align-items:center;gap:8px}
   .row{display:flex;align-items:center;gap:10px;margin:9px 0}
@@ -37,8 +42,6 @@
   button:hover{background:var(--surface-2)}
   button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
   button.primary:hover{background:var(--accent-strong)}
-  button.danger{color:var(--red);border-color:rgba(229,72,77,.35)}
-  button.danger:hover{background:rgba(229,72,77,.1)}
   input{flex:1;min-width:0;padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:var(--bg);
         color:var(--text);font:13px ui-monospace,Menlo,monospace}
   input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-weak)}
@@ -54,112 +57,180 @@
   .switch .sl::before{content:"";position:absolute;width:18px;height:18px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
   .switch input:checked+.sl{background:var(--accent)}
   .switch input:checked+.sl::before{transform:translateX(16px)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--text-3);display:inline-block}
+  .dot.on{background:var(--ok)}
   .lanstate{font-size:12px;color:var(--text-2)}
+  /* 底部纯文本(配置文件 + API 文档) */
+  .foot{margin-top:22px;padding-top:4px;font-size:11.5px;color:var(--text-3);line-height:1.7;word-break:break-all}
+  .foot .mono{font-family:ui-monospace,Menlo,monospace}
+  .foot a{color:var(--accent-strong);text-decoration:none;font-weight:600;white-space:nowrap}
 </style></head><body><div class="wrap">
-  <div class="top"><span class="brand">C</span><h1>Session Hub · 配置</h1></div>
-  <div class="sub">本机专用页面(仅 loopback 可访问)· <a href="/">打开监控 demo →</a></div>
+  <div class="top"><span class="brand">C</span><h1>Session Hub</h1></div>
+  <div class="sub"><span data-i18n="subLoopback"></span> · <a href="/" data-i18n="openDemo"></a></div>
+
+  <!-- 顶部:Hub 总开关 -->
+  <div class="hubbar">
+    <div>
+      <div class="hubbar-t"><span class="dot" id="hubdot"></span> Hub</div>
+      <div class="hubbar-s" id="hubstate">…</div>
+    </div>
+    <label class="switch"><input type="checkbox" id="hub" onchange="toggleHub(this.checked)"><span class="sl"></span></label>
+  </div>
 
   <div class="card">
-    <h2>连接 / 配对设备</h2>
-    <div class="row"><span class="k">局域网访问</span>
+    <h2 data-i18n="secConnect"></h2>
+    <div class="row"><span class="k" data-i18n="lanAccess"></span>
       <label class="switch"><input type="checkbox" id="lan" onchange="setLan(this.checked)"><span class="sl"></span></label>
       <span class="lanstate" id="lanstate">…</span></div>
-    <div class="hint" style="margin:2px 0 12px">开 = 同一 Wi-Fi 的手机/设备可连(绑 0.0.0.0);关 = 仅本机 loopback,谁都连不进来。切换会重启 Hub、短暂断开。</div>
-    <div class="row"><span class="k">Base URL</span><span class="v" id="base">…</span><button onclick="cp(base)">复制</button></div>
-    <div class="row"><span class="k">Token</span><span class="v" id="token">…</span><button onclick="cp(token)">复制</button></div>
-    <div class="row"><span class="k">手机/设备</span><span class="v" id="phone">…</span><button onclick="cp(phone)">复制</button></div>
-    <div class="hint">手机与 Mac 同一 Wi-Fi,打开上面「手机/设备」链接即用(局域网访问必须带 <code>?token</code>)。ESP32 用 Base URL + Header <code>Authorization: Bearer &lt;token&gt;</code>。</div>
+    <div class="hint" id="lanhint" style="margin:2px 0 12px"></div>
+    <div class="row"><span class="k">Base URL</span><span class="v" id="base">…</span><button onclick="cp(base)" data-i18n="copy"></button></div>
+    <div class="row"><span class="k">Token</span><span class="v" id="token">…</span><button onclick="cp(token)" data-i18n="copy"></button></div>
+    <div class="row"><span class="k" data-i18n="phoneDevice"></span><span class="v" id="phone">…</span><button onclick="cp(phone)" data-i18n="copy"></button></div>
+    <div class="hint" id="connectHint"></div>
     <div class="hint" id="others"></div>
   </div>
 
   <div class="card">
-    <h2>设备审批 · 直连 GA <span class="badge" id="devbadge">…</span></h2>
-    <div class="row"><span class="k">地址</span><span class="v" id="devaddr">…</span><button onclick="cp(devAddr)">复制</button></div>
-    <div class="row"><span class="k">Token</span><span class="v" id="devtoken">…</span><button onclick="cp(devToken)">复制</button></div>
+    <h2><span data-i18n="secDevice"></span> <span class="badge" id="devbadge">…</span></h2>
+    <div class="row"><span class="k" data-i18n="address"></span><span class="v" id="devaddr">…</span><button onclick="cp(devAddr)" data-i18n="copy"></button></div>
+    <div class="row"><span class="k">Token</span><span class="v" id="devtoken">…</span><button onclick="cp(devToken)" data-i18n="copy"></button></div>
     <div class="hint" id="devother"></div>
-    <div class="hint">ESP32 等设备直接监听 GA 的审批口:<code>GET /state</code> 长轮询、<code>POST /resolve</code>,Header <code>Authorization: Bearer &lt;token&gt;</code>。需在 GA 设置里开启「远程审批设备」;这里的 token 来自 GA。</div>
+    <div class="hint" id="deviceHint"></div>
   </div>
 
   <div class="card">
-    <h2>语音识别 <span class="badge" id="asrbadge">…</span></h2>
+    <h2><span data-i18n="secASR"></span> <span class="badge" id="asrbadge">…</span></h2>
     <div class="row">
-      <input id="key" type="password" placeholder="sk-…  SiliconFlow API Key">
-      <button class="primary" onclick="saveKey()">保存</button>
+      <input id="key" type="password">
+      <button class="primary" onclick="saveKey()" data-i18n="save"></button>
     </div>
-    <div class="hint">key 只存本机 <code>~/.claude-session-hub/config.json</code>(600 权限),不下发设备。当前:<span id="keystat">…</span></div>
-  </div>
-
-  <div class="card">
-    <h2>状态</h2>
-    <div class="row"><span class="k">监听</span><span class="v" id="bind">…</span></div>
-    <div class="row"><span class="k">配置文件</span><span class="v" id="cfgpath">…</span></div>
-    <div class="row"><span class="k">Hub</span><span class="v" id="health">…</span><button class="danger" onclick="stopHub()">停止</button></div>
-    <div class="hint">停止后需在 GA 菜单栏「远程 Hub」重新开启(网页无法自启)。</div>
+    <div class="hint" id="asrHint"></div>
   </div>
 
   <div id="msg"></div>
+
+  <!-- 底部:配置文件 + API 文档,纯文本 -->
+  <div class="foot">
+    <span data-i18n="configFile"></span>: <span id="cfgpath" class="mono">…</span>
+    &nbsp;·&nbsp;
+    <a id="apidocs" href="https://github.com/tankxu/gesture-approve/blob/main/hub/HUB_API.md" target="_blank" data-i18n="apiDocs"></a>
+  </div>
 </div>
 <script>
+const LANG='__HUB_LANG__';
+const T={
+  zh:{ subLoopback:'本机专用页面(仅 loopback 可访问)', openDemo:'打开监控 demo →',
+    hubRunning:'运行中', hubStopped:'已停止', hubUnreachable:'不可达',
+    stopConfirm:'停止 Hub?停止后设备/手机将断开,需在 GA 菜单栏重新开启。',
+    hubStoppedMsg:'Hub 已停止 · 去 GA 菜单栏「远程 Hub」重新开启',
+    secConnect:'连接 / 配对设备', lanAccess:'局域网访问', lanOn:'开 · 手机/设备可连', lanOff:'关 · 仅本机',
+    lanHint:'开 = 同一 Wi-Fi 的手机/设备可连(绑 0.0.0.0);关 = 仅本机 loopback,谁都连不进来。切换会重启 Hub、短暂断开。',
+    phoneDevice:'手机/设备', copy:'复制', copied:'已复制',
+    connectHint:'手机与 Mac 同一 Wi-Fi,打开上面「手机/设备」链接即用(局域网访问必须带 ?token)。ESP32 用 Base URL + Header Authorization: Bearer <token>。',
+    noNet:'(无网络)', lanClosed:'已关局域网 · 仅本机', otherNics:'其它网卡:',
+    secDevice:'设备审批 · 直连 GA', ready:'就绪', notEnabled:'未开启', address:'地址',
+    deviceTokenEmpty:'(GA 未开启远程审批设备)',
+    deviceHint:'ESP32 等设备直接监听 GA 的审批口:GET /state 长轮询、POST /resolve,Header Authorization: Bearer <token>。需在 GA 设置里开启「远程审批设备」;这里的 token 来自 GA。',
+    secASR:'语音识别', configured:'已配置', notConfigured:'未配置', save:'保存',
+    keyPlaceholder:'sk-…  SiliconFlow API Key',
+    asrHint:'key 只存本机 ~/.claude-session-hub/config.json(600 权限),不下发设备。当前:',
+    keyUnset:'未设置——录音识别不可用', enterKey:'请输入 key', keyPrefixWarn:'SiliconFlow key 通常以 sk- 开头,请确认',
+    saved:'已保存 ✓', saveFailed:'保存失败: ', loadFailed:'读取配置失败: ',
+    rebindOn:'开启局域网访问,重启 Hub…', rebindOff:'切为仅本机,重启 Hub…', rebindFail:'Hub 未恢复,请手动刷新',
+    configFile:'配置文件', apiDocs:'API 文档 ↗' },
+  en:{ subLoopback:'Local-only page (loopback access only)', openDemo:'Open monitor demo →',
+    hubRunning:'Running', hubStopped:'Stopped', hubUnreachable:'Unreachable',
+    stopConfirm:'Stop the Hub? Devices/phones will disconnect; restart it from the GA menu bar.',
+    hubStoppedMsg:'Hub stopped · restart it from the GA menu bar → Remote Hub',
+    secConnect:'Connect / pair devices', lanAccess:'LAN access', lanOn:'On · phone/devices can connect', lanOff:'Off · this Mac only',
+    lanHint:'On = phones/devices on the same Wi-Fi can connect (bind 0.0.0.0); Off = loopback only, nobody can reach it. Toggling restarts the Hub briefly.',
+    phoneDevice:'Phone/device', copy:'Copy', copied:'Copied',
+    connectHint:'Phone on the same Wi-Fi as the Mac: open the “Phone/device” link above (LAN access must include ?token). ESP32: use Base URL + header Authorization: Bearer <token>.',
+    noNet:'(no network)', lanClosed:'LAN off · this Mac only', otherNics:'Other NICs: ',
+    secDevice:'Device approval · direct to GA', ready:'Ready', notEnabled:'Off', address:'Address',
+    deviceTokenEmpty:'(enable “remote approval devices” in GA)',
+    deviceHint:'Devices like ESP32 watch GA’s approval port directly: GET /state long-poll, POST /resolve, header Authorization: Bearer <token>. Enable “remote approval devices” in GA settings; this token comes from GA.',
+    secASR:'Speech recognition', configured:'Configured', notConfigured:'Not set', save:'Save',
+    keyPlaceholder:'sk-…  SiliconFlow API Key',
+    asrHint:'The key is stored only on this Mac in ~/.claude-session-hub/config.json (600), never sent to devices. Current: ',
+    keyUnset:'Not set — recording won’t work', enterKey:'Enter a key', keyPrefixWarn:'SiliconFlow keys usually start with sk-, please confirm',
+    saved:'Saved ✓', saveFailed:'Save failed: ', loadFailed:'Failed to load config: ',
+    rebindOn:'Enabling LAN access, restarting Hub…', rebindOff:'Switching to local-only, restarting Hub…', rebindFail:'Hub didn’t recover, please refresh',
+    configFile:'Config file', apiDocs:'API docs ↗' },
+};
+const L=(T[LANG]||T.en);
+const t=k=>L[k]||T.en[k]||k;
 let base='',token='',phone='',devAddr='',devToken='';
 const $=id=>document.getElementById(id);
-function cp(t){navigator.clipboard.writeText(t).then(()=>msg('已复制',true));}
-function msg(t,ok){const m=$('msg');m.textContent=t;m.style.color=ok?'var(--ok)':'var(--warn)';setTimeout(()=>{if(m.textContent===t)m.textContent='';},2500);}
+function cp(x){navigator.clipboard.writeText(x).then(()=>msg(t('copied'),true));}
+function msg(text,ok){const m=$('msg');m.textContent=text;m.style.color=ok?'var(--ok)':'var(--warn)';setTimeout(()=>{if(m.textContent===text)m.textContent='';},2500);}
+function applyI18n(){
+  document.documentElement.lang=LANG;
+  document.querySelectorAll('[data-i18n]').forEach(e=>e.textContent=t(e.dataset.i18n));
+  $('key').placeholder=t('keyPlaceholder');
+  $('lanhint').textContent=t('lanHint');
+  $('connectHint').textContent=t('connectHint');
+  $('deviceHint').textContent=t('deviceHint');
+}
 
 async function load(){
   try{
     const d=await (await fetch('/config/data')).json();
-    base=d.baseUrls[0]||'(无网络)'; token=d.token;
-    phone = d.lan ? (d.phoneUrl||'(无网络)') : '已关局域网 · 仅本机';
+    base=d.baseUrls[0]||t('noNet'); token=d.token;
+    phone = d.lan ? (d.phoneUrl||t('noNet')) : t('lanClosed');
     $('base').textContent=base; $('token').textContent=token; $('phone').textContent=phone;
     $('lan').checked=!!d.lan;
-    $('lanstate').textContent=d.lan?'开 · 手机/设备可连':'关 · 仅本机';
-    $('bind').textContent=d.bind+':'+d.port;
+    $('lanstate').textContent=d.lan?t('lanOn'):t('lanOff');
     $('cfgpath').textContent=d.configPath;
-    if(d.baseUrls.length>1) $('others').textContent='其它网卡:'+d.baseUrls.slice(1).join('  ');
-    // 设备审批口(直连 GA · 47602)
+    if(d.baseUrls.length>1) $('others').textContent=t('otherNics')+d.baseUrls.slice(1).join('  ');
     const dev=d.deviceApi||{};
-    devAddr=(dev.addresses&&dev.addresses[0])||'(无网络)';
+    devAddr=(dev.addresses&&dev.addresses[0])||t('noNet');
     devToken=dev.token||'';
     $('devaddr').textContent=devAddr;
-    $('devtoken').textContent=devToken||'(GA 未开启远程审批设备)';
+    $('devtoken').textContent=devToken||t('deviceTokenEmpty');
     const db=$('devbadge');
-    if(dev.tokenSet){db.textContent='就绪';db.className='badge set';}
-    else{db.textContent='未开启';db.className='badge unset';}
-    $('devother').textContent=(dev.addresses&&dev.addresses.length>1)?('其它网卡:'+dev.addresses.slice(1).join('  ')):'';
+    if(dev.tokenSet){db.textContent=t('ready');db.className='badge set';}
+    else{db.textContent=t('notEnabled');db.className='badge unset';}
+    $('devother').textContent=(dev.addresses&&dev.addresses.length>1)?(t('otherNics')+dev.addresses.slice(1).join('  ')):'';
     const b=$('asrbadge');
-    if(d.siliconflowKeySet){b.textContent='已配置';b.className='badge set';$('keystat').textContent=d.siliconflowKeyMasked;}
-    else{b.textContent='未配置';b.className='badge unset';$('keystat').textContent='未设置——录音识别不可用';}
-  }catch(e){msg('读取配置失败: '+e);}
-  try{const h=await (await fetch('/health')).json();$('health').textContent=h.ok?'运行中 ✓':'异常';}catch(e){$('health').textContent='不可达';}
+    if(d.siliconflowKeySet){b.textContent=t('configured');b.className='badge set';$('asrHint').textContent=t('asrHint')+d.siliconflowKeyMasked;}
+    else{b.textContent=t('notConfigured');b.className='badge unset';$('asrHint').textContent=t('asrHint')+t('keyUnset');}
+  }catch(e){msg(t('loadFailed')+e);}
+  try{const h=await (await fetch('/health')).json(); setHub(h&&h.ok);}catch(e){ setHub(false); }
+}
+function setHub(on){
+  $('hub').checked=!!on;
+  $('hubdot').className='dot'+(on?' on':'');
+  $('hubstate').textContent=on?t('hubRunning'):t('hubUnreachable');
+}
+async function toggleHub(on){
+  if(on) return;   // 网页无法把已停的 Hub 拉起;开只由 GA 负责
+  if(!confirm(t('stopConfirm'))){ $('hub').checked=true; return; }
+  try{ await fetch('/config/stop',{method:'POST'}); }catch(e){}
+  $('hubdot').className='dot'; $('hubstate').textContent=t('hubStopped');
+  msg(t('hubStoppedMsg'),true);
 }
 async function saveKey(){
   const v=$('key').value.trim();
-  if(!v){msg('请输入 key');return;}
-  if(!v.startsWith('sk-')){msg('SiliconFlow key 通常以 sk- 开头,请确认');}
+  if(!v){msg(t('enterKey'));return;}
+  if(!v.startsWith('sk-')) msg(t('keyPrefixWarn'));
   try{
     const r=await fetch('/config/set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({siliconflow_key:v})});
     const j=await r.json();
-    if(j.ok){$('key').value='';msg('已保存 ✓',true);load();}
-    else msg('保存失败: '+(j.error||''));
-  }catch(e){msg('保存失败: '+e);}
+    if(j.ok){$('key').value='';msg(t('saved'),true);load();}
+    else msg(t('saveFailed')+(j.error||''));
+  }catch(e){msg(t('saveFailed')+e);}
 }
 async function setLan(on){
   $('lan').disabled=true;
-  msg(on?'开启局域网访问,重启 Hub…':'切为仅本机,重启 Hub…',true);
+  msg(on?t('rebindOn'):t('rebindOff'),true);
   try{ await fetch('/config/lan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on})}); }catch(e){}
-  waitBack(0);   // re-exec 期间会短暂断连,轮询 /health 恢复后重载
+  waitBack(0);
 }
 function waitBack(n){
   fetch('/health').then(r=>{ if(r.ok) location.reload(); else throw 0; })
-    .catch(()=>{ if(n<25) setTimeout(()=>waitBack(n+1),400); else { $('lan').disabled=false; msg('Hub 未恢复,请手动刷新',false); } });
+    .catch(()=>{ if(n<25) setTimeout(()=>waitBack(n+1),400); else { $('lan').disabled=false; msg(t('rebindFail'),false); } });
 }
-async function stopHub(){
-  if(!confirm('停止 Hub?停止后设备/手机将断开,需在 GA 菜单栏重新开启。')) return;
-  try{
-    await fetch('/config/stop',{method:'POST'});
-  }catch(e){}
-  $('health').textContent='已停止';
-  msg('Hub 已停止 · 去 GA 菜单栏「远程 Hub」重新开启',true);
-}
+applyI18n();
 load();
 </script></body></html>

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh"><head><meta charset="utf-8">
+<html lang="__HUB_LANG__"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Claude Session Hub</title>
 <style>
@@ -158,22 +158,22 @@
   <h1>Session Hub</h1>
   <span class="dot" id="dot"></span>
   <span id="stat"></span>
-  <button class="help" onclick="openIntro()" title="介绍 / 帮助">?</button>
-  <a id="cfglink" class="cfglink" href="/config" style="display:none">配置</a>
+  <button class="help" onclick="openIntro()" id="helpbtn">?</button>
+  <a id="cfglink" class="cfglink" href="/config" style="display:none" data-i18n="cfg"></a>
 </header>
-<a class="setup" id="setup" href="/config" style="display:none">首次使用 · 点此设置语音识别(SiliconFlow)key →</a>
+<a class="setup" id="setup" href="/config" style="display:none" data-i18n="setupBanner"></a>
 
 <div class="backdrop" id="introBk">
   <div class="modal">
-    <h2><span class="brand" style="width:26px;height:26px;font-size:14px">C</span> 欢迎使用 Session Hub</h2>
-    <p class="lead">在手机、平板或任何同一 Wi-Fi 的设备上,随时查看你的 Claude Code 会话、语音回复、接管审批。数据只在你本机与设备间流转,不经第三方。</p>
-    <div class="feat"><span class="ic">💬</span><div><div class="ft">看会话 &amp; 回复</div><div class="fd">浏览活跃会话的聊天记录,直接回复(走你的订阅额度,不算 API)</div></div></div>
-    <div class="feat"><span class="ic">🎤</span><div><div class="ft">语音输入</div><div class="fd">点麦克风说话,转成文字填入回复框(需配置 SiliconFlow key)</div></div></div>
-    <div class="feat"><span class="ic">🔔</span><div><div class="ft">待答提醒</div><div class="fd">会话在等你回答时,顶部与列表会高亮标出</div></div></div>
+    <h2><span class="brand" style="width:26px;height:26px;font-size:14px">C</span> <span data-i18n="introTitle"></span></h2>
+    <p class="lead" data-i18n="introLead"></p>
+    <div class="feat"><span class="ic">💬</span><div><div class="ft" data-i18n="feat1t"></div><div class="fd" data-i18n="feat1d"></div></div></div>
+    <div class="feat"><span class="ic">🎤</span><div><div class="ft" data-i18n="feat2t"></div><div class="fd" data-i18n="feat2d"></div></div></div>
+    <div class="feat"><span class="ic">🔔</span><div><div class="ft" data-i18n="feat3t"></div><div class="fd" data-i18n="feat3d"></div></div></div>
     <div class="status" id="introStatus" style="display:none"></div>
-    <label class="dontshow"><span class="switch"><input type="checkbox" id="dontShow" checked><span class="sl"></span></span><span class="dtext">不再自动显示(右上角 ? 可重开)</span></label>
+    <label class="dontshow"><span class="switch"><input type="checkbox" id="dontShow" checked><span class="sl"></span></span><span class="dtext" data-i18n="dontShow"></span></label>
     <div class="modal-actions">
-      <button class="grow" onclick="closeIntro()">开始使用</button>
+      <button class="grow" onclick="closeIntro()" data-i18n="startUsing"></button>
       <button class="btn-primary" id="introCfgBtn" onclick="gotoConfig()">进入配置</button>
     </div>
   </div>
@@ -183,12 +183,12 @@
   <div class="list" id="list"></div>
   <div class="chatcol">
     <div id="chathdr" class="chathdr"></div>
-    <div class="chat" id="chat"><div class="empty">← 选择左侧会话查看聊天记录</div></div>
+    <div class="chat" id="chat"><div class="empty" data-i18n="pickSessionHint"></div></div>
     <div class="replybar">
-      <button id="recbtn" class="mic" onclick="toggleRec()" title="点一下录音,再点停止识别">🎤</button>
-      <input id="replyin" placeholder="回复这个会话…  语音会填到这里 · Enter 发送"
+      <button id="recbtn" class="mic" onclick="toggleRec()">🎤</button>
+      <input id="replyin"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();doReply(true)}">
-      <button class="send" onclick="doReply(true)">发送</button>
+      <button class="send" onclick="doReply(true)" data-i18n="send"></button>
       <span id="recout"></span>
     </div>
   </div>
@@ -198,6 +198,67 @@ const TOKEN='__HUB_TOKEN__';
 const H={headers:{'Authorization':'Bearer '+TOKEN}};
 // 统一的齿轮图标(内联 SVG,跟随文字色/字号;替换渲染不一致又偏小的 emoji ⚙)
 const GEAR='<svg class="ic-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
+const LANG='__HUB_LANG__';
+const T={
+  zh:{ cfg:'配置', helpTitle:'介绍 / 帮助', micTitle:'点一下录音,再点停止识别',
+    setupBanner:'首次使用 · 点此设置语音识别(SiliconFlow)key →',
+    introTitle:'欢迎使用 Session Hub',
+    introLead:'在手机、平板或任何同一 Wi-Fi 的设备上,随时查看你的 Claude Code 会话、语音回复、接管审批。数据只在你本机与设备间流转,不经第三方。',
+    feat1t:'看会话 & 回复', feat1d:'浏览活跃会话的聊天记录,直接回复(走你的订阅额度,不算 API)',
+    feat2t:'语音输入', feat2d:'点麦克风说话,转成文字填入回复框(需配置 SiliconFlow key)',
+    feat3t:'待答提醒', feat3d:'会话在等你回答时,顶部与列表会高亮标出',
+    dontShow:'不再自动显示(右上角 ? 可重开)', startUsing:'开始使用', enterConfig:'进入配置', configOnMac:'配置在 Mac 上',
+    pickSessionHint:'← 选择左侧会话查看聊天记录', send:'发送',
+    replyPlaceholder:'回复这个会话…  语音会填到这里 · Enter 发送', replyReadonly:'此会话无 share link,只读',
+    secRepliable:'可回复会话', secReadonly:'只读 · 无 share link', noSessions:'无活跃会话',
+    chipWait:'等你答', chipRun:'运行中', srcDesktop:'桌面',
+    pendingPre:'● 有 ', pendingMid:' 个会话在等你回答:', sessionsSuffix:' 个会话 · ', hubUnreachable:'hub 不可达 ',
+    roleYou:'你', openInClaude:'在 claude.ai 打开 ↗', desktopNoLink:'桌面会话 · 无接力链接', msgCount:'条',
+    noMsg:'(无消息)', loadingMsg:'加载中…', loadFail:'加载失败 ',
+    asrNoCfgLocalPre:'🎤 语音识别未配置 —— ', asrNoCfgLink:'去配置 SiliconFlow key ⚙',
+    asrNoCfgLan:'🎤 语音识别未配置 —— 请在运行 Hub 的 Mac 上打开配置页填入 SiliconFlow key',
+    micUnsupported:'此环境不支持麦克风(手机需 HTTPS;或在电脑 localhost 用)', micDenied:'麦克风权限被拒: ',
+    recording:'录音中… 说句话再点停止', recTooShortPre:'录音太短(', recTooShortMid:'s,采样', recTooShortSuf:'),再试',
+    recognizingPre:'识别中…(', recAppended:'识别并追加到回复框: ', recNoSession:'识别(未选会话,没填): ', recError:'错误: ', uploadFail:'上传失败: ',
+    pickSession:'先选一个会话', noShareLink:'此会话无 share link(未连到 claude.ai),无法注入回复',
+    sending:'发送中…(驱动 claude.ai 网页)', filling:'填入中…',
+    sentOk:'✓ 已发送到该会话(走订阅)', filledOk:'✓ 已填入 claude 输入框,去那边确认发送',
+    introWarn:'🎤 语音识别未配置 —— 进入配置填入 SiliconFlow key 即可开启语音输入', introOk:'✓ 语音识别已就绪',
+    cfgLoopbackNote:' 配置页仅在运行 Hub 的 Mac 上开放(loopback)。请到那台电脑访问 ' },
+  en:{ cfg:'Config', helpTitle:'Intro / help', micTitle:'Tap to record, tap again to transcribe',
+    setupBanner:'First time · click here to set the speech (SiliconFlow) key →',
+    introTitle:'Welcome to Session Hub',
+    introLead:'From your phone, tablet or any device on the same Wi-Fi, watch your Claude Code sessions, reply by voice, and take over approvals. Data stays between your Mac and your devices.',
+    feat1t:'See sessions & reply', feat1d:'Browse chat history of active sessions and reply directly (on your subscription, not API).',
+    feat2t:'Voice input', feat2d:'Tap the mic to speak; it becomes text in the reply box (needs a SiliconFlow key).',
+    feat3t:'Waiting alerts', feat3d:'When a session is waiting for you, the top bar and list highlight it.',
+    dontShow:'Don’t show automatically (reopen via ? top-right)', startUsing:'Start', enterConfig:'Open config', configOnMac:'Config on the Mac',
+    pickSessionHint:'← Pick a session on the left to view its chat', send:'Send',
+    replyPlaceholder:'Reply to this session…  voice lands here · Enter to send', replyReadonly:'No share link · read-only',
+    secRepliable:'Repliable sessions', secReadonly:'Read-only · no share link', noSessions:'No active sessions',
+    chipWait:'Waiting', chipRun:'Running', srcDesktop:'desktop',
+    pendingPre:'● ', pendingMid:' session(s) waiting for you: ', sessionsSuffix:' sessions · ', hubUnreachable:'hub unreachable ',
+    roleYou:'You', openInClaude:'Open in claude.ai ↗', desktopNoLink:'Desktop session · no handoff link', msgCount:'msgs',
+    noMsg:'(no messages)', loadingMsg:'Loading…', loadFail:'Load failed ',
+    asrNoCfgLocalPre:'🎤 Speech not configured — ', asrNoCfgLink:'set the SiliconFlow key ⚙',
+    asrNoCfgLan:'🎤 Speech not configured — open the config page on the Mac running the Hub and set the SiliconFlow key',
+    micUnsupported:'No microphone here (phones need HTTPS; or use localhost on a computer)', micDenied:'Mic permission denied: ',
+    recording:'Recording… say something, then tap to stop', recTooShortPre:'Too short (', recTooShortMid:'s, samples ', recTooShortSuf:'), try again',
+    recognizingPre:'Transcribing… (', recAppended:'Transcribed & appended: ', recNoSession:'Transcribed (no session selected): ', recError:'Error: ', uploadFail:'Upload failed: ',
+    pickSession:'Pick a session first', noShareLink:'No share link (not linked to claude.ai), can’t inject a reply',
+    sending:'Sending… (driving claude.ai)', filling:'Filling…',
+    sentOk:'✓ Sent to the session (subscription)', filledOk:'✓ Filled the claude composer, confirm send there',
+    introWarn:'🎤 Speech not configured — open config and set the SiliconFlow key to enable voice input', introOk:'✓ Speech recognition ready',
+    cfgLoopbackNote:' The config page is only available on the Mac running the Hub (loopback). Open it there at ' },
+};
+const L=(T[LANG]||T.en);
+const t=k=>L[k]||T.en[k]||k;
+function applyI18n(){
+  document.documentElement.lang=LANG;
+  document.querySelectorAll('[data-i18n]').forEach(e=>e.textContent=t(e.dataset.i18n));
+  var hb=$('helpbtn'); if(hb) hb.title=t('helpTitle');
+  var rb=$('recbtn'); if(rb) rb.title=t('micTitle');
+}
 let sel=null, sessions=[];
 const $=id=>document.getElementById(id);
 const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
@@ -210,9 +271,9 @@ function rowHtml(s,ro){
   const st=s.state||'none';
   const dot=s.waitingForUser?'wait':st;
   let chip='';
-  if(s.waitingForUser) chip='<span class="chip wait">等你答</span>';
-  else if(st==='active'||st==='tool') chip='<span class="chip run">运行中</span>';
-  const src=s.entrypoint==='claude-desktop'?'桌面':'cli';
+  if(s.waitingForUser) chip='<span class="chip wait">'+t('chipWait')+'</span>';
+  else if(st==='active'||st==='tool') chip='<span class="chip run">'+t('chipRun')+'</span>';
+  const src=s.entrypoint==='claude-desktop'?t('srcDesktop'):'cli';
   return `<div class="row ${ro?'readonly':''} ${sel===s.sessionId?'sel':''}" data-id="${s.sessionId}">
     <span class="statusdot ${dot}"></span>
     <div class="rowbody">
@@ -224,13 +285,13 @@ function renderList(){
   const el=$('list');
   const rep=sessions.filter(s=>s.webUrl), ro=sessions.filter(s=>!s.webUrl);
   let html='';
-  if(rep.length) html+='<div class="seclabel">可回复会话</div>'+rep.map(s=>rowHtml(s,false)).join('');
-  if(ro.length) html+='<div class="seclabel">只读 · 无 share link</div>'+ro.map(s=>rowHtml(s,true)).join('');
-  el.innerHTML=html||'<div class="empty">无活跃会话</div>';
+  if(rep.length) html+='<div class="seclabel">'+t('secRepliable')+'</div>'+rep.map(s=>rowHtml(s,false)).join('');
+  if(ro.length) html+='<div class="seclabel">'+t('secReadonly')+'</div>'+ro.map(s=>rowHtml(s,true)).join('');
+  el.innerHTML=html||'<div class="empty">'+t('noSessions')+'</div>';
   el.querySelectorAll('.row').forEach(r=>r.onclick=()=>openSession(r.dataset.id));
   const waiting=sessions.filter(s=>s.waitingForUser);
   const pb=$('pending');
-  if(waiting.length){pb.style.display='block';pb.textContent='● 有 '+waiting.length+' 个会话在等你回答:'+waiting.map(s=>s.title).join('、');}
+  if(waiting.length){pb.style.display='block';pb.textContent=t('pendingPre')+waiting.length+t('pendingMid')+waiting.map(s=>s.title).join('、');}
   else pb.style.display='none';
   updateReplyBar();
 }
@@ -240,7 +301,7 @@ function updateReplyBar(){
   const can=!!(s&&s.webUrl);
   inp.disabled=!can;
   document.querySelectorAll('.replybar button').forEach(b=>b.disabled=!can);
-  inp.placeholder=can?'回复这个会话…  语音会填到这里 · Enter 发送':'此会话无 share link,只读';
+  inp.placeholder=can?t('replyPlaceholder'):t('replyReadonly');
 }
 
 async function refresh(){
@@ -248,21 +309,21 @@ async function refresh(){
     const d=await api('/sessions');
     sessions=d.sessions;
     $('dot').style.background='var(--green)';
-    $('stat').textContent=sessions.length+' 个会话 · '+new Date().toLocaleTimeString();
+    $('stat').textContent=sessions.length+t('sessionsSuffix')+new Date().toLocaleTimeString();
     renderList();
-  }catch(e){$('dot').style.background='var(--red)';$('stat').textContent='hub 不可达 '+e;}
+  }catch(e){$('dot').style.background='var(--red)';$('stat').textContent=t('hubUnreachable')+e;}
 }
 
 function renderMessages(d,id){
   const s=sessions.find(x=>x.sessionId===id)||{};
   const msgs=d.messages.map(m=>{
     const tool=/^\[(工具|工具结果)/.test(m.text.trim());
-    return `<div class="msg msg-${m.role}"><div class="msgrole">${m.role==='user'?'你':'Claude'}</div>
+    return `<div class="msg msg-${m.role}"><div class="msgrole">${m.role==='user'?t('roleYou'):'Claude'}</div>
       <div class="bubble ${tool?'tool':''}">${esc(m.text)}</div></div>`;
   }).join('');
-  const web=s.webUrl?`<a class="pill" href="${s.webUrl}" target="_blank">在 claude.ai 打开 ↗</a>`:'<span class="hdrnote">桌面会话 · 无接力链接</span>';
-  $('chathdr').innerHTML=`<div class="hdrbar"><span class="hdrtitle">${esc(d.title||s.title||'')}</span><span class="chip">${d.total} 条</span>${web}</div>`;
-  $('chat').innerHTML=msgs||'<div class=empty>(无消息)</div>';
+  const web=s.webUrl?`<a class="pill" href="${s.webUrl}" target="_blank">${t('openInClaude')}</a>`:`<span class="hdrnote">${t('desktopNoLink')}</span>`;
+  $('chathdr').innerHTML=`<div class="hdrbar"><span class="hdrtitle">${esc(d.title||s.title||'')}</span><span class="chip">${d.total} ${t('msgCount')}</span>${web}</div>`;
+  $('chat').innerHTML=msgs||`<div class=empty>${t('noMsg')}</div>`;
 }
 function chatAtBottom(){const c=$('chat');return c.scrollHeight-c.scrollTop-c.clientHeight<80;}
 let lastMsgKey='';
@@ -277,12 +338,12 @@ async function loadMessages(id,force){
     lastMsgKey=key;
     renderMessages(d,id);
     if(stick)$('chat').scrollTop=$('chat').scrollHeight;
-  }catch(e){if(force)$('chat').innerHTML='<div class="empty">加载失败 '+e+'</div>';}
+  }catch(e){if(force)$('chat').innerHTML='<div class="empty">'+t('loadFail')+e+'</div>';}
 }
 async function openSession(id){
   sel=id;lastMsgKey='';renderList();
   $('chathdr').innerHTML='';
-  $('chat').innerHTML='<div class="empty">加载中…</div>';
+  $('chat').innerHTML='<div class="empty">'+t('loadingMsg')+'</div>';
   loadMessages(id,true);
 }
 
@@ -293,14 +354,14 @@ async function toggleRec(){
   const btn=$('recbtn'),out=$('recout');
   if(!rec.on){
     if(CFG.keySet===false){   // 语音未配置:别录了白费,直接提示去配置
-      if(isLocal) out.innerHTML='🎤 语音识别未配置 —— <a href="/config" style="color:var(--accent-strong);font-weight:600;text-decoration:underline">去配置 SiliconFlow key ⚙</a>';
-      else out.textContent='🎤 语音识别未配置 —— 请在运行 Hub 的 Mac 上打开配置页填入 SiliconFlow key';
+      if(isLocal) out.innerHTML=t('asrNoCfgLocalPre')+'<a href="/config" style="color:var(--accent-strong);font-weight:600;text-decoration:underline">'+t('asrNoCfgLink')+'</a>';
+      else out.textContent=t('asrNoCfgLan');
       return;
     }
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
-      out.textContent='此环境不支持麦克风(手机需 HTTPS;或在电脑 localhost 用)';return;}
+      out.textContent=t('micUnsupported');return;}
     try{rec.stream=await navigator.mediaDevices.getUserMedia({audio:true});}
-    catch(e){out.textContent='麦克风权限被拒: '+e;return;}
+    catch(e){out.textContent=t('micDenied')+e;return;}
     if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
     try{await audioCtx.resume();}catch(e){}
     rec.src=audioCtx.createMediaStreamSource(rec.stream);
@@ -308,7 +369,7 @@ async function toggleRec(){
     rec.chunks=[];
     rec.node.onaudioprocess=e=>rec.chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
     rec.src.connect(rec.node);rec.node.connect(audioCtx.destination);
-    rec.on=true;btn.textContent='⏹';btn.classList.add('recording');out.textContent='录音中… 说句话再点停止';
+    rec.on=true;btn.textContent='⏹';btn.classList.add('recording');out.textContent=t('recording');
   }else{
     rec.on=false;btn.textContent='🎤';btn.classList.remove('recording');
     const rate=audioCtx.sampleRate;
@@ -317,19 +378,19 @@ async function toggleRec(){
     rec.stream.getTracks().forEach(t=>t.stop());
     let len=rec.chunks.reduce((a,c)=>a+c.length,0);
     const secs=(len/rate).toFixed(2);
-    if(len<rate*0.3){out.textContent='录音太短('+secs+'s,采样'+len+'),再试';return;}
+    if(len<rate*0.3){out.textContent=t('recTooShortPre')+secs+t('recTooShortMid')+len+t('recTooShortSuf');return;}
     const buf=new Float32Array(len);let o=0;for(const c of rec.chunks){buf.set(c,o);o+=c.length;}
     const wav=encodeWav(downsample(buf,rate,16000),16000);
-    out.textContent='识别中…('+secs+'s, '+(wav.size/1024|0)+'KB)';
+    out.textContent=t('recognizingPre')+secs+'s, '+(wav.size/1024|0)+'KB)';
     try{
       const r=await fetch('/asr',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'audio/wav'},body:wav});
       const j=await r.json();
       if(j.text!==undefined&&j.error===undefined){
         const inp=$('replyin');
-        if(sel){inp.value=(inp.value?inp.value+' ':'')+j.text;inp.focus();out.innerHTML='识别并追加到回复框: <b>'+esc(j.text)+'</b>';}
-        else out.innerHTML='识别(未选会话,没填): <b>'+esc(j.text)+'</b>';
-      }else out.innerHTML='错误: '+esc(j.error||'')+(j.detail?(' '+esc(j.detail)):'');
-    }catch(e){out.textContent='上传失败: '+e;}
+        if(sel){inp.value=(inp.value?inp.value+' ':'')+j.text;inp.focus();out.innerHTML=t('recAppended')+'<b>'+esc(j.text)+'</b>';}
+        else out.innerHTML=t('recNoSession')+'<b>'+esc(j.text)+'</b>';
+      }else out.innerHTML=t('recError')+esc(j.error||'')+(j.detail?(' '+esc(j.detail)):'');
+    }catch(e){out.textContent=t('uploadFail')+e;}
   }
 }
 function downsample(buf,from,to){
@@ -351,17 +412,17 @@ function encodeWav(s,rate){
 
 async function doReply(send){
   const inp=$('replyin'),out=$('recout');
-  if(!sel){out.textContent='先选一个会话';return;}
+  if(!sel){out.textContent=t('pickSession');return;}
   const s=sessions.find(x=>x.sessionId===sel)||{};
-  if(!s.webUrl){out.textContent='此会话无 share link(未连到 claude.ai),无法注入回复';return;}
+  if(!s.webUrl){out.textContent=t('noShareLink');return;}
   const text=inp.value.trim();
   if(!text){inp.focus();return;}
-  out.textContent=send?'发送中…(驱动 claude.ai 网页)':'填入中…';
+  out.textContent=send?t('sending'):t('filling');
   try{
     const r=await fetch('/reply',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},
       body:JSON.stringify({sessionId:sel,text,send})});
     const j=await r.json();
-    if(j.ok){out.textContent=send?'✓ 已发送到该会话(走订阅)':'✓ 已填入 claude 输入框,去那边确认发送';if(send)inp.value='';}
+    if(j.ok){out.textContent=send?t('sentOk'):t('filledOk');if(send)inp.value='';}
     else out.textContent='✗ '+(j.error||JSON.stringify(j));
   }catch(e){out.textContent='✗ '+e;}
 }
@@ -382,14 +443,14 @@ function gotoConfig(){
   // LAN/手机:配置页只在本机 loopback 开放,无法远程进入 —— 就地说明,别给死按钮
   const st=$('introStatus');
   st.style.display='flex';st.className='status warn';
-  st.innerHTML=GEAR+' 配置页仅在运行 Hub 的 Mac 上开放(loopback)。请到那台电脑访问 <b>http://127.0.0.1:'+(location.port||'8787')+'/config</b>';
+  st.innerHTML=GEAR+t('cfgLoopbackNote')+'<b>http://127.0.0.1:'+(location.port||'8787')+'/config</b>';
 }
 function renderIntroStatus(){
   const st=$('introStatus'),btn=$('introCfgBtn');
-  if(CFG.keySet===false){st.style.display='flex';st.className='status warn';st.innerHTML='🎤 语音识别未配置 —— 进入配置填入 SiliconFlow key 即可开启语音输入';}
-  else if(CFG.keySet===true){st.style.display='flex';st.className='status ok';st.textContent='✓ 语音识别已就绪';}
+  if(CFG.keySet===false){st.style.display='flex';st.className='status warn';st.innerHTML=t('introWarn');}
+  else if(CFG.keySet===true){st.style.display='flex';st.className='status ok';st.textContent=t('introOk');}
   else{st.style.display='none';}
-  if(btn) btn.innerHTML=(isLocal?'进入配置':'配置在 Mac 上')+GEAR;
+  if(btn) btn.innerHTML=(isLocal?t('enterConfig'):t('configOnMac'))+GEAR;
 }
 // 弹出条件:没勾过"不再显示"就在首次打开时弹
 function maybeIntro(){ if(!localStorage.getItem('hub_introSeen')) openIntro(); }
@@ -406,7 +467,8 @@ async function checkSetup(){
 }
 // 点背景空白处关闭
 $('introBk').addEventListener('click',e=>{if(e.target===$('introBk'))closeIntro();});
-// 给顶栏配置链接、首次设置横条注入统一齿轮图标
+// 先套用 i18n(会写 textContent),再给配置链接/首次横条注入齿轮图标(否则会被覆盖)
+applyI18n();
 $('cfglink').insertAdjacentHTML('afterbegin',GEAR);
 $('setup').insertAdjacentHTML('afterbegin',GEAR+' ');
 checkSetup();

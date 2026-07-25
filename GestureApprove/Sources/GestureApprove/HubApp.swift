@@ -427,10 +427,12 @@ final class HubApp {
 
     func servePage(_ name: String, injectToken: Bool) -> HubServer.Response {
         let path = AppPaths.resource("hub/\(name)")
-        guard let html = Self.readText(path) else {
+        guard var html = Self.readText(path) else {
             return .error("\(name) missing", "500 Internal Server Error")
         }
-        return .html(injectToken ? html.replacingOccurrences(of: "__HUB_TOKEN__", with: Self.token()) : html)
+        html = html.replacingOccurrences(of: "__HUB_LANG__", with: I18n.lang)   // 跟随 GA 设置里的语言
+        if injectToken { html = html.replacingOccurrences(of: "__HUB_TOKEN__", with: Self.token()) }
+        return .html(html)
     }
 
     func authed(_ req: HubServer.Request) -> Bool {
