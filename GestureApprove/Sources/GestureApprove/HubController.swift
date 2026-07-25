@@ -15,18 +15,10 @@ final class HubController {
         set { UserDefaults.standard.set(newValue, forKey: enabledKey) }
     }
 
-    /// hub/hub.py 的绝对路径(仓库内)。
+    /// hub/hub.py 的绝对路径:release 用打包进 .app 的副本(Contents/Resources/hub/),
+    /// 源码开发(swift run,bundle 里没打包)自动回退仓库根。demo.html/config.html 与它同目录。
     private func scriptPath() -> String {
-        var root = ""
-        if let r = Bundle.main.object(forInfoDictionaryKey: "RepoRoot") as? String,
-           FileManager.default.fileExists(atPath: r) {
-            root = r
-        } else {
-            var p = Bundle.main.bundlePath
-            for _ in 0..<4 { p = (p as NSString).deletingLastPathComponent }
-            root = p
-        }
-        return (root as NSString).appendingPathComponent("hub/hub.py")
+        AppPaths.resource("hub/hub.py")
     }
 
     /// 探 /health 判断 hub 是否在跑(本 app 起的、或手动起的都算)。异步回主线程外的调用方自理。
