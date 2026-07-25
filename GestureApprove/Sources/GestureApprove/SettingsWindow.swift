@@ -69,6 +69,7 @@ struct SettingsView: View {
     let openMediaPipeInstall: () -> Void
     let openGatekeeperInstall: () -> Void
     let onDeviceApiChanged: (Bool) -> Void
+    let openHubConfig: () -> Void
 
     // 统一的视觉节奏：分区之间 / 分区内元素之间
     private let sectionSpacing: CGFloat = 14
@@ -464,48 +465,18 @@ struct SettingsView: View {
                         onDeviceApiChanged(on)   // 运行时起停设备监听，无需重启
                     }))
                 caption("settings.deviceapi.desc")
-                if deviceApiOn { deviceApiInfo }
+                // 连接信息(地址/token/其它网卡)集中到 hub 的 /config 页展示,这里只放一个跳转按钮。
+                if deviceApiOn {
+                    Button(L("settings.deviceapi.openConfig")) { openHubConfig() }
+                        .controlSize(.small)
+                        .padding(.top, 2)
+                }
             }
 
             Spacer(minLength: 0)
         }
     }
 
-    /// 设备口开启后的配对信息：连接地址（本机 IP:端口）与 token，各带一键复制。
-    @ViewBuilder private var deviceApiInfo: some View {
-        let urls = DeviceApi.baseURLs()
-        VStack(alignment: .leading, spacing: 4) {
-            copyRow(label: L("settings.deviceapi.address"),
-                    value: urls.first ?? "http://<\(L("settings.deviceapi.noIP"))>:\(DeviceApi.port)",
-                    copyText: urls.first ?? "")
-            copyRow(label: "Token", value: DeviceApi.token, copyText: DeviceApi.token, mono: true)
-            if urls.count > 1 {
-                Text("\(L("settings.deviceapi.otherAddr")) \(urls.dropFirst().joined(separator: ", "))")
-                    .font(.system(size: 10)).foregroundStyle(.tertiary)
-                    .textSelection(.enabled)
-            }
-        }
-        .padding(10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
-    }
-
-    @ViewBuilder private func copyRow(label: String, value: String, copyText: String, mono: Bool = false) -> some View {
-        HStack(spacing: 6) {
-            Text(label).font(.system(size: 11)).foregroundStyle(.secondary).frame(width: 56, alignment: .leading)
-            Text(value)
-                .font(.system(size: 11, design: mono ? .monospaced : .default))
-                .lineLimit(1).truncationMode(.middle)
-                .textSelection(.enabled)
-            Spacer(minLength: 4)
-            Button {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(copyText, forType: .string)
-            } label: { Image(systemName: "doc.on.doc") }
-                .buttonStyle(.plain).foregroundStyle(.secondary)
-                .help(L("settings.deviceapi.copy"))
-        }
-    }
 
     // MARK: 复用小部件
 
@@ -633,13 +604,15 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
               onEngineChanged: @escaping () -> Void,
               openMediaPipeInstall: @escaping () -> Void,
               openGatekeeperInstall: @escaping () -> Void,
-              onDeviceApiChanged: @escaping (Bool) -> Void) {
+              onDeviceApiChanged: @escaping (Bool) -> Void,
+              openHubConfig: @escaping () -> Void) {
         // 每次打开都重建视图：设置窗是复用的（关闭只隐藏），若沿用旧视图，其 @State 快照（信任命令、
         // 开机自启等）停留在上次打开时的值——比如刚在卡片上点的「总是允许」就不会显示。重建则重读最新。
         let hosting = NSHostingController(rootView: SettingsView(
             state: state, openFlash: openFlash, onPrimeESP32: onPrimeESP32,
             onEngineChanged: onEngineChanged, openMediaPipeInstall: openMediaPipeInstall,
-            openGatekeeperInstall: openGatekeeperInstall, onDeviceApiChanged: onDeviceApiChanged))
+            openGatekeeperInstall: openGatekeeperInstall, onDeviceApiChanged: onDeviceApiChanged,
+            openHubConfig: openHubConfig))
         let creating = (window == nil)
         if creating {
             let w = NSWindow(contentViewController: hosting)

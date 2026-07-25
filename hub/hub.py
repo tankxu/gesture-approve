@@ -96,6 +96,8 @@ def config_data() -> dict:
     base = f"http://{ips[0]}:{HUB_PORT}" if ips else ""
     key = siliconflow_key()
     masked = (key[:6] + "…" + key[-4:]) if len(key) > 12 else ("已设置" if key else "")
+    dev_tok = ga_token()
+    dev_urls = [f"http://{ip}:{GA_DEV_PORT}" for ip in ips]
     return {
         "port": HUB_PORT,
         "bind": HUB_BIND,
@@ -105,6 +107,13 @@ def config_data() -> dict:
         "siliconflowKeySet": bool(key),
         "siliconflowKeyMasked": masked,
         "configPath": HUB_CONFIG_PATH,
+        # 设备审批口(ESP32 直连 GA 的 47602,与 hub 分开):配对信息集中到本页展示
+        "deviceApi": {
+            "port": int(GA_DEV_PORT),
+            "token": dev_tok,
+            "tokenSet": bool(dev_tok),
+            "addresses": dev_urls,
+        },
     }
 
 

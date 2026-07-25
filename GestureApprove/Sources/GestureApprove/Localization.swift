@@ -763,6 +763,14 @@ private let table: [String: [String: String]] = [
         "es": "Abre un puerto LAN protegido con token para que un dispositivo vigile las aprobaciones pendientes y apruebe/rechace, con el mismo efecto que un gesto o clic. El puerto local del hook sigue siendo solo loopback. El texto del comando se envía por la LAN sin cifrar; úsalo solo en una red de confianza.",
         "fr": "Ouvre un port LAN protégé par jeton pour qu'un appareil surveille les approbations en attente et approuve/refuse — même effet qu'un geste ou un clic. Le port local du hook reste en loopback uniquement. Le texte des commandes transite en clair sur le LAN ; à n'utiliser que sur un réseau de confiance.",
     ],
+    "settings.deviceapi.openConfig": [
+        "en": "View connection info & pair devices in the config page →",
+        "zh": "在配置页查看连接信息、配对设备 →",
+        "ja": "設定ページで接続情報の確認・デバイスのペアリング →",
+        "ko": "구성 페이지에서 연결 정보 확인 및 장치 페어링 →",
+        "es": "Ver info de conexión y emparejar dispositivos en la página de configuración →",
+        "fr": "Voir les infos de connexion et appairer les appareils dans la page de configuration →",
+    ],
     "settings.deviceapi.address": [
         "en": "Address", "zh": "地址", "ja": "アドレス", "ko": "주소",
         "es": "Dirección", "fr": "Adresse",

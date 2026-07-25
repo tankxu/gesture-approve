@@ -358,7 +358,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onEngineChanged: { [weak self] in self?.controller.applyEngine() },
             openMediaPipeInstall: { [weak self] in self?.openMediaPipeInstall() },
             openGatekeeperInstall: { [weak self] in self?.openGatekeeperInstall() },
-            onDeviceApiChanged: { [weak self] on in self?.server?.setDeviceEnabled(on) })
+            onDeviceApiChanged: { [weak self] on in self?.server?.setDeviceEnabled(on) },
+            openHubConfig: { [weak self] in self?.openHubConfig() })
+    }
+
+    /// 确保 hub 在跑,然后打开配置页(/config,设备配对信息集中在那)。
+    @objc private func openHubConfig() {
+        let open = { _ = NSWorkspace.shared.open(URL(string: "http://127.0.0.1:\(HubController.port)/config")!) }
+        hub.checkRunning { running in
+            if running {
+                DispatchQueue.main.async(execute: open)
+            } else {
+                DispatchQueue.main.async { [weak self] in
+                    self?.hub.start()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: open)
+                }
+            }
+        }
     }
 
     private func openMediaPipeInstall() {
