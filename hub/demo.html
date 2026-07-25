@@ -31,7 +31,7 @@
   h1{font-size:14px;font-weight:650;margin:0;letter-spacing:-.01em}
   .dot{width:7px;height:7px;border-radius:50%;background:var(--text-3);display:inline-block;flex:0 0 auto}
   #stat{font-size:12px;color:var(--text-3)}
-  .cfglink{margin-left:auto;font-size:12.5px;color:var(--text-2);text-decoration:none;padding:5px 10px;border-radius:8px}
+  .cfglink{margin-left:4px;font-size:12.5px;color:var(--text-2);text-decoration:none;padding:5px 10px;border-radius:8px}
   .cfglink:hover{background:var(--surface-2);color:var(--text)}
 
   .setup{display:flex;align-items:center;gap:8px;justify-content:center;padding:10px 16px;
@@ -112,16 +112,69 @@
     input,button{font-size:16px}
     .msg{max-width:88%}
     .hdrbar,.chat,.replybar{padding-left:14px;padding-right:14px}
+    .modal{padding:20px}
   }
+
+  /* help button + intro modal */
+  .help{width:22px;height:22px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--text-2);
+        font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-left:auto}
+  .help:hover{background:var(--surface-2);color:var(--text)}
+  .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.42);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+  .backdrop.show{display:flex}
+  .modal{background:var(--surface);border:1px solid var(--line);border-radius:16px;width:min(452px,calc(100vw - 32px));
+         box-shadow:0 14px 44px rgba(0,0,0,.3);padding:26px;max-height:90dvh;overflow:auto;
+         animation:pop .16s cubic-bezier(.2,.9,.3,1.2)}
+  @keyframes pop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+  .modal h2{font-size:18px;font-weight:680;margin:0 0 5px;letter-spacing:-.02em;display:flex;align-items:center;gap:10px}
+  .modal .lead{color:var(--text-2);font-size:13px;margin:0 0 6px;line-height:1.6}
+  .feat{display:flex;gap:12px;margin:15px 0}
+  .feat>div{min-width:0}
+  .feat .ic{width:31px;height:31px;border-radius:9px;background:var(--accent-weak);color:var(--accent-strong);
+            display:flex;align-items:center;justify-content:center;font-size:15px;flex:0 0 auto}
+  .feat .ft{font-size:13px;font-weight:620;margin:2px 0 2px}
+  .feat .fd{font-size:12px;color:var(--text-3);line-height:1.5}
+  .status{margin:16px 0 2px;padding:10px 13px;border-radius:10px;font-size:12.5px;display:flex;align-items:center;gap:8px;line-height:1.5}
+  .status.ok{background:rgba(18,161,80,.12);color:var(--green)}
+  .status.warn{background:rgba(217,130,7,.12);color:var(--amber)}
+  .status a{color:inherit;font-weight:700;text-decoration:underline}
+  .dontshow{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2);cursor:pointer;user-select:none;margin-top:18px;flex-wrap:wrap}
+  .dontshow .dtext{min-width:0}
+  .switch{position:relative;display:inline-block;width:36px;height:20px;flex:0 0 auto}
+  .switch input{opacity:0;width:0;height:0}
+  .switch .sl{position:absolute;inset:0;background:var(--line);border-radius:999px;transition:.15s}
+  .switch .sl::before{content:"";position:absolute;width:16px;height:16px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+  .switch input:checked+.sl{background:var(--accent)}
+  .switch input:checked+.sl::before{transform:translateX(16px)}
+  .modal-actions{display:flex;gap:10px;margin-top:20px}
+  .modal-actions .grow{flex:1}
+  .btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .btn-primary:hover{background:var(--accent-strong)}
 </style></head><body>
 <header>
   <span class="brand">C</span>
   <h1>Session Hub</h1>
   <span class="dot" id="dot"></span>
   <span id="stat"></span>
+  <button class="help" onclick="openIntro()" title="介绍 / 帮助">?</button>
   <a id="cfglink" class="cfglink" href="/config" style="display:none">⚙ 配置</a>
 </header>
 <a class="setup" id="setup" href="/config" style="display:none">⚙ 首次使用 · 点此设置语音识别(SiliconFlow)key →</a>
+
+<div class="backdrop" id="introBk">
+  <div class="modal">
+    <h2><span class="brand" style="width:26px;height:26px;font-size:14px">C</span> 欢迎使用 Session Hub</h2>
+    <p class="lead">在手机、平板或任何同一 Wi-Fi 的设备上,随时查看你的 Claude Code 会话、语音回复、接管审批。数据只在你本机与设备间流转,不经第三方。</p>
+    <div class="feat"><span class="ic">💬</span><div><div class="ft">看会话 &amp; 回复</div><div class="fd">浏览活跃会话的聊天记录,直接回复(走你的订阅额度,不算 API)</div></div></div>
+    <div class="feat"><span class="ic">🎤</span><div><div class="ft">语音输入</div><div class="fd">点麦克风说话,转成文字填入回复框(需配置 SiliconFlow key)</div></div></div>
+    <div class="feat"><span class="ic">🔔</span><div><div class="ft">待答提醒</div><div class="fd">会话在等你回答时,顶部与列表会高亮标出</div></div></div>
+    <div class="status" id="introStatus" style="display:none"></div>
+    <label class="dontshow"><span class="switch"><input type="checkbox" id="dontShow" checked><span class="sl"></span></span><span class="dtext">不再自动显示(右上角 ? 可重开)</span></label>
+    <div class="modal-actions">
+      <button class="grow" onclick="closeIntro()">开始使用</button>
+      <button class="btn-primary" id="introCfgBtn" onclick="gotoConfig()">进入配置 ⚙</button>
+    </div>
+  </div>
+</div>
 <div class="pending" id="pending"></div>
 <div class="layout">
   <div class="list" id="list"></div>
@@ -234,6 +287,11 @@ let rec={stream:null,node:null,src:null,chunks:[],on:false};
 async function toggleRec(){
   const btn=$('recbtn'),out=$('recout');
   if(!rec.on){
+    if(CFG.keySet===false){   // 语音未配置:别录了白费,直接提示去配置
+      if(isLocal) out.innerHTML='🎤 语音识别未配置 —— <a href="/config" style="color:var(--accent-strong);font-weight:600;text-decoration:underline">去配置 SiliconFlow key ⚙</a>';
+      else out.textContent='🎤 语音识别未配置 —— 请在运行 Hub 的 Mac 上打开配置页填入 SiliconFlow key';
+      return;
+    }
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
       out.textContent='此环境不支持麦克风(手机需 HTTPS;或在电脑 localhost 用)';return;}
     try{rec.stream=await navigator.mediaDevices.getUserMedia({audio:true});}
@@ -306,13 +364,43 @@ if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
   const rb=$('recbtn');if(rb)rb.style.display='none';
 }
 const isLocal=['127.0.0.1','localhost','::1'].includes(location.hostname);
+const CFG={keySet:null};   // null=未知, true/false=已知语音 key 是否配置
+
+// ---- 首次介绍弹窗 ----
+function openIntro(){renderIntroStatus();$('introBk').classList.add('show');}
+function closeIntro(){
+  $('introBk').classList.remove('show');
+  if($('dontShow').checked) localStorage.setItem('hub_introSeen','1');
+}
+function gotoConfig(){
+  if(isLocal){location.href='/config';return;}
+  // LAN/手机:配置页只在本机 loopback 开放,无法远程进入 —— 就地说明,别给死按钮
+  const st=$('introStatus');
+  st.style.display='flex';st.className='status warn';
+  st.innerHTML='⚙ 配置页仅在运行 Hub 的 Mac 上开放(loopback)。请到那台电脑访问 <b>http://127.0.0.1:'+(location.port||'8787')+'/config</b>';
+}
+function renderIntroStatus(){
+  const st=$('introStatus'),btn=$('introCfgBtn');
+  if(CFG.keySet===false){st.style.display='flex';st.className='status warn';st.innerHTML='🎤 语音识别未配置 —— 进入配置填入 SiliconFlow key 即可开启语音输入';}
+  else if(CFG.keySet===true){st.style.display='flex';st.className='status ok';st.textContent='✓ 语音识别已就绪';}
+  else{st.style.display='none';}
+  if(btn) btn.textContent=isLocal?'进入配置 ⚙':'配置在 Mac 上 ⚙';
+}
+// 弹出条件:没勾过"不再显示"就在首次打开时弹
+function maybeIntro(){ if(!localStorage.getItem('hub_introSeen')) openIntro(); }
+
 async function checkSetup(){
   if(isLocal) $('cfglink').style.display='';
   try{
     const h=await (await fetch('/health')).json();
-    $('setup').style.display=(isLocal && h && h.siliconflowKeySet===false)?'flex':'none';
+    CFG.keySet=(h&&typeof h.siliconflowKeySet==='boolean')?h.siliconflowKeySet:null;
+    $('setup').style.display=(isLocal && CFG.keySet===false)?'flex':'none';
   }catch(e){}
+  if($('introBk').classList.contains('show')) renderIntroStatus();
+  maybeIntro();
 }
+// 点背景空白处关闭
+$('introBk').addEventListener('click',e=>{if(e.target===$('introBk'))closeIntro();});
 checkSetup();
 async function tick(){await refresh();if(sel)await loadMessages(sel,false);}
 tick();setInterval(tick,3000);
