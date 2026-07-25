@@ -32,10 +32,9 @@ done
 cp ../firmware/flash.sh "$RES/firmware/"
 cp -R ../firmware/prebuilt "$RES/firmware/prebuilt"
 
-# Remote Hub(纯 Python 标准库,~68KB):打包进 bundle,装机版零仓库依赖即可运行。
-# 只拷运行时(hub.py + 两个页面),文档/示例不进包。
+# Remote Hub 现为 Swift 原生(HubServer/HubApp),只需打包两个网页(由 Swift 直接托管)。
 mkdir -p "$RES/hub"
-cp ../hub/hub.py ../hub/demo.html ../hub/config.html "$RES/hub/"
+cp ../hub/demo.html ../hub/config.html "$RES/hub/"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cat > "$APP/Contents/Info.plist" <<PLIST

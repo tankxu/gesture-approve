@@ -230,19 +230,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// 远程 Hub:唯一入口。确保 hub 在跑(没跑先拉起),然后打开网页仪表盘。启停/配置都在网页里。
     @objc private func openHub() {
+        hub.start()   // Swift 原生、幂等:已在跑则忽略,binding 瞬时
         let open = { _ = NSWorkspace.shared.open(URL(string: "http://127.0.0.1:\(HubController.port)/")!) }
-        hub.checkRunning { running in
-            if running {
-                DispatchQueue.main.async(execute: open)
-            } else {
-                DispatchQueue.main.async { [weak self] in
-                    // 缺命令行工具时 start 会弹安装提示并返回 false → 不打开连不上的空白页。
-                    if self?.hub.start(promptIfMissing: true) == true {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: open)
-                    }
-                }
-            }
-        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: open)
     }
 
     // MARK: 菜单
@@ -366,18 +356,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// 确保 hub 在跑,然后打开配置页(/config,设备配对信息集中在那)。
     @objc private func openHubConfig() {
+        hub.start()
         let open = { _ = NSWorkspace.shared.open(URL(string: "http://127.0.0.1:\(HubController.port)/config")!) }
-        hub.checkRunning { running in
-            if running {
-                DispatchQueue.main.async(execute: open)
-            } else {
-                DispatchQueue.main.async { [weak self] in
-                    if self?.hub.start(promptIfMissing: true) == true {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: open)
-                    }
-                }
-            }
-        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: open)
     }
 
     private func openMediaPipeInstall() {
