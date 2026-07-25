@@ -78,15 +78,15 @@ struct SettingsView: View {
     private var selectedIsESP32: Bool { selectedID == VideoInputs.esp32ID }
 
     var body: some View {
-        ScrollView {
-            HStack(alignment: .top, spacing: 20) {
-                leftColumn.frame(width: columnWidth, alignment: .topLeading)
-                Divider()
-                rightColumn.frame(width: columnWidth, alignment: .topLeading)
-            }
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(18)
+        // 左右两栏各自独立滚动:每栏一个 ScrollView,窗口高度在 show() 里钳住,于是两栏分别在窗内滚。
+        HStack(alignment: .top, spacing: 20) {
+            ScrollView { leftColumn.frame(width: columnWidth, alignment: .topLeading).padding(.vertical, 18) }
+                .frame(width: columnWidth)
+            Divider()
+            ScrollView { rightColumn.frame(width: columnWidth, alignment: .topLeading).padding(.vertical, 18) }
+                .frame(width: columnWidth)
         }
+        .padding(.horizontal, 18)
         .alert(L("settings.alert.title"), isPresented: Binding(get: { errorText != nil },
                                                 set: { if !$0 { errorText = nil } })) {
             Button(L("settings.alert.ok"), role: .cancel) { errorText = nil }
