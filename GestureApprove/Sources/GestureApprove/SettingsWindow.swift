@@ -640,27 +640,33 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             state: state, openFlash: openFlash, onPrimeESP32: onPrimeESP32,
             onEngineChanged: onEngineChanged, openMediaPipeInstall: openMediaPipeInstall,
             openGatekeeperInstall: openGatekeeperInstall, onDeviceApiChanged: onDeviceApiChanged))
-        if window == nil {
+        let creating = (window == nil)
+        if creating {
             let w = NSWindow(contentViewController: hosting)
             w.title = L("settings.windowTitle")
-            w.styleMask = [.titled, .closable, .miniaturizable]
+            // .resizable:允许拖右下角调高度。宽度另用 contentMin/MaxSize 锁死(两栏固定宽,横向拉伸无意义)。
+            w.styleMask = [.titled, .closable, .miniaturizable, .resizable]
             w.isReleasedWhenClosed = false   // ARC 管理，避免关闭崩溃/退出
             w.delegate = self
             window = w
         } else {
             window?.contentViewController = hosting   // 复用窗口但换新视图，刷新所有 @State
         }
-        // 窗口高度钳到屏幕可视区(菜单栏/Dock 之外),内容超出则内部滚动——否则两栏自然高度会把
-        // 窗口撑得比屏幕还高、盖住 Dock。宽度用内容自然宽(两栏固定宽,横向不滚)。
+        // 锁宽 + 放开高度:拖右下角只调高度;高度上限不超过屏幕可视区(菜单栏/Dock 之外),避免盖住 Dock。
+        // 首次打开给个合适初值;之后复用窗口时保留用户拖过的高度(只在超出屏幕时回收)。
         if let w = window {
             let vf = (w.screen ?? NSScreen.main)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 820)
             let cw = max(hosting.view.fittingSize.width, 952)
-            let ch = min(vf.height - 44, 900)     // 44 ≈ 标题栏 + 上下余量;900 上限避免超大屏上过高
-            w.setContentSize(NSSize(width: cw, height: ch))
+            let maxH = vf.height - 28          // 留标题栏
+            w.contentMinSize = NSSize(width: cw, height: 360)
+            w.contentMaxSize = NSSize(width: cw, height: maxH)
+            let curH = w.contentLayoutRect.height
+            let newH = (creating || curH < 360 || curH > maxH) ? min(maxH, 900) : curH
+            w.setContentSize(NSSize(width: cw, height: newH))
         }
         state.active = true              // 重新打开 -> 恢复预览
         NSApp.activate(ignoringOtherApps: true)
-        window?.center()
+        if creating { window?.center() }   // 只首次居中;之后保留用户挪动/调整过的位置与高度
         window?.makeKeyAndOrderFront(nil)
     }
 
