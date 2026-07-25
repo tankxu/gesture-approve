@@ -2,6 +2,22 @@
 
 All notable changes to GestureApprove. Versions follow the GitHub releases.
 
+## v0.9.0 — Session Hub & the smart hook
+
+### Session Hub — control your Claude Code sessions from any device
+
+- **New "Remote Hub" in the menu bar.** A single entry opens a local dashboard where you can watch every running Claude Code session — live status (running / using a tool / waiting for you / done), titles pulled from the client, and which sessions are repliable. From your phone, tablet, or an ESP32 on the same Wi-Fi you can see chat history, reply, and take over. Everything runs on your Mac and talks straight to your devices — no third party in the loop.
+- **Reply by voice.** Tap the mic, speak, and it's transcribed (SiliconFlow SenseVoiceSmall) and dropped into the reply box; send it and it lands in the session on your claude.ai subscription (not metered API). The speech key lives only on your Mac in `~/.claude-session-hub/config.json` and is never sent to devices.
+- **Built entirely into the app — zero dependencies.** The Hub is native Swift running inside Gesture Approve (no Python, no runtime to install, ~0 added size). Pages, session listing, transcript parsing, speech, and reply are all served by the app itself.
+- **LAN on/off, first-run intro, and a config page.** A loopback-only config page shows pairing info (Base URL + token, phone link, ESP32 header), the device-approval endpoint, and the speech key. A **LAN toggle** switches between "phones/devices can connect" (bind `0.0.0.0`) and "this Mac only" (loopback). The dashboard greets first-time users with an intro and nudges you to set up speech before you tap the mic.
+- **Follows your language.** Both pages are localized (Chinese / English) and automatically match Gesture Approve's language setting.
+- **HTTP API for devices.** Token-protected LAN endpoints (`/sessions`, `/session/<id>/messages`, `/asr`, `/reply`, …) documented in `hub/HUB_API.md` — build an ESP32 or any client against them. No HTTPS required.
+
+### Smart hook — Gesture Approve now respects Claude's own auto mode
+
+- **The hook only steps in when Claude Code would actually prompt you.** The old hook intercepted *every* matched tool call, so in `acceptEdits` mode every edit still popped a card — Gesture Approve was overriding Claude's smarter auto-mode with dumber rules. The hook now reads Claude's `permission_mode` and defers (stays silent) when Claude wouldn't ask anyway: `bypassPermissions`, `dontAsk`, `plan`, and `auto` are handed fully back to Claude; in `acceptEdits`, file edits are deferred while `Bash` still routes to you; only in `default` mode does Gesture Approve take over. **Device/gesture approval is now a `default`-mode capability** — switch to `acceptEdits`/`auto` (⇧⇥) whenever you'd rather trust Claude's judgment, and the app gets out of the way.
+- **Scoped to Claude.** `permission_mode` is Claude Code's concept, so this gating applies only to the Claude hook. Codex uses a `PermissionRequest` hook that already fires solely when it means to ask — it was never over-eager; Gemini and Kimi carry no such field and keep their previous behavior.
+
 ## v0.8.1
 
 ### Fixes

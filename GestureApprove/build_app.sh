@@ -48,8 +48,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleExecutable</key><string>GestureApprove</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>0.8.1</string>
-    <key>CFBundleVersion</key><string>27</string>
+    <key>CFBundleShortVersionString</key><string>0.9.0</string>
+    <key>CFBundleVersion</key><string>28</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSUIElement</key><true/>
     <key>CFBundleDevelopmentRegion</key><string>en</string>
