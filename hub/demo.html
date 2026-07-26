@@ -211,7 +211,8 @@ const T={
     pickSessionHint:'← 选择左侧会话查看聊天记录', send:'发送',
     replyPlaceholder:'回复这个会话…  语音会填到这里 · Enter 发送', replyReadonly:'此会话无 share link,只读',
     secRepliable:'可回复会话', secReadonly:'只读 · 无 share link', noSessions:'无活跃会话',
-    chipWait:'等你答', chipRun:'运行中', srcDesktop:'桌面',
+    chipWait:'等你答', chipRun:'运行中', chipReview:'待回复', srcDesktop:'桌面', srcCloud:'云端',
+    cloudNeedTab:'需在 Chrome 打开并登录一个 claude.ai 标签页', cloudOnly:'云端会话(如桌面 app):本地无聊天记录。点右上角在 claude.ai 打开。',
     pendingPre:'● 有 ', pendingMid:' 个会话在等你回答:', sessionsSuffix:' 个会话 · ', hubUnreachable:'hub 不可达 ',
     roleYou:'你', openInClaude:'在 claude.ai 打开 ↗', desktopNoLink:'桌面会话 · 无接力链接', msgCount:'条',
     noMsg:'(无消息)', loadingMsg:'加载中…', loadFail:'加载失败 ',
@@ -236,7 +237,8 @@ const T={
     pickSessionHint:'← Pick a session on the left to view its chat', send:'Send',
     replyPlaceholder:'Reply to this session…  voice lands here · Enter to send', replyReadonly:'No share link · read-only',
     secRepliable:'Repliable sessions', secReadonly:'Read-only · no share link', noSessions:'No active sessions',
-    chipWait:'Waiting', chipRun:'Running', srcDesktop:'desktop',
+    chipWait:'Waiting', chipRun:'Running', chipReview:'Review', srcDesktop:'desktop', srcCloud:'cloud',
+    cloudNeedTab:'Open & sign in to a claude.ai tab in Chrome', cloudOnly:'Cloud session (e.g. desktop app): no local chat history. Open it in claude.ai (top-right).',
     pendingPre:'● ', pendingMid:' session(s) waiting for you: ', sessionsSuffix:' sessions · ', hubUnreachable:'hub unreachable ',
     roleYou:'You', openInClaude:'Open in claude.ai ↗', desktopNoLink:'Desktop session · no handoff link', msgCount:'msgs',
     noMsg:'(no messages)', loadingMsg:'Loading…', loadFail:'Load failed ',
@@ -267,27 +269,23 @@ async function api(p){const r=await fetch(p,H);if(!r.ok)throw new Error(r.status
 
 function shortCwd(c){if(!c)return'';const p=c.split('/');return p.slice(-2).join('/');}
 
-function rowHtml(s,ro){
-  const st=s.state||'none';
-  const dot=s.waitingForUser?'wait':st;
+function rowHtml(s){
+  const b=s.statusBucket||'';
+  const dot = b==='review_ready'?'wait':(b==='working'?'active':'done');
   let chip='';
-  if(s.waitingForUser) chip='<span class="chip wait">'+t('chipWait')+'</span>';
-  else if(st==='active'||st==='tool') chip='<span class="chip run">'+t('chipRun')+'</span>';
-  const src=s.entrypoint==='claude-desktop'?t('srcDesktop'):'cli';
-  return `<div class="row ${ro?'readonly':''} ${sel===s.sessionId?'sel':''}" data-id="${s.sessionId}">
+  if(b==='review_ready') chip='<span class="chip wait">'+t('chipReview')+'</span>';
+  else if(b==='working') chip='<span class="chip run">'+t('chipRun')+'</span>';
+  const sub = s.summary || (s.localSessionId?'cli':t('srcCloud'));
+  return `<div class="row ${sel===s.sessionId?'sel':''}" data-id="${s.sessionId}">
     <span class="statusdot ${dot}"></span>
     <div class="rowbody">
-      <div class="rowtop"><span class="rowtitle">${esc(s.title||s.name)}</span>${chip}</div>
-      <div class="rowsub"><span class="src">${src}</span> · ${esc(shortCwd(s.cwd))}</div>
+      <div class="rowtop"><span class="rowtitle">${esc(s.title)}</span>${chip}</div>
+      <div class="rowsub">${esc(sub)}</div>
     </div></div>`;
 }
 function renderList(){
   const el=$('list');
-  const rep=sessions.filter(s=>s.webUrl), ro=sessions.filter(s=>!s.webUrl);
-  let html='';
-  if(rep.length) html+='<div class="seclabel">'+t('secRepliable')+'</div>'+rep.map(s=>rowHtml(s,false)).join('');
-  if(ro.length) html+='<div class="seclabel">'+t('secReadonly')+'</div>'+ro.map(s=>rowHtml(s,true)).join('');
-  el.innerHTML=html||'<div class="empty">'+t('noSessions')+'</div>';
+  el.innerHTML = sessions.length ? sessions.map(rowHtml).join('') : '<div class="empty">'+t('noSessions')+'</div>';
   el.querySelectorAll('.row').forEach(r=>r.onclick=()=>openSession(r.dataset.id));
   const waiting=sessions.filter(s=>s.waitingForUser);
   const pb=$('pending');
@@ -298,7 +296,7 @@ function renderList(){
 function updateReplyBar(){
   const inp=$('replyin');if(!inp)return;
   const s=sessions.find(x=>x.sessionId===sel);
-  const can=!!(s&&s.webUrl);
+  const can=!!(s&&s.webUrl);   // 云端会话都有 webUrl → 都可回复
   inp.disabled=!can;
   document.querySelectorAll('.replybar button').forEach(b=>b.disabled=!can);
   inp.placeholder=can?t('replyPlaceholder'):t('replyReadonly');
@@ -306,23 +304,22 @@ function updateReplyBar(){
 
 async function refresh(){
   try{
-    const d=await api('/sessions');
-    sessions=d.sessions;
+    const d=await api('/cloud/sessions');
+    if(d.ok===false){ $('dot').style.background='var(--amber)'; $('stat').textContent=d.error||t('cloudNeedTab'); return; }
+    sessions=d.sessions||[];
     $('dot').style.background='var(--green)';
     $('stat').textContent=sessions.length+t('sessionsSuffix')+new Date().toLocaleTimeString();
     renderList();
   }catch(e){$('dot').style.background='var(--red)';$('stat').textContent=t('hubUnreachable')+e;}
 }
 
-function renderMessages(d,id){
-  const s=sessions.find(x=>x.sessionId===id)||{};
+function renderMessages(d){
+  // 头部由 openSession 设好;这里只渲染气泡区。
   const msgs=d.messages.map(m=>{
     const tool=/^\[(工具|工具结果)/.test(m.text.trim());
     return `<div class="msg msg-${m.role}"><div class="msgrole">${m.role==='user'?t('roleYou'):'Claude'}</div>
       <div class="bubble ${tool?'tool':''}">${esc(m.text)}</div></div>`;
   }).join('');
-  const web=s.webUrl?`<a class="pill" href="${s.webUrl}" target="_blank">${t('openInClaude')}</a>`:`<span class="hdrnote">${t('desktopNoLink')}</span>`;
-  $('chathdr').innerHTML=`<div class="hdrbar"><span class="hdrtitle">${esc(d.title||s.title||'')}</span><span class="chip">${d.total} ${t('msgCount')}</span>${web}</div>`;
   $('chat').innerHTML=msgs||`<div class=empty>${t('noMsg')}</div>`;
 }
 function chatAtBottom(){const c=$('chat');return c.scrollHeight-c.scrollTop-c.clientHeight<80;}
@@ -336,15 +333,19 @@ async function loadMessages(id,force){
     if(!force&&key===lastMsgKey)return;
     const stick=force||chatAtBottom();
     lastMsgKey=key;
-    renderMessages(d,id);
+    renderMessages(d);
     if(stick)$('chat').scrollTop=$('chat').scrollHeight;
   }catch(e){if(force)$('chat').innerHTML='<div class="empty">'+t('loadFail')+e+'</div>';}
 }
+let curLocalSid=null;
 async function openSession(id){
   sel=id;lastMsgKey='';renderList();
-  $('chathdr').innerHTML='';
-  $('chat').innerHTML='<div class="empty">'+t('loadingMsg')+'</div>';
-  loadMessages(id,true);
+  const s=sessions.find(x=>x.sessionId===id)||{};
+  const web=s.webUrl?`<a class="pill" href="${s.webUrl}" target="_blank">${t('openInClaude')}</a>`:'';
+  $('chathdr').innerHTML=`<div class="hdrbar"><span class="hdrtitle">${esc(s.title||'')}</span>${web}</div>`;
+  curLocalSid=s.localSessionId||null;
+  if(curLocalSid){ $('chat').innerHTML='<div class="empty">'+t('loadingMsg')+'</div>'; loadMessages(curLocalSid,true); }
+  else { $('chat').innerHTML=`<div class="empty">${esc(s.summary||'')}<br><br>${t('cloudOnly')}</div>`; }
 }
 
 // ---- 录音 → WAV(16k 单声道) → /asr ----
@@ -420,7 +421,7 @@ async function doReply(send){
   out.textContent=send?t('sending'):t('filling');
   try{
     const r=await fetch('/reply',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},
-      body:JSON.stringify({sessionId:sel,text,send})});
+      body:JSON.stringify({bridgeSessionId:s.bridgeSessionId,text,send})});
     const j=await r.json();
     if(j.ok){out.textContent=send?t('sentOk'):t('filledOk');if(send)inp.value='';}
     else out.textContent='✗ '+(j.error||JSON.stringify(j));
@@ -472,6 +473,6 @@ applyI18n();
 $('cfglink').insertAdjacentHTML('afterbegin',GEAR);
 $('setup').insertAdjacentHTML('afterbegin',GEAR+' ');
 checkSetup();
-async function tick(){await refresh();if(sel)await loadMessages(sel,false);}
-tick();setInterval(tick,3000);
+async function tick(){await refresh();if(curLocalSid)await loadMessages(curLocalSid,false);}
+tick();setInterval(tick,8000);   // 云端列表走 Chrome,放缓到 8s
 </script></body></html>

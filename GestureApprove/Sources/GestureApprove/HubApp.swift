@@ -423,6 +423,92 @@ final class HubApp {
         return (200, ["ok": true, "sent": false, "readback": out])
     }
 
+    // MARK: 云端会话(claude.ai)——osascript 在已登录的 Chrome 标签页里同源 XHR,cookie 鉴权,不碰 keychain
+
+    /// 在任一 claude.ai 标签页里同步 GET,返回 responseText(或 "NOTAB" / "ERR:…")。
+    /// JS 里只用单引号、无双引号/反斜杠,可安全嵌进 AppleScript 的双引号字符串。
+    static func chromeClaudeGET(_ path: String) -> String {
+        let js = "(function(){try{var x=new XMLHttpRequest();x.open('GET','https://claude.ai"
+            + path + "',false);x.setRequestHeader('anthropic-version','2023-06-01');x.send();"
+            + "return x.responseText}catch(e){return 'ERR:'+e}})()"
+        let script = """
+        tell application "Google Chrome"
+          set found to missing value
+          repeat with w in windows
+            repeat with t in tabs of w
+              try
+                if (URL of t) contains "claude.ai" then set found to t
+              end try
+            end repeat
+          end repeat
+          if found is missing value then return "NOTAB"
+          return execute found javascript "\(js)"
+        end tell
+        """
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        let inP = Pipe(), outP = Pipe()
+        p.standardInput = inP; p.standardOutput = outP; p.standardError = Pipe()
+        do { try p.run() } catch { return "ERR:osascript \(error.localizedDescription)" }
+        inP.fileHandleForWriting.write(Data(script.utf8)); inP.fileHandleForWriting.closeFile()
+        p.waitUntilExit()
+        return String(decoding: outP.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// 拉云端会话列表(= web 的 Recents,含桌面会话),归一成和本地列表相近的行。
+    static func cloudSessions() -> (ok: Bool, rows: [[String: Any]], error: String?) {
+        let raw = chromeClaudeGET("/v1/code/sessions?statuses=active&statuses=paused&limit=50")
+        if raw == "NOTAB" { return (false, [], "Chrome 里没有已登录的 claude.ai 标签页") }
+        if raw.hasPrefix("ERR:") { return (false, [], String(raw.dropFirst(4))) }
+        guard let d = raw.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else {
+            return (false, [], "解析失败")
+        }
+        if let err = obj["error"] as? [String: Any] {
+            return (false, [], (err["message"] as? String) ?? "cloud error")
+        }
+        // 本地会话:注册表 bridge(session_<主体>)→ 本地 sessionId,给云端行匹配聊天记录来源。
+        var localByWeb: [String: String] = [:]
+        let sdir = (claudeHome as NSString).appendingPathComponent("sessions")
+        if let files = try? FileManager.default.contentsOfDirectory(atPath: sdir) {
+            for f in files where f.hasSuffix(".json") {
+                guard let dd = FileManager.default.contents(atPath: (sdir as NSString).appendingPathComponent(f)),
+                      let o = try? JSONSerialization.jsonObject(with: dd) as? [String: Any],
+                      let sid = o["sessionId"] as? String else { continue }
+                if let b = o["bridgeSessionId"] as? String, !b.isEmpty { localByWeb[toWebSessionId(b)] = sid }
+            }
+        }
+        let data = obj["data"] as? [[String: Any]] ?? []
+        var rows: [[String: Any]] = []
+        for s in data {
+            let cse = (s["id"] as? String) ?? ""
+            let webId = toWebSessionId(cse)          // cse_<主体> → session_<主体>
+            let cfg = s["config"] as? [String: Any] ?? [:]
+            let ext = s["external_metadata"] as? [String: Any] ?? [:]
+            let pts = ext["post_turn_summary"] as? [String: Any] ?? [:]
+            let bucket = (s["status_bucket"] as? String) ?? ""
+            rows.append([
+                "sessionId": webId,
+                "bridgeSessionId": webId,
+                "webUrl": "https://claude.ai/code/\(webId)",
+                "title": (s["title"] as? String) ?? "",
+                "entrypoint": "cloud",
+                "state": ((s["worker_status"] as? String) == "busy") ? "active" : "",
+                "statusBucket": bucket,
+                "connection": (s["connection_status"] as? String) ?? "",
+                "waitingForUser": (bucket == "review_ready"),
+                "unread": (s["unread"] as? Bool) ?? false,
+                "model": (cfg["model"] as? String) ?? "",
+                "summary": (pts["status_detail"] as? String) ?? "",
+                "cwd": "",
+                "updatedAt": Self.isoToMs(s["last_event_at"]),
+                "localSessionId": localByWeb[webId] as Any,   // 有本地转录 → 点开能看聊天记录
+            ])
+        }
+        return (true, rows, nil)
+    }
+
     // MARK: 代理 GA 设备口(同进程 loopback:47602)——审批长轮询/裁决
 
     static func gaProxy(_ path: String, method: String = "GET", body: Data? = nil, timeout: TimeInterval = 35) -> (Int, Data) {
@@ -519,6 +605,11 @@ final class HubApp {
         if m == "GET", p == "/sessions" { return .json(["sessions": Self.listSessions()]) }
         if m == "GET", p == "/pending" {
             return .json(["sessions": Self.listSessions().filter { ($0["waitingForUser"] as? Bool) == true }])
+        }
+        if m == "GET", p == "/cloud/sessions" {
+            // 云端权威列表(含桌面会话,带 web 地址)。走 Chrome cookie,需要一个已登录的 claude.ai 标签页。
+            let r = Self.cloudSessions()
+            return .json(["sessions": r.rows, "ok": r.ok, "error": r.error as Any])
         }
         if m == "GET", p.hasPrefix("/session/"), p.hasSuffix("/messages") {
             let sid = String(p.dropFirst("/session/".count).dropLast("/messages".count))
