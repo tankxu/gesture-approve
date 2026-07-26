@@ -214,29 +214,18 @@ final class HubApp {
         return (state, waiting)
     }
 
-    /// 会话的 web 桥 id(用于拼 claude.ai/code 地址)。
-    /// **优先转录里最新的 `bridge-session`**(`cse_<主体>` → `session_<主体>`,这是当前、最新的桥);
-    /// 注册表 `bridgeSessionId` 字段作兜底——Claude Code 只对部分 cli 会话写、且 resume 后会过时。
-    /// 桌面(claude-desktop)会话转录里没有 bridge-session,注册表也没有 → 返回 nil(其 web id 只在云端)。
-    static func bridgeIdFromTranscript(_ sid: String) -> String? {
-        guard let f = transcriptPath(sid), let s = readText(f) else { return nil }
-        var last: String? = nil
-        for line in s.split(separator: "\n", omittingEmptySubsequences: true) where line.contains("\"bridge-session\"") {
-            if let o = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
-               (o["type"] as? String) == "bridge-session",
-               let b = (o["bridgeSessionId"] as? String), !b.isEmpty { last = b }
-        }
-        return last
-    }
     /// 归一到 web 用的 `session_<主体>` 形式(cse_ / 无前缀都转成 session_)。
     static func toWebSessionId(_ raw: String) -> String {
         if raw.hasPrefix("session_") { return raw }
         if let us = raw.firstIndex(of: "_") { return "session_" + raw[raw.index(after: us)...] }
         return "session_" + raw
     }
-    /// 综合取 web 桥 id:转录最新桥优先,注册表兜底;都没有返回 nil。
+    /// 会话的 web 桥 id。**只信注册表 `bridgeSessionId`**(实测它 = 云端当前 cse,如 localdev-29
+    /// 注册表 session_01VUVk84 = 云端 cse_01VUVk84)。转录里的 bridge-session 会堆积历史桥、resume 后
+    /// 过时(本会话转录 cse_019fHjas ≠ 云端 cse_0159Wy),**不可用于派生**。
+    /// 注册表没有值的会话(桌面会话、部分 cli)本地拿不到当前 web id —— 权威来源是云端
+    /// `GET /v1/code/sessions`(见 HUB_API/待实现),不是本地文件。
     static func bridgeId(_ sid: String, registry: String?) -> String? {
-        if let cse = bridgeIdFromTranscript(sid) { return toWebSessionId(cse) }
         if let b = registry, !b.isEmpty { return toWebSessionId(b) }
         return nil
     }
