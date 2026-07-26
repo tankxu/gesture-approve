@@ -214,16 +214,45 @@ final class HubApp {
         return (state, waiting)
     }
 
+    /// 会话的 web 桥 id(用于拼 claude.ai/code 地址)。
+    /// **优先转录里最新的 `bridge-session`**(`cse_<主体>` → `session_<主体>`,这是当前、最新的桥);
+    /// 注册表 `bridgeSessionId` 字段作兜底——Claude Code 只对部分 cli 会话写、且 resume 后会过时。
+    /// 桌面(claude-desktop)会话转录里没有 bridge-session,注册表也没有 → 返回 nil(其 web id 只在云端)。
+    static func bridgeIdFromTranscript(_ sid: String) -> String? {
+        guard let f = transcriptPath(sid), let s = readText(f) else { return nil }
+        var last: String? = nil
+        for line in s.split(separator: "\n", omittingEmptySubsequences: true) where line.contains("\"bridge-session\"") {
+            if let o = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
+               (o["type"] as? String) == "bridge-session",
+               let b = (o["bridgeSessionId"] as? String), !b.isEmpty { last = b }
+        }
+        return last
+    }
+    /// 归一到 web 用的 `session_<主体>` 形式(cse_ / 无前缀都转成 session_)。
+    static func toWebSessionId(_ raw: String) -> String {
+        if raw.hasPrefix("session_") { return raw }
+        if let us = raw.firstIndex(of: "_") { return "session_" + raw[raw.index(after: us)...] }
+        return "session_" + raw
+    }
+    /// 综合取 web 桥 id:转录最新桥优先,注册表兜底;都没有返回 nil。
+    static func bridgeId(_ sid: String, registry: String?) -> String? {
+        if let cse = bridgeIdFromTranscript(sid) { return toWebSessionId(cse) }
+        if let b = registry, !b.isEmpty { return toWebSessionId(b) }
+        return nil
+    }
+
     static func bridgeFor(_ sid: String) -> String? {
         let dir = (claudeHome as NSString).appendingPathComponent("sessions")
-        guard let files = try? FileManager.default.contentsOfDirectory(atPath: dir) else { return nil }
-        for f in files where f.hasSuffix(".json") {
-            let p = (dir as NSString).appendingPathComponent(f)
-            guard let d = FileManager.default.contents(atPath: p),
-                  let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { continue }
-            if "\(o["sessionId"] ?? "")" == sid { return o["bridgeSessionId"] as? String }
+        var registry: String? = nil
+        if let files = try? FileManager.default.contentsOfDirectory(atPath: dir) {
+            for f in files where f.hasSuffix(".json") {
+                let p = (dir as NSString).appendingPathComponent(f)
+                guard let d = FileManager.default.contents(atPath: p),
+                      let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { continue }
+                if "\(o["sessionId"] ?? "")" == sid { registry = o["bridgeSessionId"] as? String; break }
+            }
         }
-        return nil
+        return bridgeId(sid, registry: registry)
     }
 
     static func listSessions() -> [[String: Any]] {
@@ -237,7 +266,9 @@ final class HubApp {
             let sid = "\(o["sessionId"] ?? "")"
             let st = scanState(sid)
             let ai = aiTitle(sid), firstMsg = firstUserText(sid)
-            let bridge = o["bridgeSessionId"] as? String
+            // web 桥:转录最新 bridge-session 优先,注册表兜底(见 bridgeId)。cli 会话据此都可回复;
+            // 桌面会话本地无桥 → nil,标只读。
+            let bridge = bridgeId(sid, registry: o["bridgeSessionId"] as? String)
             let pid = (o["pid"] as? Int) ?? Int("\(o["pid"] ?? "")") ?? 0
             rows.append([
                 "sessionId": sid,
