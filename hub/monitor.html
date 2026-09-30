@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="__HUB_LANG__"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>Remote Hub</title>
+<style>
+:root{color-scheme:dark;--bg:#101318;--panel:#1a1f26;--border:#303944;--dim:#a1adbb;--ink:#f0f3f7;--green:#8bddbd;--orange:#f0c484}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{max-width:1360px;margin:auto;padding:30px}header{display:flex;justify-content:space-between;gap:18px;align-items:center}h1{font-size:26px;font-weight:650;letter-spacing:-.7px;margin:0}h2{font-size:17px;margin:0 0 12px}h3{font-size:15px;margin:0}p{margin:8px 0}.muted,small{color:var(--dim)}button,select,input,textarea{font:inherit;color:inherit;border:1px solid var(--border);background:#222a34;border-radius:8px;padding:8px 12px}button{cursor:pointer}button:hover:not(:disabled){border-color:var(--green)}button:disabled{opacity:.4;cursor:not-allowed}a{color:var(--green)}.tools{display:flex;gap:8px;flex-wrap:wrap}.label{font-size:11px;letter-spacing:1.5px;color:var(--green)}.overview{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;margin:24px 0;align-items:start}.card,.detail{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px}.value{font-size:28px;font-variant-numeric:tabular-nums;letter-spacing:-.8px}.progress{height:5px;background:#353c45;border-radius:4px;margin:8px 0 14px;overflow:hidden}.progress i{display:block;height:100%;background:var(--green)}.layout{display:grid;grid-template-columns:minmax(320px,.9fr) minmax(0,1.3fr);gap:18px}.layout>div{min-width:0}.session{max-width:100%}.list{max-height:750px;overflow:auto;margin-top:12px}.session{width:100%;text-align:left;border-radius:9px;padding:14px;margin:0 0 7px;background:var(--panel);display:block;overflow:hidden}.session.active{border-color:var(--green);background:#24312f}.session strong{font-weight:550;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.meta{display:flex;gap:10px;justify-content:space-between;font-size:12px;margin-top:6px;color:var(--dim)}.tag{font-size:11px;background:#303945;padding:2px 7px;border-radius:5px;color:#d8e0ea}.working,.waiting_approval,.waiting_input{color:var(--orange)}.idle{color:var(--green)}.detail{min-height:500px;overflow-wrap:anywhere}.detail .tools{margin:16px 0}.cost{margin:14px 0;padding:12px;background:#11171e;border-radius:8px}textarea{width:100%;resize:vertical;min-height:90px}.messages{max-height:360px;overflow:auto;margin:18px 0}.message{white-space:pre-wrap;overflow-wrap:anywhere;border-left:2px solid #3c4957;padding:7px 12px;margin:12px 0}.message.user{border-color:var(--green)}summary{cursor:pointer;color:var(--dim)}.reason{padding:7px 0;border-bottom:1px solid #2b333d;font-size:12px}.reason b{font-weight:500;color:var(--ink)}#notice{color:var(--orange);white-space:pre-wrap}#coverage{font-size:12px;margin:12px 0}.empty{padding:30px;color:var(--dim)}table{width:100%;border-collapse:collapse;font-size:12px}td{padding:6px;border-bottom:1px solid var(--border)}.scroll{overflow:auto}footer{margin-top:20px;color:var(--dim);font-size:12px}#filters input{min-width:100px;flex:1}#filters select{max-width:145px}@media(max-width:760px){main{padding:18px}.overview{grid-template-columns:1fr}.layout{grid-template-columns:minmax(0,1fr)}.layout>div{min-width:0}.session{max-width:100%}.list{max-height:340px}header{align-items:flex-start;flex-direction:column}.card{padding:16px}.value{font-size:26px}.detail{padding:16px}h1{font-size:24px}}
+</style></head><body><main>
+<header><div><div class="label">GESTURE APPROVE / REMOTE HUB</div><h1 data-i18n="title"></h1><p class="muted" data-i18n="subtitle"></p></div><div class="tools"><button id="install" data-i18n="setupCollect"></button><button id="refresh" data-i18n="refreshBtn"></button></div></header>
+<div id="notice" role="status"></div><section class="overview"><div class="card"><h2 data-i18n="quotaLeft"></h2><div id="quotas" class="muted" data-i18n="readingLatest"></div></div><div class="card"><h2 data-i18n="tokensToday"></h2><div id="day" class="value">—</div><p id="daycost" class="muted">—</p><small id="daydetail"></small></div><div class="card"><h2 data-i18n="tokensMonth"></h2><div id="month" class="value">—</div><p id="monthcost" class="muted">—</p><small data-i18n="priceNote"></small></div></section>
+<div id="coverage" class="muted"></div><section class="layout"><div><div class="tools" id="filters"><input id="search"><select id="provider"><option value="" data-i18n="allProviders"></option><option>claude</option><option>codex</option></select><select id="state"><option value="" data-i18n="allStates"></option><option value="working" data-i18n="working"></option><option value="waiting_approval" data-i18n="waiting_approval"></option><option value="waiting_input" data-i18n="waiting_input"></option><option value="idle" data-i18n="idleDone"></option><option value="unknown" data-i18n="unknown"></option></select></div><div id="list" class="list"></div></div><article id="detail" class="detail"><div class="empty" data-i18n="pickSession"></div></article></section><footer data-i18n="footer"></footer>
+</main><script>
+'use strict';const token='__HUB_TOKEN__', $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* 语言跟随 GA 设置（服务端注入 __HUB_LANG__ = I18n.lang）。表只有 zh/en，
+   其余语言落到 en —— 和 app.html、config.html 同一套约定。 */
+const LANG=('__HUB_LANG__'||'en').startsWith('zh')?'zh':'en';
+const S={
+ zh:{
+  title:'额度与会话', subtitle:'本地数据 · Claude Code & Codex',
+  setupCollect:'配置本机采集', refreshBtn:'刷新本地数据',
+  quotaLeft:'剩余额度', readingLatest:'读取最近本地观测…',
+  tokensToday:'本日 Token', tokensMonth:'本月 Token', tokenUnit:'Token',
+  priceNote:'价值按当前价格表估算，不是订阅扣费',
+  searchPlaceholder:'搜索会话 / 目录', searchLabel:'搜索会话',
+  providerLabel:'提供商', allProviders:'全部提供商',
+  stateLabel:'会话状态', allStates:'全部状态', idleDone:'空闲 / 已完成',
+  pickSession:'选择会话，查看记录、Token 与可用操作。',
+  footer:'额度仅代表最近一次本地观测；窗口过期后等待新的客户端响应。统计范围限本机已配置记录，云端与其他机器不计入。',
+  st_working:'工作中', st_waiting_approval:'等待审批', st_waiting_input:'等待输入',
+  st_waiting_external:'等待外部任务', st_idle:'空闲', st_unknown:'状态未知',
+  ac_reply:'回复', ac_steer:'中途指令', ac_enqueue:'排队', ac_approve:'审批',
+  ac_answer:'回答问题', ac_interrupt:'中断', ac_resume:'恢复', ac_replyViaUI:'客户端界面回复',
+  working:'工作中', waiting_approval:'等待审批', waiting_input:'等待输入', unknown:'未知',
+  turnDone:'本轮已完成', noCwd:'目录未知', noMatch:'暂无匹配会话',
+  readingUsage:'读取会话用量…', readingLog:'读取记录…', noText:'没有可显示的本地文本记录',
+  replyLabel:'回复内容', replyPlaceholder:'发送到原会话 inbox', sendReply:'发送回复',
+  capsSummary:'操作能力与不可用原因', available:'可用',
+  allowOnce:'允许本次', denyOnce:'拒绝本次',
+  delivered:'已确认送达', unknownResult:'请求结果未知，请勿重复发送：',
+  apiEquiv:'API 等值', cIn:'输入', cCacheRead:'缓存读取', cCacheWrite:'缓存写入', cOut:'输出',
+  priceTable:'价格表', unpriced:'%s 次未定价',
+  scanDone:'本地扫描完成', scanDoneGap:'扫描完成 · 存在统计缺口',
+  scanning:'仍在扫描，统计暂不完整', indexing:'正在索引，统计暂不完整',
+  coverageSessions:'本机 %d 个会话', coverageScanned:'本地记录 %d/%d 扫描完成',
+  coverageForks:'%d 个归属不明分支',
+  noSnapshot:'暂无快照 · 等待客户端响应',
+  idUnverified:'本地配置身份未确认', localAccount:'本地账户',
+  win5h:'5 小时', win7d:'7 天', expired:'已过期 / 未知', pctLeft:'%s% 剩余',
+  resetsAt:'重置', changedAt:'观测变化', readFailed:'读取失败：',
+  connected:'已接入', notConnected:'未接入 — ',
+ },
+ en:{
+  title:'Quota & sessions', subtitle:'Local data · Claude Code & Codex',
+  setupCollect:'Set up local collection', refreshBtn:'Refresh local data',
+  quotaLeft:'Quota left', readingLatest:'Reading the latest local observation…',
+  tokensToday:'Tokens today', tokensMonth:'Tokens this month', tokenUnit:'tokens',
+  priceNote:'Valued at the current price list — not what your subscription charges',
+  searchPlaceholder:'Search sessions or folders', searchLabel:'Search sessions',
+  providerLabel:'Provider', allProviders:'All providers',
+  stateLabel:'Session state', allStates:'All states', idleDone:'Idle / finished',
+  pickSession:'Pick a session to see its log, tokens and available actions.',
+  footer:'Quota reflects the latest local observation only; once a window expires it waits for a new client response. Coverage is limited to records configured on this Mac — cloud and other machines are not counted.',
+  st_working:'Working', st_waiting_approval:'Waiting for approval', st_waiting_input:'Waiting for input',
+  st_waiting_external:'Waiting on an external task', st_idle:'Idle', st_unknown:'State unknown',
+  ac_reply:'Reply', ac_steer:'Steer', ac_enqueue:'Enqueue', ac_approve:'Approve',
+  ac_answer:'Answer', ac_interrupt:'Interrupt', ac_resume:'Resume', ac_replyViaUI:'Reply in the client UI',
+  working:'Working', waiting_approval:'Waiting for approval', waiting_input:'Waiting for input', unknown:'Unknown',
+  turnDone:'Turn finished', noCwd:'Folder unknown', noMatch:'No matching sessions',
+  readingUsage:'Reading session usage…', readingLog:'Reading the log…', noText:'No local text records to show',
+  replyLabel:'Reply text', replyPlaceholder:'Send to the session inbox', sendReply:'Send reply',
+  capsSummary:'Actions and why some are unavailable', available:'available',
+  allowOnce:'Allow once', denyOnce:'Deny once',
+  delivered:'Delivery confirmed', unknownResult:'Result unknown — do not resend: ',
+  apiEquiv:'API equivalent', cIn:'Input', cCacheRead:'Cache read', cCacheWrite:'Cache write', cOut:'Output',
+  priceTable:'Price list', unpriced:'%s unpriced requests',
+  scanDone:'Local scan complete', scanDoneGap:'Scan complete · gaps in the totals',
+  scanning:'Still scanning — totals incomplete', indexing:'Indexing — totals incomplete',
+  coverageSessions:'%d sessions on this Mac', coverageScanned:'%d/%d local records scanned',
+  coverageForks:'%d forks of unknown origin',
+  noSnapshot:'No snapshot yet · waiting for a client response',
+  idUnverified:'local config identity unverified', localAccount:'local account',
+  win5h:'5 hours', win7d:'7 days', expired:'Expired / unknown', pctLeft:'%s% left',
+  resetsAt:'Resets', changedAt:'Changed', readFailed:'Read failed: ',
+  connected:'connected', notConnected:'not connected — ',
+ }
+}[LANG];
+const t=(k,...a)=>{let v=S[k]||k;for(const x of a)v=v.replace(/%[sd]/,x);return v};
+
+let rows=[],selected='',refreshing=false,detailRevision=0;
+const names=k=>S['st_'+k]||k,actions=k=>S['ac_'+k]||k;   // 认不出的状态/动作原样显示，别把键名甩给用户
+const fmt=n=>Number(n||0).toLocaleString(), money=u=>'$'+Number(u?.pricedUSD||0).toFixed(2)+(u?.unpricedRequests?' + '+t('unpriced',fmt(u.unpricedRequests)):''), time=n=>n?new Date(n*1000).toLocaleString():t('unknown');
+async function api(path,body){const r=await fetch(path,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+token,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined});const x=await r.json();if(!r.ok)throw Error(x.error||r.status);return x}
+function list(){const q=$('search').value.toLowerCase(),p=$('provider').value,s=$('state').value;const visible=rows.filter(r=>(!p||r.provider===p)&&(!s||r.activity===s)&&(!q||[r.title,r.cwd,r.nativeSessionId].join(' ').toLowerCase().includes(q)));$('list').innerHTML=visible.map(r=>`<button class="session ${r.id===selected?'active':''}" data-id="${esc(r.id)}"><strong>${esc(r.title||r.nativeSessionId)}</strong><div class="meta"><span>${esc(r.provider)} · ${esc(r.surface)} <span class="tag">${esc(r.lifecycle)}</span></span><span class="${esc(r.activity)}">${esc(r.activity==='idle'&&r.lastTurnOutcome==='completed'?t('turnDone'):names(r.activity))}</span></div><small>${esc(r.cwd||t('noCwd'))}</small></button>`).join('')||`<div class="empty">${esc(t('noMatch'))}</div>`;for(const b of $('list').querySelectorAll('button'))b.onclick=()=>select(b.dataset.id)}
+async function select(id){selected=id;list();const revision=++detailRevision,r=rows.find(r=>r.id===id);if(!r)return;const cap=r.capabilities||{},pending=r.pendingApproval;$('detail').innerHTML=`<h2>${esc(r.title||r.nativeSessionId)}</h2><small>${esc(r.provider)} · ${esc(r.surface)} · ${esc(names(r.activity))}<br>${esc(r.nativeSessionId)}<br>${esc(r.cwd)}</small><div class="cost" id="sessionCost">${esc(t('readingUsage'))}</div><div id="pending"></div><textarea id="draft" aria-label="${esc(t('replyLabel'))}" placeholder="${esc(t('replyPlaceholder'))}" ${cap.reply?.available?'':'disabled'}></textarea><div class="tools"><button id="send" ${cap.reply?.available?'':'disabled'}>${esc(t('sendReply'))}</button><span id="sendstatus" role="status" class="muted"></span></div><details><summary>${esc(t('capsSummary'))}</summary>${Object.entries(cap).map(([k,v])=>`<div class="reason"><b>${esc(actions(k))} · ${v.available?esc(t('available')):esc(v.reasonCode)}</b><br>${esc(v.reasonText)}</div>`).join('')}</details><div class="messages" id="messages">${esc(t('readingLog'))}</div>`;
+if(pending){$('pending').innerHTML=`<div class="cost"><b>${esc(t('waiting_approval'))}</b><p>${esc(pending.operation)}</p><small>${esc(pending.requestKind)} · ${esc(pending.id)}</small><div class="tools"><button id="allow">${esc(t('allowOnce'))}</button><button id="deny">${esc(t('denyOnce'))}</button></div></div>`;for(const decision of ['allow','deny'])$(decision).onclick=()=>submit(r,{action:'approve',requestId:pending.id,decision})}
+$('send').onclick=()=>submit(r,{action:'reply',text:$('draft').value,expectedRunId:r.runId});
+try{const [u,m]=await Promise.all([api('/v2/usage?period=all&session='+encodeURIComponent(id)),api('/v2/messages?session='+encodeURIComponent(id))]);if(revision!==detailRevision)return;$('sessionCost').innerHTML=`<b>${fmt(u.totals.total)} ${esc(t('tokenUnit'))}</b> · ${esc(t('apiEquiv'))} ${esc(money(u.totals))}<br><small>${esc(t('cIn'))} ${fmt(u.totals.input)} · ${esc(t('cCacheRead'))} ${fmt(u.totals.cacheRead)} · ${esc(t('cCacheWrite'))} ${fmt(u.totals.cacheWrite)} · ${esc(t('cOut'))} ${fmt(u.totals.output)}<br>${esc(t('priceTable'))} ${esc(u.pricingVersion)} · ${esc(u.coverage.complete?t('scanDone'):u.coverage.filesComplete>=u.coverage.filesDiscovered?t('scanDoneGap'):t('scanning'))}</small>`;$('messages').innerHTML=m.messages.map(x=>`<div class="message ${esc(x.role)}"><small>${esc(x.role)}</small><br>${esc(x.text)}</div>`).join('')||`<div class="muted">${esc(t('noText'))}</div>`; }catch(e){if(revision===detailRevision)$('messages').textContent=e.message}}
+async function submit(r,payload){const status=$('sendstatus');const key=crypto.randomUUID();$('send').disabled=true;try{let x=await api('/v2/actions',{...payload,sessionId:r.id,idempotencyKey:key});status.textContent=x.reason||x.reasonCode||x.status;if(x.status==='unconfirmed'){for(let i=0;i<4;i++){await new Promise(r=>setTimeout(r,1500));x=await api('/v2/actions?id='+encodeURIComponent(key));if(selected!==r.id)return;status.textContent=x.reason||x.reasonCode||x.status;if(x.status==='delivered')break}}if(x.status==='delivered')status.textContent=t('delivered');}catch(e){status.textContent=t('unknownResult')+e.message}finally{if(selected===r.id)$('send').disabled=!r.capabilities.reply.available}}
+async function refresh(){if(refreshing)return;refreshing=true;try{const [s,q,d,m]=await Promise.all([api('/v2/sessions?limit=1000'),api('/v2/quotas'),api('/v2/usage?period=day'),api('/v2/usage?period=month')]);const previous=rows.find(r=>r.id===selected),next=s.sessions.find(r=>r.id===selected),draft=$('draft')?.value||'';rows=s.sessions;list();if(next&&JSON.stringify([previous?.activity,previous?.pendingApproval,previous?.capabilities])!==JSON.stringify([next.activity,next.pendingApproval,next.capabilities])){select(selected);if($('draft'))$('draft').value=draft;}for(const [id,u] of [['day',d],['month',m]]){$(id).textContent=fmt(u.totals.total);$(id+'cost').textContent=t('apiEquiv')+' '+money(u.totals)}$('daydetail').textContent=`${t('cIn')} ${fmt(d.totals.input)} · ${t('cCacheRead')} ${fmt(d.totals.cacheRead)} · ${t('cOut')} ${fmt(d.totals.output)}`;$('coverage').textContent=[t('coverageSessions',rows.length),t('coverageScanned',m.coverage.filesComplete,m.coverage.filesDiscovered),m.coverage.complete?t('scanDone'):m.coverage.filesComplete>=m.coverage.filesDiscovered?t('scanDoneGap'):t('indexing'),t('coverageForks',m.coverage.forksUnpriced||0),new Date().toLocaleTimeString()].join(' · ');let out='';for(const p of ['claude','codex']){const all=q.accounts.filter(x=>x.provider===p),current=all.filter(a=>a.current),qs=current.length?current:all.sort((a,b)=>b.receivedAt-a.receivedAt).slice(0,1);out+=`<h3>${p==='claude'?'Claude Code':'Codex'}</h3>`;if(!qs.length)out+=`<small>${esc(t('noSnapshot'))}</small>`;for(const a of qs){out+=`<p><small>${esc(a.limitName||a.limitId)} · ${esc(a.accountFingerprint==='unverified'?t('idUnverified'):t('localAccount'))}</small></p>`;for(const w of a.windows.filter(w=>!w.expired||!current.length).sort((x,y)=>x.windowMinutes-y.windowMinutes)){out+=`<div class="meta"><span>${esc(w.windowMinutes===300?t('win5h'):w.windowMinutes===10080?t('win7d'):w.name)}</span><span>${esc(w.remainingPercent==null?t('expired'):t('pctLeft',Number(w.remainingPercent).toFixed(0)))}</span></div><div class="progress"><i style="width:${Number(w.remainingPercent)||0}%"></i></div><small>${esc(t('resetsAt'))} ${esc(time(w.resetsAt))}</small>`}out+=`<p><small>${esc(t('changedAt'))} ${esc(time(a.lastChangedAt))} · ${esc(a.source)}</small></p>`}}$('quotas').innerHTML=out;}catch(e){$('notice').textContent=t('readFailed')+e.message}finally{refreshing=false}}
+document.querySelectorAll('[data-i18n]').forEach(e=>e.textContent=t(e.dataset.i18n));
+document.title='Remote Hub · '+t('title');
+$('search').placeholder=t('searchPlaceholder');$('search').setAttribute('aria-label',t('searchLabel'));
+$('provider').setAttribute('aria-label',t('providerLabel'));$('state').setAttribute('aria-label',t('stateLabel'));
+for(const id of ['search','provider','state'])$(id).oninput=list;$('refresh').onclick=refresh;$('install').onclick=async()=>{try{const r=await api('/v2/install',{});$('notice').textContent=r.results.map(x=>`${x.name||x.id}: ${x.skipped?x.reason:x.ok?t('connected')+(x.note?' ('+x.note+')':''):t('notConnected')+x.error}`).join(' · ')+' · '+r.hint;}catch(e){$('notice').textContent=e.message}};refresh();setInterval(refresh,5000);
+</script></body></html>

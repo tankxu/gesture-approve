@@ -12,6 +12,6 @@ GestureApprove/train/landmarks_full.csv
 .DS_Store
 *.bak.*
 # 本地配置 / local-only config
-.claude/
+.claude/settings.local.json
 __pycache__/
 *.pyc

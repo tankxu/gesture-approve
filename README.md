@@ -17,11 +17,11 @@ A native macOS menu-bar app. Recognition runs on-device. No cloud.
 </p>
 
 <p align="center">
-  <a href="https://github.com/tankxu/gesture-approve/releases/download/v0.7.9/GestureApprove-v0.7.9.zip"><img src="https://img.shields.io/badge/⬇%20Download-GestureApprove%20v0.7.9-2ea44f?style=for-the-badge" alt="Download GestureApprove"></a>
+  <a href="https://github.com/tankxu/gesture-approve/releases/download/v0.10.0/GestureApprove-v0.10.0.zip"><img src="https://img.shields.io/badge/⬇%20Download-GestureApprove%20v0.10.0-2ea44f?style=for-the-badge" alt="Download GestureApprove"></a>
 </p>
 
 <p align="center">
-  macOS 14+ · Apple Silicon & Intel · ~1.8 MB · <a href="https://github.com/tankxu/gesture-approve/releases/latest">all releases</a>
+  macOS 14+ · Apple Silicon & Intel · ~3.1 MB · <a href="https://github.com/tankxu/gesture-approve/releases/latest">all releases</a>
 </p>
 
 **[Changelog](CHANGELOG.md)** · [中文说明见下方](#中文) ↓
@@ -51,6 +51,9 @@ AI runs a tool ─► hook (tiny HTTP) ─► GestureApprove.app
 - **Smart gate (optional, local LLM)**: a small on-device model (Qwen3-1.7B via MLX) can auto-allow *obviously-safe* commands so they skip the card; **dangerous commands always require a gesture** (rule deny-list, ~70 patterns). Fully local — nothing leaves your Mac. Opt-in from Settings; downloads a ~50 MB helper + ~1 GB model on demand into `~/Library/Application Support/GestureApprove/gatekeeper/` (the app itself stays MLX-free and small).
 - **Notch card**: live camera behind "black glass", zooms toward the detected hand, countdown ring, sound + system-notification feedback.
 - **6 languages**: English, 简体中文, 日本語, 한국어, Español, Français (follows the system language).
+- **Usage in the menu bar**: your AI CLI quotas right in the menu, running or not — Claude Code's 5-hour and 7-day windows (the same numbers as `/usage`) and Codex's rate limits, each with a bar, a percentage, and time-to-reset. Both are read through a signed-in browser tab (claude.ai / chatgpt.com) so nothing ever prompts you; for Claude the Keychain is offered as an alternative, never taken silently.
+- **Agent finished alerts (optional)**: a `Stop` hook tells you the moment **Claude Code or Codex** wraps up a turn — a desktop banner (with its own marimba cue) carrying the project and the agent's last words, plus the same event pushed to the Remote Hub (`GET /events`, cursor long-poll) so your phone or an ESP32 sees it too. Watch-only: it never blocks or alters the agent. Each CLI has its own switch; banners and Hub push toggle separately. For Codex it installs a hook rather than claiming the single-slot `notify` key, so whatever you already had there keeps working (press `t` once in Codex's hooks review to trust it).
+- **Remote Hub, as an app on your phone**: open it from the menu bar, or from any device on the same Wi-Fi, and add it to your Home Screen — it runs full-screen with its own icon (a web manifest + service worker; on iOS use Share → Add to Home Screen). Three places to be: **Inbox** (what is waiting on you, and what is running right now), **Sessions** (search and filter all of them), **Usage** (quota windows and token spend). Tap a session to read its transcript and reply — into the live process when it is still running, or via `claude --resume` when it has exited. Approvals are allow/deny buttons. Voice replies work where the browser allows the microphone (HTTPS or on the Mac itself). Phone gets a bottom tab bar, desktop gets a three-column workbench.
 - **Launch at login**, one-click **enable/disable**, in-app **hook install** for Claude Code & Codex.
 - **ESP32-CAM** is optional: flash its firmware from inside the app (no PlatformIO needed) and use it as a dedicated approval camera.
 
@@ -113,11 +116,11 @@ The bundled Vision model derives from [HaGRID](https://github.com/hukenovs/hagri
 原生 macOS 菜单栏 app，识别全程在本机，不上云。
 
 <p align="center">
-  <a href="https://github.com/tankxu/gesture-approve/releases/download/v0.7.9/GestureApprove-v0.7.9.zip"><img src="https://img.shields.io/badge/⬇%20下载-GestureApprove%20v0.7.9-2ea44f?style=for-the-badge" alt="下载 GestureApprove"></a>
+  <a href="https://github.com/tankxu/gesture-approve/releases/download/v0.10.0/GestureApprove-v0.10.0.zip"><img src="https://img.shields.io/badge/⬇%20下载-GestureApprove%20v0.10.0-2ea44f?style=for-the-badge" alt="下载 GestureApprove"></a>
 </p>
 
 <p align="center">
-  macOS 14+ · Apple 芯片 & Intel · ~1.8 MB · <a href="https://github.com/tankxu/gesture-approve/releases/latest">全部版本</a><br>
+  macOS 14+ · Apple 芯片 & Intel · ~3.1 MB · <a href="https://github.com/tankxu/gesture-approve/releases/latest">全部版本</a><br>
   首次打开会有 Gatekeeper 提示（未公证）：右键 → 打开，或在「系统设置 → 隐私与安全性」点「仍要打开」。
 </p>
 
@@ -144,6 +147,9 @@ AI 跑工具 ─► hook(轻量HTTP) ─► GestureApprove.app
 - **智能放行（可选，本地 LLM）**：本地小模型（Qwen3-1.7B，经 MLX）可自动放行**明显安全**的命令、免弹卡片；**危险命令永远要手势**（规则 deny-list 兜底，约 70 条）。全程本地，不出本机。在设置里按需开启：按需下载 ~50 MB helper + ~1 GB 模型到 `~/Library/Application Support/GestureApprove/gatekeeper/`（主 app 本身不含 MLX、保持小巧）。
 - **刘海卡片**：黑玻璃后透出实时画面、推近到手部、倒计时环、音效 + 系统通知反馈。
 - **6 国语言**：English、简体中文、日本語、한국어、Español、Français（跟随系统语言）。
+- **菜单栏用量**：AI CLI 的额度直接显示在菜单里，不用等它跑起来——Claude Code 的 5 小时 / 7 天窗口（与 `/usage` 同源）、Codex 的限额，各带用量条、百分比和距离重置的时间。两者都借浏览器里已登录的标签页（claude.ai / chatgpt.com）读取，全程不弹授权框；Claude 那边钥匙串只是备选，绝不静默启用。
+- **Agent 完成通知（可选）**：装一个 `Stop` hook，**Claude Code 或 Codex** 跑完一轮就告诉你——桌面横幅（配专属木琴提示音）带项目名和 agent 最后说的话，同一条事件还会推给远程 Hub（`GET /events`，游标式长轮询），手机 / ESP32 一样收得到。只旁观，绝不阻塞或改变 agent。两家各一个开关，桌面横幅与 Hub 推送再各自独立开关。Codex 走 hook 而不是只有一个名额的 `notify` 键，你原有的 notify 配置照常工作（首次在 Codex 的 hooks 审阅里按一次 `t` 信任）。
+- **远程 Hub，手机上就是个 app**：菜单栏点开，或者同一个 Wi-Fi 下任何设备打开，再「添加到主屏幕」——全屏运行、有自己的图标（web manifest + service worker；iOS 走分享菜单里的「添加到主屏幕」）。只有三个地方：**待办**（谁在等你，以及此刻谁在跑）、**会话**（全部会话，可搜可筛）、**额度**（额度窗口与 Token 花费）。点进会话就能读记录并回复——还活着的进程直接送进去，已经退出的用 `claude --resume` 续上。审批就是允许 / 拒绝两个按钮。浏览器肯给麦克风的场合（HTTPS 或在 Mac 本机打开）还能语音回复。手机是底部 tab，桌面是三栏工作台。
 - **开机自启**、一键**开关**、设置里**一键接入** Claude Code / Codex 的 hook。
 - **ESP32-CAM** 可选：app 内一键刷固件（无需 PlatformIO），当作独立审批摄像头。
 
@@ -188,3 +194,5 @@ cd GestureApprove
 （见 [`TRADEMARK.md`](TRADEMARK.md)）。
 
 内置 Vision 模型派生自 [HaGRID](https://github.com/hukenovs/hagrid)（CC BY-SA 4.0）。
+
+本地额度与会话监控（无需 Web API / Keychain）：Remote Hub 新首页支持剩余额度快照、日/月/会话 Token 与 API 等值、状态证据及明确的不可回复原因。配置和准确性边界见 [本地监控实现](docs/local-monitor-implementation.md)。

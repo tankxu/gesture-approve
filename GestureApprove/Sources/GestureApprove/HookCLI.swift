@@ -7,6 +7,11 @@ import Foundation
 /// → 按目标 CLI 的格式写 stdout。app 不可达/超时/异常 → ask（交回终端）+ stderr 提示，失败安全。
 enum HookCLI {
     static func run(target: String) -> Never {
+        // 旁路的"状态"hook（都不是审批）：
+        //   `--hook claude-stop`   → agent 跑完一轮（Stop 事件）
+        //   `--hook claude-notify` → agent 在等你（Notification 事件，如空闲提醒）
+        if target.hasSuffix("-stop") { runStop(source: String(target.dropLast(5))) }
+        if target.hasSuffix("-notify") { runNotify(source: String(target.dropLast(7))) }
         let payload = readStdinJSON()
         let tool = payload["tool_name"] as? String ?? ""
         let cwd = payload["cwd"] as? String ?? ""
@@ -27,7 +32,7 @@ enum HookCLI {
 
         let decision: String
         let reason: String
-        if let (d, r) = ask(operation: op, cwd: cwd, tool: tool, session: session) {
+        if let (d, r) = ask(operation: op, cwd: cwd, tool: tool, session: session, provider: target, requestKind: payload["hook_event_name"] as? String ?? "PreToolUse") {
             decision = d
             reason = "手势审批: \(r)"
         } else {
@@ -71,20 +76,89 @@ enum HookCLI {
         }
     }
 
+    /// 完成通知 hook：把「这一轮跑完了」发给 app（loopback:47600 `POST /agent-event`），
+    /// app 再决定发不发桌面通知 / 推不推 Hub。**永远 exit 0 且不输出任何东西**——
+    /// Stop hook 的 stdout 会被 Claude 解释成阻塞指令（`{"decision":"block"}` 那套），
+    /// 我们只是旁路观察者，绝不能干预 agent 的收尾。app 没开/不可达也照样静默退出。
+    private static func runStop(source: String) -> Never {
+        let payload = readStdinJSON()
+        // Claude 因某个 Stop hook 而继续跑时会带 stop_hook_active=true；这轮的"完成"已经通知过了，
+        // 再发一条只是重复打扰。
+        if (payload["stop_hook_active"] as? Bool) == true { exit(0) }
+        let body: [String: Any] = [
+            "kind": "done",
+            "source": source,
+            "session": payload["session_id"] as? String ?? "",
+            "cwd": payload["cwd"] as? String ?? "",
+            "transcript": payload["transcript_path"] as? String ?? "",
+            // Codex 的 Stop 负载自带最后一句话（Claude 没有这个字段，app 侧再去 transcript 里捞）。
+            "summary": payload["last_assistant_message"] as? String ?? "",
+            // 这一轮是 Hub 代发的（手机回复走 `claude --resume -p`，见 HubApp.resumeReply）：
+            // 事件照记（手机靠它拿结果），但别在 Mac 上弹横幅——人不在电脑前，弹了也是自娱自乐。
+            "silent": ProcessInfo.processInfo.environment["GA_HUB_REPLY"] == "1",
+        ]
+        postEvent(body)
+    }
+
+    /// 「agent 在等你」——Claude Code 的 `Notification` 事件（空闲提醒 / 需要你回应）。
+    /// **权限询问那类直接跳过**：GA 自己就是审批入口，弹了卡片还再来一条系统通知纯属重复。
+    private static func runNotify(source: String) -> Never {
+        let payload = readStdinJSON()
+        let message = payload["message"] as? String ?? ""
+        let kindHint = ((payload["notification_type"] as? String) ?? "") + " " + message
+        let lower = kindHint.lowercased()
+        for skip in ["permission", "approve", "approval", "tool use"] where lower.contains(skip) {
+            exit(0)
+        }
+        postEvent([
+            "kind": "waiting",
+            "source": source,
+            "session": payload["session_id"] as? String ?? "",
+            "cwd": payload["cwd"] as? String ?? "",
+            "transcript": payload["transcript_path"] as? String ?? "",
+            "summary": message,     // Claude 给的原话，如 "Claude is waiting for your input"
+        ])
+    }
+
+    /// POST 给本机 app，并在**送不到时留一行日志**。这条路是完全静默的
+    /// （Stop/Notification hook 不能往 stdout 写东西，Claude 会当成指令），
+    /// 不记一笔的话"这次怎么没弹通知"就无从查起——是 hook 没被调用，还是 app 没收到。
+    private static func postEvent(_ body: [String: Any]) -> Never {
+        let port = ProcessInfo.processInfo.environment["GESTURE_APPROVE_PORT"] ?? "47600"
+        guard let url = URL(string: "http://127.0.0.1:\(port)/agent-event") else { exit(0) }
+        var req = URLRequest(url: url, timeoutInterval: 3)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        let sem = DispatchSemaphore(value: 0)
+        var failure: String?
+        URLSession.shared.dataTask(with: req) { _, resp, err in
+            if let err { failure = err.localizedDescription }
+            else if let code = (resp as? HTTPURLResponse)?.statusCode, code != 200 { failure = "HTTP \(code)" }
+            sem.signal()
+        }.resume()
+        sem.wait()
+        if let failure {
+            let sid = (body["session"] as? String ?? "").prefix(8)
+            GALog.log("\(body["kind"] as? String ?? "?") hook 送达失败(\(failure)) source=\(body["source"] as? String ?? "?") session=\(sid) —— app 没在跑/端口不通，这条丢弃")
+        }
+        exit(0)
+    }
+
     private static func readStdinJSON() -> [String: Any] {
         let data = FileHandle.standardInput.readDataToEndOfFile()
         return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
     }
 
     /// 同步 POST /approve，返回 (decision, reason)；失败返回 nil。
-    private static func ask(operation: String, cwd: String, tool: String, session: String) -> (String, String)? {
+    private static func ask(operation: String, cwd: String, tool: String, session: String, provider: String, requestKind: String) -> (String, String)? {
         let port = ProcessInfo.processInfo.environment["GESTURE_APPROVE_PORT"] ?? "47600"
         guard let url = URL(string: "http://127.0.0.1:\(port)/approve") else { return nil }
         let timeout = Double(ProcessInfo.processInfo.environment["GESTURE_APPROVE_HTTP_TIMEOUT"] ?? "") ?? 100
         var req = URLRequest(url: url, timeoutInterval: timeout)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try? JSONSerialization.data(withJSONObject: ["operation": operation, "cwd": cwd, "tool": tool, "session": session])
+        req.httpBody = try? JSONSerialization.data(withJSONObject: ["operation": operation, "cwd": cwd, "tool": tool, "session": session, "provider": provider, "requestKind": requestKind, "profileId": provider == "claude" ? MonitorIO.claude : provider == "codex" ? MonitorIO.codex : ""])
 
         let sem = DispatchSemaphore(value: 0)
         var result: (String, String)? = nil

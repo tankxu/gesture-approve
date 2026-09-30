@@ -120,6 +120,82 @@ enum HookInstaller {
         try out.write(to: claudeSettings)
     }
 
+    // MARK: Claude Code 的完成通知（JSON，Stop 事件）
+
+    /// 「agent 跑完一轮」的旁路 hook：`--hook claude-stop`（见 HookCLI.runStop）。
+    /// 与审批 hook 走同一个 settings.json、同一个二进制，但挂在 **Stop** 事件上，互不影响：
+    /// 用户可以只要完成通知、不要审批拦截，反之亦然。
+    private static func claudeStopCommand() -> String { jsonHookCommand("claude-stop") }
+    private static func claudeNotifyCommand() -> String { jsonHookCommand("claude-notify") }
+
+    static func isClaudeStopInstalled() -> Bool {
+        guard let data = try? Data(contentsOf: claudeSettings),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let hooks = obj["hooks"] as? [String: Any],
+              let stop = hooks["Stop"] as? [[String: Any]] else { return false }
+        for entry in stop {
+            for h in (entry["hooks"] as? [[String: Any]] ?? []) {
+                if let c = h["command"] as? String, isOurHook(c) { return true }
+            }
+        }
+        return false
+    }
+
+    static func installClaudeStop() throws {
+        var dict = try loadJSONObjectOrThrow(claudeSettings)
+        backup(claudeSettings)
+        var hooks = dict["hooks"] as? [String: Any] ?? [:]
+        var stop = hooks["Stop"] as? [[String: Any]] ?? []
+        stop.removeAll { entry in
+            (entry["hooks"] as? [[String: Any]] ?? []).contains {
+                isOurHook($0["command"] as? String ?? "")
+            }
+        }
+        // Stop 事件没有 matcher；超时给 10s 足够（hook 只是发个本地 HTTP，自身超时 3s）。
+        stop.append(["hooks": [["type": "command", "timeout": 10, "command": claudeStopCommand()]]])
+        hooks["Stop"] = stop
+        // Notification：Claude "在等你"（空闲提醒等）。和 Stop 一起装/一起卸——
+        // 用户要的是"agent 有事找我就告诉我"，跑完和等我回话本就是同一件事的两面。
+        var notify = hooks["Notification"] as? [[String: Any]] ?? []
+        notify.removeAll { entry in
+            (entry["hooks"] as? [[String: Any]] ?? []).contains {
+                isOurHook($0["command"] as? String ?? "")
+            }
+        }
+        notify.append(["hooks": [["type": "command", "timeout": 10, "command": claudeNotifyCommand()]]])
+        hooks["Notification"] = notify
+        dict["hooks"] = hooks
+        try ensureDir(claudeSettings)
+        let out = try JSONSerialization.data(withJSONObject: dict,
+                                             options: [.prettyPrinted, .withoutEscapingSlashes])
+        try out.write(to: claudeSettings)
+    }
+
+    static func uninstallClaudeStop() throws {
+        guard let data = try? Data(contentsOf: claudeSettings),
+              var dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+        backup(claudeSettings)
+        guard var hooks = dict["hooks"] as? [String: Any] else { return }
+        var stop = hooks["Stop"] as? [[String: Any]] ?? []
+        stop.removeAll { entry in
+            (entry["hooks"] as? [[String: Any]] ?? []).contains {
+                isOurHook($0["command"] as? String ?? "")
+            }
+        }
+        if stop.isEmpty { hooks.removeValue(forKey: "Stop") } else { hooks["Stop"] = stop }
+        var notify = hooks["Notification"] as? [[String: Any]] ?? []
+        notify.removeAll { entry in
+            (entry["hooks"] as? [[String: Any]] ?? []).contains {
+                isOurHook($0["command"] as? String ?? "")
+            }
+        }
+        if notify.isEmpty { hooks.removeValue(forKey: "Notification") } else { hooks["Notification"] = notify }
+        if hooks.isEmpty { dict.removeValue(forKey: "hooks") } else { dict["hooks"] = hooks }
+        let out = try JSONSerialization.data(withJSONObject: dict,
+                                             options: [.prettyPrinted, .withoutEscapingSlashes])
+        try out.write(to: claudeSettings)
+    }
+
     // MARK: Gemini CLI（JSON，BeforeTool）
 
     private static var geminiSettings: URL {
@@ -230,6 +306,62 @@ enum HookInstaller {
         guard let content = try? String(contentsOf: codexConfig, encoding: .utf8) else { return }
         backup(codexConfig)
         try stripCodexBlock(content).write(to: codexConfig, atomically: true, encoding: .utf8)
+    }
+
+    // MARK: Codex 的完成通知（TOML，Stop 事件，独立 managed 块）
+
+    /// Codex 0.141+ 的 hooks 里有 `Stop`（`/hooks` 面板原话：*Right before Codex ends its turn*），
+    /// 负载还自带 `last_assistant_message` —— 比 Claude 那边更省事。
+    ///
+    /// **为什么不用 `notify`**：`notify` 是顶层单值键（`notify = ["prog", ...]`），一个用户只能有一个，
+    /// 实测这台机器上它已经被 Codex Computer Use 占着；覆盖等于拆掉人家的功能。hooks 是数组，
+    /// 各家共存，互不打架 —— 所以走 Stop hook。
+    ///
+    /// 单独一对标记（不与审批 hook 的 managed 块混用）：两个开关要能各开各的。
+    private static let notifyBegin = "# >>> gesture-approve notify (managed) >>>"
+    private static let notifyEnd = "# <<< gesture-approve notify (managed) <<<"
+
+    private static func codexStopBlock() -> String {
+        """
+        \(notifyBegin)
+        [[hooks.Stop]]
+
+        [[hooks.Stop.hooks]]
+        type = "command"
+        timeout = 10
+        command = '''\(tomlHookCommand("codex-stop"))'''
+        \(notifyEnd)
+        """
+    }
+
+    private static func stripNotifyBlock(_ s: String) -> String {
+        var out = s
+        while let r1 = out.range(of: notifyBegin) {
+            guard let r2 = out.range(of: notifyEnd, range: r1.upperBound..<out.endIndex) else { break }
+            out.removeSubrange(r1.lowerBound..<r2.upperBound)
+        }
+        return out.replacingOccurrences(of: "\n\n\n", with: "\n\n")
+    }
+
+    static func isCodexStopInstalled() -> Bool {
+        guard let s = try? String(contentsOf: codexConfig, encoding: .utf8) else { return false }
+        return s.contains(notifyBegin)
+    }
+
+    static func installCodexStop() throws {
+        var content = (try? String(contentsOf: codexConfig, encoding: .utf8)) ?? ""
+        backup(codexConfig)
+        content = stripNotifyBlock(content)
+        if !content.isEmpty && !content.hasSuffix("\n") { content += "\n" }
+        content += "\n" + codexStopBlock() + "\n"
+        try ensureDir(codexConfig)
+        try content.write(to: codexConfig, atomically: true, encoding: .utf8)
+    }
+
+    static func uninstallCodexStop() throws {
+        guard let content = try? String(contentsOf: codexConfig, encoding: .utf8) else { return }
+        backup(codexConfig)
+        try stripNotifyBlock(content).write(to: codexConfig, atomically: true, encoding: .utf8)
     }
 
     // MARK: Kimi CLI（TOML，PreToolUse，复用同一 managed 标记块）

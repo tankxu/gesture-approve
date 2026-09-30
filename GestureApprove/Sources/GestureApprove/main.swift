@@ -6,7 +6,7 @@ import ImageIO
 import ServiceManagement
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem?
     private let controller = ApprovalController()
     private var server: ApprovalServer?
@@ -44,6 +44,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var updateTimer: Timer?
     private var pendingUpdate: (version: String, asset: URL, page: URL, notes: String)?
 
+    /// 用量区当前占用的菜单项（重建时先摘掉这些）。见 rebuildUsage。
+    private var usageItems: [NSMenuItem] = []
+    /// 菜单是否正展开——决定「选数据来源」的弹窗现在弹还是等收起来再弹。
+    private var menuIsOpen = false
+    /// 本轮问题里是否已经自动弹过一次（防止每点一次菜单弹一次）。
+    private var autoAskedSource = false
+    /// 这次开合菜单期间用户点了某个菜单项（设置/退出/测试…）——那就别拿弹窗打断他。
+    private var menuActionFired = false
+
     /// 系统睡眠：靠 willSleep/didWake 维护（didWake 必达，可靠）。
     private var asleep = false
     /// 屏幕是否锁定——**每次实时查询，不缓存**。
@@ -74,10 +83,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             MediaPipeInstaller.engineKey: MediaPipeInstaller.isInstalled() ? "mediapipe" : "vision",
         ])
         Notifier.requestAuthorization()
+        // 完成通知开着就必须有「专注状态」权限，否则勿扰时那一声照样吵人。每次启动都查，
+        // 被拒过也照样提醒（系统不会再弹第二次，只能我们出面）。延后一拍等 app 起完再弹。
+        if AgentNotify.isEnabled {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                Notifier.ensureFocusAuthorization(explainIfDenied: true)
+            }
+        }
         AVCaptureDevice.requestAccess(for: .video) { _ in }   // 首次弹相机授权
         setupStatusItem()
         registerHotkeys()
         controller.deviceState = deviceState   // 让审批控制器发布/清空设备可见的审批动态
+        MonitorAPI.approvalSnapshot = { [deviceState] in deviceState.snapshotJSON() }
+        MonitorAPI.resolveApproval = { [weak self] id, allow in
+            let sem = DispatchSemaphore(value: 0); var accepted = false
+            DispatchQueue.main.async { accepted = self?.controller.resolveByExternal(id: id, approve: allow) ?? false; sem.signal() }
+            sem.wait(); return accepted
+        }
+        LocalMonitor.shared.start()
+        // 开着但配置不在位 → 启动时补装一次（app 换过路径、被别的工具覆盖、用户手改过）。
+        // 关着就一个字节都不写，见 UsageMonitor.repairIfNeeded。
+        UsageMonitor.repairIfNeeded()
         startServer()
         Gatekeeper.shared.startIfNeeded()   // 智能放行守门员 daemon（仅开关开+已装才起；会先清残留）
         hub.startIfEnabled()                // Remote Hub：后台自动起 Swift 原生服务(菜单入口点开即用)
@@ -153,7 +179,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     guard let self else { reply(false); return }
                     reply(self.controller.resolveByExternal(id: id, approve: decision == "allow"))
                 }
-            }
+            },
+            // agent 完成通知：Stop hook → 桌面横幅 + Remote Hub 的 /events（开关见设置窗）。
+            onAgentEvent: { payload in AgentNotify.handle(payload) }
         ) { [weak self] req, reply in
             DispatchQueue.main.async {
                 guard let self else { reply("ask", L("reply.notReady")); return }
@@ -200,7 +228,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 弹手势卡片等用户裁决（白名单/智能放行都没放行时的最终路径）。
     private func askGesture(_ req: ApprovalRequest, _ reply: @escaping (String, String) -> Void) {
         let dangerous = Allowlist.isDangerous(req.operation)
-        controller.requestApproval(operation: req.operation, cwd: req.cwd, tool: req.tool, timeout: 90) { outcome in
+        controller.requestApproval(operation: req.operation, cwd: req.cwd, tool: req.tool, session: req.session, provider: req.provider, requestKind: req.requestKind, profileId: req.profileId, timeout: 90) { outcome in
             switch outcome {
             case .approved:
                 ApproveLog.record(req, decision: "allow", gate: .gesture, dangerous: dangerous)
@@ -250,8 +278,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                          accessibilityDescription: L("app.name"))
         }
         let menu = NSMenu()
+        menu.delegate = self          // menuWillOpen 时刷新用量区
+        // 「用户点了菜单项」没有 delegate 回调，用这条通知代替；它在 menuDidClose 之后发出，
+        // 所以 askUsageSourceAfterMenu 才要延后一拍去读这个标记。
+        NotificationCenter.default.addObserver(
+            forName: NSMenu.willSendActionNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.menuActionFired = true }
+        }
         menu.addItem(withTitle: L("menu.running"), action: nil, keyEquivalent: "")
         menu.addItem(.separator())
+        // 用量区插在这条分隔线之前（索引 1 起），由 rebuildUsage 动态增删。
 
         // 「更新到 vX.Y.Z」——默认隐藏，后台检查发现新版后才显示（最安静：不弹窗、不通知，不点即跳过）。
         let update = NSMenuItem(title: "", action: #selector(updateNow), keyEquivalent: "")
@@ -310,6 +347,153 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         item.menu = menu
         self.statusItem = item
+    }
+
+    // MARK: 用量区（谁在跑就显示谁的额度与窗口）
+
+    /// 打开菜单时才采集，不常驻轮询。
+    /// 先用上次结果秒出，异步拿到新数据再原地覆盖（NSMenu 支持菜单打开期间改内容）。
+    func menuWillOpen(_ menu: NSMenu) {
+        menuIsOpen = true
+        menuActionFired = false
+        rebuildUsage(UsageMonitor.shared.snapshot)
+        UsageMonitor.shared.refresh { [weak self] rows in
+            guard let self else { return }
+            self.rebuildUsage(rows)
+            // 采集比用户关菜单还慢时，菜单已经关了 —— 那就现在问。
+            if !self.menuIsOpen { self.askUsageSourceAfterMenu() }
+        }
+    }
+
+    /// 弹窗要等菜单收起来再弹：NSMenu 跟踪期是嵌套 runloop，这时候上模态框会打架，
+    /// 而且用户本来可能只是想点「设置」，把菜单从他手里抢走很粗暴。
+    func menuDidClose(_ menu: NSMenu) {
+        menuIsOpen = false
+        askUsageSourceAfterMenu()
+    }
+
+    /// 菜单收起后再决定要不要弹。**必须延后一拍**：点菜单项时 AppKit 是先收菜单
+    /// （menuDidClose）、后执行 action，当场就问的话，点「退出」「设置」都会先被这个弹窗截胡。
+    /// 这一拍里只要有菜单 action 发出，就说明用户是去干别的了，这轮不问。
+    private func askUsageSourceAfterMenu() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            guard let self, !self.menuActionFired else { return }
+            self.askUsageSourceIfNeeded()
+        }
+    }
+
+    private func rebuildUsage(_ rows: [ToolUsage]) {
+        guard let menu = statusItem?.menu else { return }
+        for item in usageItems where item.menu === menu { menu.removeItem(item) }
+        usageItems = UsageMenuSection.items(for: rows)
+        // 额度是空的时候说清楚是哪一种空：没开采集（可点开启）、配置失效（可点修复）、
+        // 还是已经在采只是还没等到客户端刷新（不可点）。以前三种都只有一句"还没有额度数据"。
+        if let hint = UsageMonitor.hint(rows) {
+            let item = UsageMenuSection.hintItem(L(hint.rawValue), actionable: hint != .waiting)
+            if hint != .waiting { item.action = #selector(fixUsageCollection); item.target = self }
+            usageItems.append(item)
+        }
+        // 用户在弹窗里点了「以后再说」之后，菜单里留一行可点的入口，方便随时改主意。
+        if UsageMonitor.shared.pendingAsk != nil {
+            let pick = NSMenuItem(title: L("usage.chooseSource"),
+                                  action: #selector(chooseUsageSource), keyEquivalent: "")
+            pick.target = self
+            usageItems.append(pick)
+        }
+        for (offset, item) in usageItems.enumerated() {
+            menu.insertItem(item, at: 1 + offset)   // 紧跟「运行中」标题行
+        }
+    }
+
+    /// 自动弹窗每个「问题周期」只弹一次：Chrome 一直不通时，不能每点一次菜单就弹一次。
+    /// 通道恢复正常（pendingAsk 被清掉）后重新武装。
+    /// 冷却期内一概不自动弹——但菜单里那行入口照常在，用户想起来随时能点。
+    private func askUsageSourceIfNeeded() {
+        guard let reason = UsageMonitor.shared.pendingAsk else { autoAskedSource = false; return }
+        guard !autoAskedSource, !UsageMonitor.isSnoozed else { return }
+        autoAskedSource = true
+        showUsageSourceAlert(reason)
+    }
+
+    /// 菜单里点「开启采集 / 修复配置」。开启要先说清楚会动哪些文件 —— 写用户的 AI 工具配置
+    /// 不能静默进行；修复不再问：他早就同意过接入，这次只是路径或被别人覆盖了。
+    @objc private func fixUsageCollection() {
+        if UsageMonitor.collecting {
+            let fixed = UsageMonitor.repairIfNeeded()
+            if fixed.isEmpty { return }
+        } else {
+            NSApp.activate(ignoringOtherApps: true)
+            let alert = NSAlert()
+            alert.messageText = L("usage.collectConfirm.title")
+            alert.informativeText = L("usage.collectConfirm.body")
+            alert.addButton(withTitle: L("usage.collectConfirm.ok"))
+            alert.addButton(withTitle: L("settings.cancel"))
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+            let result = MonitorHooks.apply(uninstall: false)
+            // 装失败就别把开关留在「开」上——那正是这次要消灭的那种谎。
+            guard result["ok"] as? Bool == true else {
+                let failed = NSAlert()
+                failed.messageText = L("usage.collectConfirm.title")
+                failed.informativeText = (result["results"] as? [MObject] ?? [])
+                    .compactMap { $0["error"] as? String }.joined(separator: "\n")
+                failed.runModal()
+                return
+            }
+            UsageMonitor.collecting = true
+        }
+        UsageMonitor.shared.refresh { [weak self] rows in self?.rebuildUsage(rows) }
+    }
+
+    @objc private func chooseUsageSource() {
+        showUsageSourceAlert(UsageMonitor.shared.pendingAsk ?? .firstTime)
+    }
+
+    /// 「用量从哪儿取？」——Chrome（不弹授权）还是钥匙串（弹系统授权框）。
+    /// 静默降级到钥匙串是不行的：那个系统授权框必须是用户自己选来的。
+    private func showUsageSourceAlert(_ reason: UsageAskReason) {
+        NSApp.activate(ignoringOtherApps: true)
+        switch UsageSourceAlert.run(UsageSourceAlert.make(reason)) {
+        case .alertFirstButtonReturn:
+            UsageMonitor.source = .chrome
+            UsageMonitor.shared.clearPendingAsk()
+            UsageMonitor.endSnooze()      // 主动选了来源，就不该再压着提示
+            HubApp.openClaudeTab()
+            // 标签页要几秒才加载完，立刻采集必然扑空——先等 3 秒，不成再给两次机会。
+            fetchAfterManualChoice(delay: 3, retries: 2)
+        case .alertSecondButtonReturn:
+            UsageMonitor.source = .keychain
+            UsageMonitor.shared.clearPendingAsk()
+            UsageMonitor.endSnooze()
+            // 钥匙串不重试：每试一次都可能再弹一次系统授权框。
+            fetchAfterManualChoice(delay: 0, retries: 0)
+        case .alertThirdButtonReturn:
+            // 暂不获取用量：24 小时内不再自动弹。**pendingAsk 故意不清**——
+            // 菜单里那行入口得留着，用户改主意时点一下就能回来。
+            UsageMonitor.snooze()
+            UsageMonitor.shared.refresh { [weak self] rows in self?.rebuildUsage(rows) }
+        default:
+            break   // Esc 等非按钮关闭：什么都不做，别替用户做 24 小时的决定
+        }
+    }
+
+    /// 用户刚在弹窗里选完来源之后的那次采集。**只有这条路会发通知**——他刚点过，
+    /// 得给个回音；平时点开菜单的自动采集一律静默。失败也不通知（菜单里那行灰字已经写着原因了），
+    /// 只是再试几次：Chrome 标签页加载慢是最常见的「失败」，几秒后自己就好了。
+    private func fetchAfterManualChoice(delay: TimeInterval, retries: Int) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self else { return }
+            UsageMonitor.shared.refresh { rows in
+                self.rebuildUsage(rows)
+                // 成功与否看 pendingAsk：拿不到时 rows 里可能还留着上一轮的缓存数字，
+                // 光看「有没有数」会把失败当成成功报出去。
+                guard UsageMonitor.shared.pendingAsk == nil else {
+                    if retries > 0 { self.fetchAfterManualChoice(delay: 4, retries: retries - 1) }
+                    return
+                }
+                guard let body = UsageMenuSection.summary(rows) else { return }
+                Notifier.post(title: L("usage.notify.title"), body: body)
+            }
+        }
     }
 
     // MARK: 后台检查更新（最安静：仅菜单项；用户不点即视为跳过该版本）
@@ -508,6 +692,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
+if let i = CommandLine.arguments.firstIndex(of: "--monitor-hook"), CommandLine.arguments.count > i+1 { MonitorHooks.capture(provider: CommandLine.arguments[i+1], statusLine: false) }
+if CommandLine.arguments.contains("--monitor-statusline") { MonitorHooks.capture(provider: "claude", statusLine: true) }
+if CommandLine.arguments.contains("--monitor-status") {
+    print(MonitorIO.json(["collectors": MonitorHooks.status()])); exit(0)
+}
+// --monitor-install [claude,codex]：省略目标 = 这台机器上有哪家就装哪家。
+if let i = CommandLine.arguments.firstIndex(where: { $0 == "--monitor-install" || $0 == "--monitor-uninstall" }) {
+    let next = CommandLine.arguments.count > i + 1 ? CommandLine.arguments[i + 1] : ""
+    let ids = next.isEmpty || next.hasPrefix("-") ? nil
+        : next.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+    let result = MonitorHooks.apply(providers: ids, uninstall: CommandLine.arguments[i] == "--monitor-uninstall",
+                                    executable: Bundle.main.executablePath ?? CommandLine.arguments[0])
+    print(MonitorIO.json(result))
+    exit(result["ok"] as? Bool == true ? 0 : 1)
+}
+if let i = CommandLine.arguments.firstIndex(of: "--monitor-serve"), CommandLine.arguments.count > i+1, let port=UInt16(CommandLine.arguments[i+1]) {
+    let app=HubApp(port:Int(port)); let server=HubServer(port:port,lan:false,router:app.route)
+    LocalMonitor.shared.start(); server.start(); print("Monitor listening on loopback port \(port)")
+    withExtendedLifetime((app,server)) { RunLoop.main.run() }; exit(0)
+}
 // 命令行 hook：GestureApprove --hook <claude|codex|gemini|kimi>。尽早处理、不初始化 GUI。
 // 取代 gesture_hook.py，让核心审批零 Python 依赖（同一二进制兼当 hook）。
 if let i = CommandLine.arguments.firstIndex(of: "--hook"),
@@ -549,6 +753,45 @@ if let i = CommandLine.arguments.firstIndex(of: "--extract-landmarks"),
     }
     try? rows.joined(separator: "\n").write(toFile: outPath, atomically: true, encoding: .utf8)
     print("写出 \(rows.count) 条样本 -> \(outPath)")
+    exit(0)
+}
+
+// Agent 完成通知：--agent-notify [on|off|status] [claude|codex]（默认 status + 两家都作用）。
+// 等价于设置窗里的开关：装/卸各家 Stop hook 并同步偏好，外加打印开关与 hook 是否在位——
+// 排查"没收到通知"时先看这里。
+if let i = CommandLine.arguments.firstIndex(of: "--agent-notify") {
+    let args = CommandLine.arguments
+    let action = args.count > i + 1 ? args[i + 1] : "status"
+    let who = args.count > i + 2 ? args[i + 2] : "all"
+    let doClaude = (who == "all" || who == "claude"), doCodex = (who == "all" || who == "codex")
+    do {
+        switch action {
+        case "on":
+            if doClaude { try HookInstaller.installClaudeStop(); AgentNotify.claudeEnabled = true }
+            if doCodex  { try HookInstaller.installCodexStop();  AgentNotify.codexEnabled = true }
+        case "off":
+            if doClaude { try HookInstaller.uninstallClaudeStop(); AgentNotify.claudeEnabled = false }
+            if doCodex  { try HookInstaller.uninstallCodexStop();  AgentNotify.codexEnabled = false }
+        default:
+            break
+        }
+    } catch {
+        print("失败: \(error)")
+        exit(1)
+    }
+    // --agent-notify test：走一遍真实的通知路径并回头核对，排查"事件有记录但没看到横幅"。
+    if action == "test" {
+        let sem = DispatchSemaphore(value: 0)
+        Notifier.diagnose(title: "\(L("agent.notify.title")) · test",
+                          body: "GestureApprove 通知自检") { sem.signal() }
+        while sem.wait(timeout: .now() + 0.05) == .timedOut {
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
+        }
+        exit(0)
+    }
+    print("Claude Code: \(AgentNotify.claudeEnabled ? "开" : "关")（hook 在位: \(HookInstaller.isClaudeStopInstalled())）")
+    print("Codex:       \(AgentNotify.codexEnabled ? "开" : "关")（hook 在位: \(HookInstaller.isCodexStopInstalled())，首次需在 Codex 里按 t 信任）")
+    print("桌面通知: \(AgentNotify.desktopEnabled ? "开" : "关")  Hub 推送: \(AgentNotify.hubEnabled ? "开" : "关")")
     exit(0)
 }
 
@@ -609,6 +852,149 @@ if CommandLine.arguments.contains("--vision-cam") {
     RunLoop.current.run(until: Date().addingTimeInterval(10))
     session.stopRunning()
     print("\n诊断结束")
+    exit(0)
+}
+
+/// 把用量行画到一张 PNG 上（--usage out.png）。只为调样式：菜单里的真实缩进由 AppKit 处理，
+/// 这里固定留一段近似的左边距，看的是条子本身的粗细/圆角/和文字的对齐。
+func renderUsagePreview(_ rows: [ToolUsage], to path: String) {
+    let lines: [NSAttributedString] = rows.flatMap { r -> [NSAttributedString] in
+        // 没在跑就不画绿点，跟菜单里的 headItem 保持一致（预览图是用来核对菜单长什么样的）。
+        [NSAttributedString(string: r.running > 0 ? "\(r.name)   ● \(r.running)" : r.name, attributes: [
+            .font: NSFont.systemFont(ofSize: 12, weight: .semibold),
+            .foregroundColor: NSColor.labelColor,
+        ])] + r.windows.reduce(into: (shown: nil as String?, lines: [NSAttributedString]())) { acc, w in
+            // 池名只在切换到新池时出一行，跟菜单里的排法一致。
+            if let p = w.pool, p != acc.shown {
+                acc.lines.append(NSAttributedString(string: p, attributes: [
+                    .font: NSFont.systemFont(ofSize: 11, weight: .medium),
+                    .foregroundColor: NSColor.secondaryLabelColor,
+                ]))
+                acc.shown = p
+            }
+            acc.lines.append(UsageMenuSection.windowLine(w))
+        }.lines
+    }
+    guard !lines.isEmpty else { print("没有可渲染的行"); return }
+    let rowH: CGFloat = 20, inset = NSPoint(x: 24, y: 10)
+    let size = NSSize(width: 360, height: CGFloat(lines.count) * rowH + inset.y * 2)
+    let img = NSImage(size: size, flipped: false) { rect in
+        NSColor.windowBackgroundColor.setFill()
+        rect.fill()
+        for (i, line) in lines.enumerated() {
+            let y = size.height - inset.y - CGFloat(i + 1) * rowH + (rowH - line.size().height) / 2
+            line.draw(at: NSPoint(x: inset.x, y: y))
+        }
+        return true
+    }
+    guard let tiff = img.tiffRepresentation,
+          let rep = NSBitmapImageRep(data: tiff),
+          let png = rep.representation(using: .png, properties: [:]) else { print("渲染失败"); return }
+    try? png.write(to: URL(fileURLWithPath: path))
+    print("\n预览图 -> \(path)")
+}
+
+// 用量诊断模式：--usage [out.png]，打印菜单里那段用量区的原始数据后退出（不启动 GUI）。
+// 给了 .png 路径就顺便把用量行渲染成图片——调进度条样式时不用真去点开菜单栏菜单。
+// 注意用 .app 内的二进制跑，钥匙串授权是按二进制授予的：
+//   /Applications/GestureApprove.app/Contents/MacOS/GestureApprove --usage
+if let usageArg = CommandLine.arguments.firstIndex(of: "--usage") {
+    let pngPath: String? = CommandLine.arguments.count > usageArg + 1
+        && CommandLine.arguments[usageArg + 1].hasSuffix(".png")
+        ? CommandLine.arguments[usageArg + 1] : nil
+    let sessions = UsageMonitor.liveClaudeSessions()
+    print("Claude Code 活跃会话: \(sessions.count)  版本: \(sessions.first?.version ?? "-")")
+    print("codex 进程: \(UsageMonitor.processCount(named: "codex"))")
+    print("用量数据来源: \(UsageMonitor.source.rawValue)")
+    if let until = UsageMonitor.snoozedUntil, UsageMonitor.isSnoozed {
+        print("暂不主动询问（入口仍在），恢复时间: \(until)")
+    }
+    let sem = DispatchSemaphore(value: 0)
+    UsageMonitor.shared.refresh { rows in
+        if rows.isEmpty { print("（没有正在运行的工具，菜单里不显示用量区）") }
+        for r in rows {
+            print("\n\(r.name)  ● \(r.running)")
+            for w in r.windows {
+                // 跟菜单说同一件事：菜单画的是「还剩多少」，诊断里印 used% 只会让两边对不上。
+                let left = w.percent.map { UsageMenuSection.remainingText($0) } ?? "—"
+                let reset = w.resetsAt.map { UsageMenuSection.resetText($0) } ?? "-"
+                let pool = w.pool.map { $0 + " " } ?? ""
+                print("  \(pool)\(w.label)  \(left)  · \(reset)")
+            }
+            if let n = r.note { print("  note: \(n)") }
+        }
+        // 手动选完来源那次采集会把这段发成系统通知（自动采集不发）。
+        // 带 --notify 就真发一条，用来验证「前台时横幅会不会被系统吞掉」。
+        if let body = UsageMenuSection.summary(rows) {
+            print("\n通知正文:\n\(body)")
+            if CommandLine.arguments.contains("--notify") {
+                Notifier.requestAuthorization()
+                Notifier.printAuthorizationStatus()
+                Notifier.post(title: L("usage.notify.title"), body: body)
+                print("已发出通知")
+            }
+        }
+        if let ask = UsageMonitor.shared.pendingAsk {
+            switch ask {
+            case .firstTime:                 print("\n待问用户: 首次采集，还没选来源")
+            case .chromeBroken(.noTab):      print("\n待问用户: Chrome 没有已登录的 claude.ai 标签页")
+            case .chromeBroken(.jsDisabled): print("\n待问用户: Chrome 未允许通过 Apple 事件执行 JavaScript")
+            case .chromeBroken(.accountMismatch): print("\n待问用户: 浏览器登录的是另一个账号")
+            case .chromeBroken(.other):      print("\n待问用户: Chrome 通道返回异常")
+            }
+        }
+        if let path = pngPath { renderUsagePreview(rows, to: path) }
+        sem.signal()
+    }
+    // refresh 的回调走主线程，这里必须转 runloop 而不是干等信号量。
+    while sem.wait(timeout: .now() + 0.05) == .timedOut {
+        RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
+    }
+    // 通知是异步投递的，立刻 exit 会把它掐掉。
+    if CommandLine.arguments.contains("--notify") {
+        RunLoop.current.run(until: Date().addingTimeInterval(2))
+    }
+    exit(0)
+}
+
+// 用量来源弹窗预览：--usage-ask [first|notab|jsoff|other]，弹出真正的那个弹窗并打印点了哪个键。
+// 核对四种情形的文案（换行、长度、按钮顺序）时不用真去把 Chrome 弄断。
+if let i = CommandLine.arguments.firstIndex(of: "--usage-ask") {
+    let which = CommandLine.arguments.count > i + 1 ? CommandLine.arguments[i + 1] : "first"
+    let reason: UsageAskReason
+    switch which {
+    case "notab":   reason = .chromeBroken(.noTab)
+    case "jsoff":   reason = .chromeBroken(.jsDisabled)
+    case "account": reason = .chromeBroken(.accountMismatch)
+    case "other":   reason = .chromeBroken(.other)
+    default:      reason = .firstTime
+    }
+    let app = NSApplication.shared
+    app.setActivationPolicy(.accessory)
+    app.activate(ignoringOtherApps: true)
+    let alert = UsageSourceAlert.make(reason)
+    print("标题: \(alert.messageText)")
+    print("正文: \(alert.informativeText)")
+    print("按钮: \(alert.buttons.map(\.title).joined(separator: " | "))")
+    // 这些都得等模态把窗口摆上屏才有意义，所以派到模态自己的 runloop 里。
+    // 「按钮宽」是给 UsageSourceAlert.stretchButtons 做回归用的：那段要关掉 NSAlert 内部的
+    // required 等宽约束，哪天系统换了实现，这里就会从 340 变回 228。
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+        let w = alert.window
+        NSApp.activate(ignoringOtherApps: true)   // 截图时窗口得是 key，否则默认键不显示蓝色
+        w.makeKeyAndOrderFront(nil)
+        print("窗口: \(NSStringFromRect(w.frame))")
+        print("按钮宽: \(alert.buttons.map { Int($0.frame.width) })")
+        print("WINDOW:\(w.windowNumber)")        // 给 screencapture -l 用
+        fflush(stdout)
+    }
+    fflush(stdout)
+    switch UsageSourceAlert.run(alert) {
+    case .alertFirstButtonReturn:  print("选择: Claude Web")
+    case .alertSecondButtonReturn: print("选择: Keychain")
+    case .alertThirdButtonReturn:  print("选择: 暂不获取用量（冷却 24 小时）")
+    default:                       print("关闭但未选择（不冷却）")
+    }
     exit(0)
 }
 

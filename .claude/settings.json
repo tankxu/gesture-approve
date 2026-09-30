@@ -1,0 +1,60 @@
+{
+  "env": {
+    "DEVELOPER_DIR": "/Applications/Xcode.app/Contents/Developer",
+    "GIT_CONFIG_GLOBAL": "/Users/Shared/LocalDev/gesture-approve/.claude/gitconfig-https",
+    "GIT_CONFIG_NOSYSTEM": "1"
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+
+    "network": {
+      "allowedDomains": [
+        "github.com",
+        "*.github.com",
+        "objects.githubusercontent.com",
+        "raw.githubusercontent.com",
+        "codeload.github.com"
+      ]
+    },
+
+    "filesystem": {
+      "allowWrite": [
+        "~/.swiftpm",
+        "~/Library/Caches/org.swift.swiftpm",
+        "~/Library/org.swift.swiftpm",
+        "~/Library/Caches/gesture-approve",
+        "/tmp",
+        "/var/folders/zq/s69fx7753r3gxvkqjqwtdlv80000gn/C",
+        "/var/folders/zq/s69fx7753r3gxvkqjqwtdlv80000gn/T"
+      ]
+    },
+
+    "credentials": {
+      "files": [
+        { "path": "~/.ssh", "mode": "deny" },
+        { "path": "~/.aws", "mode": "deny" },
+        { "path": "~/.config/gh", "mode": "deny" },
+        { "path": "~/.codex", "mode": "deny" },
+        { "path": "~/.claude", "mode": "deny" },
+        { "path": "~/.claude.json", "mode": "deny" },
+        { "path": "~/.hermes", "mode": "deny" },
+        { "path": "~/Library/Keychains", "mode": "deny" },
+        { "path": "~/.npmrc", "mode": "deny" },
+        { "path": "~/.netrc", "mode": "deny" }
+      ],
+      "envVars": [
+        { "name": "GITHUB_TOKEN", "mode": "deny" },
+        { "name": "GH_TOKEN", "mode": "deny" },
+        { "name": "NPM_TOKEN", "mode": "deny" },
+        { "name": "ANTHROPIC_API_KEY", "mode": "deny" },
+        { "name": "ANTHROPIC_AUTH_TOKEN", "mode": "deny" },
+        { "name": "CLOUDFLARE_API_TOKEN", "mode": "deny" },
+        { "name": "CARGO_REGISTRY_TOKEN", "mode": "deny" },
+        { "name": "AWS_SECRET_ACCESS_KEY", "mode": "deny" },
+        { "name": "OPENAI_API_KEY", "mode": "deny" }
+      ]
+    }
+  }
+}

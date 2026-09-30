@@ -1,0 +1,10 @@
+# Sandbox fetches must use HTTPS: ~/.gitconfig rewrites GitHub to SSH,
+# and ~/.ssh is denied in this sandbox.
+[url "https://github.com/"]
+	insteadOf = git@github.com:
+
+# 这个文件经 GIT_CONFIG_GLOBAL 完全取代 ~/.gitconfig（不是叠加），
+# 所以身份也得在这里给一份，否则沙箱里 commit 会报 "Author identity unknown"。
+[user]
+	name = Tank Xu
+	email = hellotank@qq.com

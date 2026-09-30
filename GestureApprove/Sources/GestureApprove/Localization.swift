@@ -30,14 +30,24 @@ enum I18n {
         return "en"
     }
 
-    static func string(_ key: String) -> String {
+    static func string(_ key: String) -> String { string(key, lang: lang) }
+
+    static func string(_ key: String, lang: String) -> String {
         guard let entry = table[key] else { return key }
         return entry[lang] ?? entry["en"] ?? key
     }
+
+    /// Hub（网页 + HTTP API）只有 zh/en 两套文案，规则和页面里的
+    /// `('__HUB_LANG__'||'en').startsWith('zh')?'zh':'en'` 完全一致。
+    /// 日/韩/西/法语的用户看到的是英文页面，那么 API 的 reason 也该是英文 ——
+    /// 母语句子嵌在英文页面里，比统一英文更难读。
+    static var hubLang: String { lang.hasPrefix("zh") ? "zh" : "en" }
 }
 
 /// 取本地化文案的快捷函数。
 func L(_ key: String) -> String { I18n.string(key) }
+/// 只给 Hub（网页与 HTTP API）用：压到 zh/en，跟页面语言一致。
+func LHub(_ key: String) -> String { I18n.string(key, lang: I18n.hubLang) }
 
 private let table: [String: [String: String]] = [
     // MARK: 菜单
@@ -92,6 +102,454 @@ private let table: [String: [String: String]] = [
     "menu.updateTo": [   // 后面接版本号，如「🆕 更新到 0.7.7」
         "en": "Update to", "zh": "更新到", "ja": "更新：",
         "ko": "업데이트:", "es": "Actualizar a", "fr": "Mettre à jour vers",
+    ],
+
+    // MARK: 菜单里的用量区（只显示正在跑的 AI CLI）
+    "usage.runningTip": [   // %d = 在跑的会话/进程数
+        "en": "%d session(s) running", "zh": "%d 个会话正在运行",
+        "ja": "%d 件のセッションが実行中", "ko": "%d개 세션 실행 중",
+        "es": "%d sesión(es) en ejecución", "fr": "%d session(s) en cours",
+    ],
+    "usage.notRunningTip": [
+        "en": "not running right now", "zh": "当前没有在运行",
+        "ja": "現在は実行していません", "ko": "지금은 실행 중이 아님",
+        "es": "no se está ejecutando ahora", "fr": "pas en cours d'exécution",
+    ],
+    "usage.resetIn": [      // %@ = 2h13m
+        "en": "resets in %@", "zh": "%@ 后重置",
+        "ja": "%@後にリセット", "ko": "%@ 후 초기화",
+        "es": "se reinicia en %@", "fr": "réinit. dans %@",
+    ],
+    "usage.resetting": [
+        "en": "resetting…", "zh": "正在重置…",
+        "ja": "リセット中…", "ko": "초기화 중…",
+        "es": "reiniciando…", "fr": "réinitialisation…",
+    ],
+    "usage.poolDefault": [  // 多池并存时，给没有可读名字的主池一个标题，免得它那两行看着无主
+        "en": "Subscription", "zh": "订阅额度",
+        "ja": "サブスクリプション", "ko": "구독 할당량",
+        "es": "Suscripción", "fr": "Abonnement",
+    ],
+    "usage.remaining": [    // %@ = 72（可能带对齐用的前导空格）
+        "en": "%@%% left", "zh": "剩余 %@%%",
+        "ja": "残り %@%%", "ko": "%@%% 남음",
+        "es": "queda %@%%", "fr": "%@%% restants",
+    ],
+    "usage.observed": [     // %@ = 3h12m；数值是本地观测到的最后一次，不是刚查的账户
+        "en": "observed %@ ago", "zh": "%@ 前观测到",
+        "ja": "%@前に観測", "ko": "%@ 전 관측",
+        "es": "observado hace %@", "fr": "observé il y a %@",
+    ],
+    "usage.observedNow": [
+        "en": "just observed", "zh": "刚刚观测到",
+        "ja": "たった今観測", "ko": "방금 관측",
+        "es": "observado ahora", "fr": "observé à l'instant",
+    ],
+    "usage.noSnapshot": [   // 还没收到过这个工具的额度上报（为什么没收到由下面三条说）
+        "en": "no quota reported yet", "zh": "还没收到额度上报",
+        "ja": "クォータ未取得", "ko": "할당량 보고 없음",
+        "es": "sin cuota reportada aún", "fr": "aucun quota reçu",
+    ],
+    // ── Hub HTTP API 的 reason/note 文案。**只有 zh/en**：一律经 LHub() 取，
+    // 和 Hub 页面同一条降级规则（非中文→英文）。这些字符串不出现在 app 界面里，
+    // 所以不需要另外四种语言 —— 留着没人校对的死译文只会误导下一个人。
+    "hubapi.reason.sessionExited": [
+        "en": "Session liveness unconfirmed; resuming requires its own dedicated action", "zh": "会话未确认存活；恢复必须使用独立动作",
+    ],
+    "hubapi.reason.ownerNotConnected": [
+        "en": "Not connected to the app-server hosting this session; monitoring is not an input channel", "zh": "未连接承载该会话的 app-server；监控不等于输入通道",
+    ],
+    "hubapi.reason.messagingDisabled": [
+        "en": "The session has no registered inbox", "zh": "会话没有已注册 inbox",
+    ],
+    "hubapi.reason.versionUnsupported": [
+        "en": "The target does not declare the supported peerProtocol 1; a software version alone is not proof", "zh": "目标未声明受支持的 peerProtocol 1；不能仅按软件版本推断",
+    ],
+    "hubapi.reason.sessionArchived": [
+        "en": "The session is archived; unarchive it in Codex before queueing messages", "zh": "会话已归档；先在 Codex 里 unarchive 才能排队消息",
+    ],
+    "hubapi.reason.sessionUnidentified": [
+        "en": "Missing the Codex thread id", "zh": "缺少 Codex thread id",
+    ],
+    "hubapi.reason.codexQueue": [
+        "en": "Queued into the Codex thread; handled when the session reads its next turn", "zh": "排进 Codex thread 队列；会话下一轮读取时处理",
+    ],
+    "hubapi.reason.claudeInbox": [
+        "en": "Peer message; subject to the target's inbound policy, delivery must be read back", "zh": "peer 消息；遵循目标 inbound 策略，送达需回读",
+    ],
+    "hubapi.cap.steer": [
+        "en": "Native steer is not wired up; a peer message does not interrupt a tool already running", "zh": "未接入原生 steer；peer 消息不打断正在执行的工具",
+    ],
+    "hubapi.cap.enqueue": [
+        "en": "Messages are never replayed automatically into an unconfirmed execution channel", "zh": "不在未确认的执行通道自动重放消息",
+    ],
+    "hubapi.cap.approve": [
+        "en": "Only an exactly matching, genuinely pending approval can be answered", "zh": "只允许答复准确匹配的真实挂起审批",
+    ],
+    "hubapi.cap.answer": [
+        "en": "No structured question/answer response channel is registered right now", "zh": "当前未注册结构化问答响应通道",
+    ],
+    "hubapi.cap.interrupt": [
+        "en": "Killing a process must not masquerade as a native interrupt", "zh": "不能通过杀进程冒充原生中断",
+    ],
+    "hubapi.cap.resume": [
+        "en": "Resume in the original client; starting a second process would fight over the same session", "zh": "请在原客户端恢复；避免另起进程抢占同一会话",
+    ],
+    "hubapi.cap.replyViaUI": [
+        "en": "The UI channel has not yet passed verification for targeting the right session", "zh": "UI 通道尚未完成准确会话定位验证",
+    ],
+    "hubapi.cap.approvePending": [
+        "en": "Answers only the approval request GestureApprove currently has pending", "zh": "仅答复当前 GestureApprove 挂起请求",
+    ],
+    "hubapi.err.codexMissing": [
+        "en": "The codex executable could not be found", "zh": "找不到 codex 可执行文件",
+    ],
+    "hubapi.err.queueTimeout": [
+        "en": "codex queue timed out without returning", "zh": "codex queue 超时未返回",
+    ],
+    "hubapi.err.queueNoOutput": [
+        "en": "codex queue produced no output", "zh": "codex queue 没有输出",
+    ],
+    "hubapi.ok.queued": [
+        "en": "Queued into the Codex thread; handled when the session reads its next turn", "zh": "已排进 Codex thread 队列；会话下一轮读取时处理",
+    ],
+    "hubapi.err.invalidMessage": [
+        "en": "A message must be 1–32000 bytes", "zh": "消息必须为 1–32000 字节",
+    ],
+    "hubapi.ok.unconfirmed": [
+        "en": "Written to the session inbox; the session log must confirm receipt — the inbound policy may hold or reject it", "zh": "已写入原会话 inbox；需会话记录确认接收，可能被 inbound 策略暂存或拒绝",
+    ],
+    "hubapi.ok.confirmedInLog": [
+        "en": "Confirmed in the target session's log", "zh": "已在目标会话记录中确认",
+    ],
+    "hubapi.err.persistence": [
+        "en": "The action record could not be persisted; nothing was sent or decided", "zh": "无法持久化操作记录；未发送或裁决",
+    ],
+    "hubapi.note.quotas": [
+        "en": "No Web API or Keychain was queried; values are the latest local observation. Model-specific allowances that were never reported cannot be inferred. Pools with current=false come from earlier reports and are kept only as history.", "zh": "未查询 Web API/Keychain；数值为最近本地观测。未下发的模型独立额度不可推算。current=false 的池来自更早的上报，仅作历史保留。",
+    ],
+    // ── 采集器安装/卸载的整套文案。走设置里的报错弹窗、菜单栏那行提示，
+    // 以及 Claude 状态栏（hook 子进程里 L() 一样能读到语言设置）。
+    "monitor.err.claudeUnreadable": [
+        "en": "Claude settings could not be parsed; nothing was changed", "zh": "Claude settings 无法解析，未修改",
+        "ja": "Claude の settings を解析できません。変更していません", "ko": "Claude settings를 해석할 수 없어 변경하지 않았습니다",
+        "es": "No se pudo leer la configuración de Claude; no se cambió nada", "fr": "Configuration Claude illisible ; rien n'a été modifié",
+    ],
+    "monitor.err.codexNotUTF8": [
+        "en": "The Codex config is not UTF-8; nothing was changed", "zh": "Codex 配置不是 UTF-8，未修改",
+        "ja": "Codex の設定が UTF-8 ではありません。変更していません", "ko": "Codex 설정이 UTF-8이 아니어서 변경하지 않았습니다",
+        "es": "La configuración de Codex no es UTF-8; no se cambió nada", "fr": "La configuration Codex n'est pas en UTF-8 ; rien n'a été modifié",
+    ],
+    "monitor.err.codexBlockBroken": [
+        "en": "The Codex collector block is incomplete; nothing was changed", "zh": "Codex 监控配置块不完整，未修改",
+        "ja": "Codex のコレクター設定ブロックが不完全です。変更していません", "ko": "Codex 수집기 설정 블록이 불완전하여 변경하지 않았습니다",
+        "es": "El bloque del recolector de Codex está incompleto; no se cambió nada", "fr": "Le bloc collecteur Codex est incomplet ; rien n'a été modifié",
+    ],
+    "monitor.err.toolMissing": [   // %1$@ = 工具名，%2$@ = 配置目录
+        "en": "%1$@ was not found on this Mac (%2$@ does not exist and its command is not on PATH); no file was created",
+        "zh": "未检测到 %1$@（%2$@ 不存在，PATH 里也没有它的命令），未创建任何文件",
+        "ja": "%1$@ が見つかりません（%2$@ が存在せず、PATH にもコマンドがありません）。ファイルは作成していません",
+        "ko": "%1$@를 찾을 수 없습니다(%2$@가 없고 PATH에도 명령이 없음). 파일을 만들지 않았습니다",
+        "es": "No se encontró %1$@ en este Mac (%2$@ no existe y su comando no está en PATH); no se creó ningún archivo",
+        "fr": "%1$@ est introuvable sur ce Mac (%2$@ n'existe pas et sa commande n'est pas dans le PATH) ; aucun fichier créé",
+    ],
+    "monitor.err.codexRejected": [
+        "en": "Codex could not load the updated config; the Codex config was rolled back (Claude is unaffected). Check hooks version compatibility.",
+        "zh": "Codex 未能加载更新后的配置，已回滚 Codex 配置（Claude 不受影响）；请检查 hooks 版本兼容性",
+        "ja": "Codex が更新後の設定を読み込めませんでした。Codex の設定のみロールバックしました（Claude は影響なし）。hooks のバージョン互換性を確認してください",
+        "ko": "Codex가 갱신된 설정을 불러오지 못해 Codex 설정만 되돌렸습니다(Claude는 영향 없음). hooks 버전 호환성을 확인하세요",
+        "es": "Codex no pudo cargar la configuración actualizada; se revirtió solo la de Codex (Claude no se ve afectado). Revisa la compatibilidad de versiones de hooks.",
+        "fr": "Codex n'a pas pu charger la configuration mise à jour ; seule celle de Codex a été annulée (Claude non affecté). Vérifiez la compatibilité des versions de hooks.",
+    ],
+    "monitor.err.unknownTarget": [
+        "en": "unknown collection target", "zh": "未知的采集目标",
+        "ja": "不明な収集対象", "ko": "알 수 없는 수집 대상",
+        "es": "objetivo de recopilación desconocido", "fr": "cible de collecte inconnue",
+    ],
+    "monitor.note.codexTrust": [
+        "en": "Review and trust the new definitions in Codex under /hooks; installed does not yet mean the client trusts them.",
+        "zh": "请在 Codex /hooks 审阅信任新定义；未收到事件前不宣称已生效",
+        "ja": "Codex の /hooks で新しい定義を確認し信頼してください。インストール済みでもクライアントが信頼したとは限りません",
+        "ko": "Codex의 /hooks에서 새 정의를 검토하고 신뢰하세요. 설치했다고 클라이언트가 신뢰한 것은 아닙니다",
+        "es": "Revisa y confía en las nuevas definiciones en Codex bajo /hooks; instalado no significa aún que el cliente confíe en ellas.",
+        "fr": "Vérifiez et approuvez les nouvelles définitions dans Codex sous /hooks ; installé ne signifie pas encore que le client les approuve.",
+    ],
+    "monitor.skip.notConnected": [
+        "en": "no collector connected; nothing to restore", "zh": "未接入采集器，无需还原",
+        "ja": "コレクター未接続。復元するものはありません", "ko": "연결된 수집기 없음. 복원할 것이 없습니다",
+        "es": "sin recolector conectado; nada que restaurar", "fr": "aucun collecteur connecté ; rien à restaurer",
+    ],
+    "monitor.hint.installed": [
+        "en": "Only newly started sessions pick up the collector; the original config is backed up alongside as .ga-monitor-backup.",
+        "zh": "新开的会话才会带上采集器；原配置已备份为同名 .ga-monitor-backup",
+        "ja": "新しく開いたセッションのみコレクターを読み込みます。元の設定は同名の .ga-monitor-backup に保存済みです",
+        "ko": "새로 시작한 세션만 수집기를 불러옵니다. 원본 설정은 같은 이름의 .ga-monitor-backup으로 백업했습니다",
+        "es": "Solo las sesiones nuevas cargan el recolector; la configuración original está respaldada como .ga-monitor-backup.",
+        "fr": "Seules les nouvelles sessions chargent le collecteur ; la configuration d'origine est sauvegardée en .ga-monitor-backup.",
+    ],
+    "monitor.hint.uninstalled": [
+        "en": "Restored; sessions already running still hold the old config.",
+        "zh": "已还原；运行中的会话仍持有旧配置",
+        "ja": "復元しました。実行中のセッションは古い設定を保持したままです",
+        "ko": "복원했습니다. 실행 중인 세션은 여전히 이전 설정을 사용합니다",
+        "es": "Restaurado; las sesiones en curso aún tienen la configuración anterior.",
+        "fr": "Restauré ; les sessions déjà en cours conservent l'ancienne configuration.",
+    ],
+    "monitor.statusline.waiting": [   // 装好后客户端还没报过额度时，状态栏那一行
+        "en": "quota: awaiting first report", "zh": "额度等待首次响应",
+        "ja": "クォータ: 初回の報告待ち", "ko": "할당량: 첫 보고 대기 중",
+        "es": "cuota: esperando el primer informe", "fr": "quota : en attente du premier rapport",
+    ],
+    "usage.collectOff": [   // 采集器没装：唯一能点的一行，点了就装
+        "en": "Quota collection is off — turn it on", "zh": "额度采集未开启 · 点此开启",
+        "ja": "クォータ収集はオフ · タップで有効化", "ko": "할당량 수집 꺼짐 · 눌러서 켜기",
+        "es": "Recopilación de cuota desactivada: actívala", "fr": "Collecte du quota désactivée — activer",
+    ],
+    "usage.collectBroken": [   // 装过，但配置指向旧路径/被别的工具换走
+        "en": "Collection config is stale — repair it", "zh": "采集配置已失效 · 点此修复",
+        "ja": "収集設定が無効です · タップで修復", "ko": "수집 설정이 무효 · 눌러서 복구",
+        "es": "Configuración de recopilación obsoleta: repárala", "fr": "Configuration de collecte obsolète — réparer",
+    ],
+    "usage.collectWaiting": [  // 装好了，等客户端下一次刷状态栏
+        "en": "Collecting — new sessions report on next refresh", "zh": "已开启 · 新开的会话刷新状态栏后显示",
+        "ja": "収集中 · 新しいセッションの次回更新で表示", "ko": "수집 중 · 새 세션의 다음 갱신 후 표시",
+        "es": "Recopilando: aparecerá tras la próxima actualización", "fr": "Collecte active — visible à la prochaine actualisation",
+    ],
+    "usage.collectConfirm.title": [
+        "en": "Turn on quota collection?", "zh": "开启额度采集？",
+        "ja": "クォータ収集を有効にしますか？", "ko": "할당량 수집을 켤까요?",
+        "es": "¿Activar la recopilación de cuota?", "fr": "Activer la collecte du quota ?",
+    ],
+    "usage.collectConfirm.body": [
+        "en": "Registers hooks in the config of each AI tool found on this Mac and wraps its status line (your own status line still runs). The original config is backed up next to it; turning this off restores it. Only tools you actually have are touched.",
+        "zh": "会在本机检测到的每个 AI 工具的配置里注册 hook，并包装它的状态栏（你原来的状态栏照常执行）。原配置会备份在旁边，关掉即还原。没装的工具一个字节都不写。",
+        "ja": "このMacで検出した各AIツールの設定にフックを登録し、ステータスラインをラップします（元のステータスラインもそのまま動作）。元の設定は隣にバックアップされ、オフにすると復元されます。",
+        "ko": "이 Mac에서 발견된 각 AI 도구 설정에 훅을 등록하고 상태 표시줄을 감쌉니다(기존 상태 표시줄도 그대로 실행). 원본 설정은 옆에 백업되며 끄면 복원됩니다.",
+        "es": "Registra hooks en la configuración de cada herramienta de IA encontrada en este Mac y envuelve su status line (la tuya sigue ejecutándose). La configuración original se respalda al lado; al desactivarlo se restaura.",
+        "fr": "Enregistre des hooks dans la configuration de chaque outil d'IA détecté sur ce Mac et encapsule sa status line (la vôtre continue de s'exécuter). La configuration d'origine est sauvegardée à côté ; la désactivation la restaure.",
+    ],
+    "usage.collectConfirm.ok": [
+        "en": "Turn On", "zh": "开启",
+        "ja": "有効にする", "ko": "켜기",
+        "es": "Activar", "fr": "Activer",
+    ],
+    "settings.usage.collect": [
+        "en": "Collect quota from installed AI tools", "zh": "接入本机 AI 工具的额度采集",
+        "ja": "インストール済み AI ツールからクォータを収集", "ko": "설치된 AI 도구에서 할당량 수집",
+        "es": "Recopilar cuota de las herramientas de IA instaladas", "fr": "Collecter le quota des outils d'IA installés",
+    ],
+    "settings.usage.collectNote": [
+        "en": "Quota only exists where each client reports it — Claude via its status line, Codex via its session records. Turning this on registers a collector in the config of every AI tool found on this Mac; tools you don't have are left alone.",
+        "zh": "额度只有各家客户端自己报得出来 —— Claude 走 statusLine，Codex 走会话记录。勾上会在本机检测到的每个 AI 工具的配置里注册采集器；没装的工具一概不碰。",
+        "ja": "クォータは各クライアントが報告するものだけです（Claude はステータスライン、Codex はセッション記録）。オンにすると、このMacで検出した各 AI ツールの設定にコレクターを登録します。未インストールのツールには触れません。",
+        "ko": "할당량은 각 클라이언트가 보고하는 것만 존재합니다(Claude는 상태 표시줄, Codex는 세션 기록). 켜면 이 Mac에서 발견된 각 AI 도구 설정에 수집기를 등록하며, 설치되지 않은 도구는 건드리지 않습니다.",
+        "es": "La cuota solo existe donde cada cliente la reporta: Claude vía su status line, Codex vía sus registros de sesión. Al activarlo se registra un recolector en la configuración de cada herramienta de IA encontrada en este Mac; las que no tengas no se tocan.",
+        "fr": "Le quota n'existe que là où chaque client le rapporte — Claude via sa status line, Codex via ses enregistrements de session. L'activer enregistre un collecteur dans la configuration de chaque outil d'IA détecté sur ce Mac ; les outils absents ne sont pas touchés.",
+    ],
+    "settings.usage.collectPrivacy": [
+        "en": "No browser, no account Web API, no Keychain. Your own status line still runs, the original config is backed up next to it, and turning this off restores it.",
+        "zh": "不读浏览器、不调账户 Web API、不碰钥匙串。你原来的状态栏照常执行，原配置备份在旁边，关掉即还原。",
+        "ja": "ブラウザもアカウント Web API も Keychain も使いません。元のステータスラインはそのまま動作し、元の設定は隣にバックアップされ、オフにすると復元されます。",
+        "ko": "브라우저, 계정 웹 API, 키체인을 사용하지 않습니다. 기존 상태 표시줄은 그대로 실행되고, 원본 설정은 옆에 백업되며 끄면 복원됩니다.",
+        "es": "Sin navegador, sin Web API de cuenta, sin Llavero. Tu propia status line sigue ejecutándose, la configuración original se respalda al lado y al desactivarlo se restaura.",
+        "fr": "Pas de navigateur, pas d'API Web de compte, pas de trousseau. Votre propre status line continue de s'exécuter, la configuration d'origine est sauvegardée à côté et la désactivation la restaure.",
+    ],
+    "settings.usage.state.collecting": [
+        "en": "collecting", "zh": "采集中",
+        "ja": "収集中", "ko": "수집 중",
+        "es": "recopilando", "fr": "collecte active",
+    ],
+    "settings.usage.state.stale": [
+        "en": "config stale — reopen this window to repair", "zh": "配置已失效 · 重开本窗口即自动修复",
+        "ja": "設定が無効 · このウィンドウを開き直すと修復", "ko": "설정 무효 · 이 창을 다시 열면 복구",
+        "es": "config obsoleta: reabre esta ventana para repararla", "fr": "config obsolète — rouvrez cette fenêtre pour réparer",
+    ],
+    "settings.usage.state.absent": [
+        "en": "not connected", "zh": "未接入",
+        "ja": "未接続", "ko": "연결 안 됨",
+        "es": "no conectado", "fr": "non connecté",
+    ],
+    "settings.usage.state.missing": [
+        "en": "not installed on this Mac", "zh": "本机未安装",
+        "ja": "このMacに未インストール", "ko": "이 Mac에 미설치",
+        "es": "no instalado en este Mac", "fr": "non installé sur ce Mac",
+    ],
+    "usage.pending": [      // 窗口刚重置，等下一次请求才有新数值
+        "en": "waiting for next request", "zh": "等下次请求刷新",
+        "ja": "次のリクエスト待ち", "ko": "다음 요청 대기 중",
+        "es": "esperando la próxima solicitud", "fr": "en attente d'une requête",
+    ],
+    "usage.noCredentials": [
+        "en": "Claude Code credentials unavailable", "zh": "读不到 Claude Code 凭证",
+        "ja": "Claude Code の認証情報を取得できません", "ko": "Claude Code 자격 증명을 읽을 수 없음",
+        "es": "Credenciales de Claude Code no disponibles", "fr": "Identifiants Claude Code indisponibles",
+    ],
+    "usage.keychainDenied": [
+        "en": "Keychain access denied — restart to retry", "zh": "钥匙串访问被拒绝，重启 app 可重试",
+        "ja": "キーチェーンアクセスが拒否されました（再起動で再試行）", "ko": "키체인 접근 거부됨 — 재시작 후 재시도",
+        "es": "Acceso al llavero denegado: reinicia para reintentar", "fr": "Accès au trousseau refusé — redémarrez pour réessayer",
+    ],
+    "usage.rateLimited": [
+        "en": "usage API throttled, retrying later", "zh": "用量接口被限流，稍后重试",
+        "ja": "使用量 API が制限中、後で再試行", "ko": "사용량 API 제한 중, 나중에 재시도",
+        "es": "API de uso limitada, reintentando", "fr": "API d'usage limitée, nouvel essai plus tard",
+    ],
+    "usage.fetchFailed": [
+        "en": "couldn't fetch usage", "zh": "用量获取失败",
+        "ja": "使用量を取得できませんでした", "ko": "사용량을 가져오지 못함",
+        "es": "no se pudo obtener el uso", "fr": "impossible de récupérer l'usage",
+    ],
+    // 数据来源问询（Chrome 网页通道 vs 本机钥匙串）
+    "usage.notify.title": [
+        "en": "Usage is in", "zh": "用量获取成功",
+        "ja": "使用量を取得しました", "ko": "사용량을 가져왔습니다",
+        "es": "Uso obtenido", "fr": "Usage récupéré",
+    ],
+    "usage.chooseSource": [
+        "en": "Choose where to read usage…", "zh": "选择用量数据来源…",
+        "ja": "使用量の取得元を選ぶ…", "ko": "사용량 출처 선택…",
+        "es": "Elegir de dónde leer el uso…", "fr": "Choisir la source de l'usage…",
+    ],
+    "usage.ask.title": [
+        "en": "Read Claude usage in the browser",
+        "zh": "在浏览器中获取 Claude 用量信息",
+        "ja": "ブラウザで Claude の使用量を取得",
+        "ko": "브라우저에서 Claude 사용량 가져오기",
+        "es": "Leer el uso de Claude en el navegador",
+        "fr": "Lire l'usage de Claude dans le navigateur",
+    ],
+    "usage.ask.firstTime": [
+        "en": "Your usage can be read from a signed-in claude.ai tab in Chrome, which never asks for permission and stays signed in for months. Or read it through the Keychain, which asks again every time Claude Code refreshes its token.",
+        "zh": "用量可以借 Chrome 里已登录的 claude.ai 标签页读取，全程不弹授权框，登录态还能撑好几个月。或者走 Keychain 读，但每次 Claude Code 刷新 token 之后系统都会再问你一次。",
+        "ja": "使用量は Chrome のログイン済み claude.ai タブから取得できます。許可を求められることはなく、ログインも数か月保ちます。あるいはキーチェーン経由でも読めますが、Claude Code がトークンを更新するたびに許可を聞かれます。",
+        "ko": "사용량은 Chrome에 로그인된 claude.ai 탭에서 읽을 수 있고, 권한을 묻지 않으며 로그인도 몇 달 유지됩니다. 아니면 키체인으로 읽을 수도 있지만, Claude Code가 토큰을 갱신할 때마다 다시 묻습니다.",
+        "es": "El uso puede leerse desde una pestaña de claude.ai con sesión iniciada en Chrome, que nunca pide permiso y sigue conectada durante meses. O léelo con el llavero, que vuelve a pedir permiso cada vez que Claude Code renueva su token.",
+        "fr": "L'usage peut être lu depuis un onglet claude.ai connecté dans Chrome, qui ne demande jamais d'autorisation et reste connecté des mois. Ou lisez-le via le trousseau, qui redemande l'autorisation à chaque renouvellement de jeton par Claude Code.",
+    ],
+    "usage.ask.noTab": [
+        "en": "Chrome doesn't have a signed-in claude.ai tab open right now. Opening one keeps usage prompt-free, or you can read it through the Keychain instead, which asks for permission again every time Claude Code refreshes its token.",
+        "zh": "Chrome 里现在没有已登录的 claude.ai 标签页。开一个就能继续不弹授权框地读用量，或者改走 Keychain，但每次 Claude Code 刷新 token 之后系统都会再问你一次。",
+        "ja": "Chrome にログイン済みの claude.ai タブが今ありません。開けば許可を求められずに取得を続けられます。キーチェーン経由に切り替えることもできますが、Claude Code がトークンを更新するたびに許可を聞かれます。",
+        "ko": "지금 Chrome에 로그인된 claude.ai 탭이 없습니다. 하나 열면 권한 창 없이 계속 읽을 수 있고, 대신 키체인으로 읽을 수도 있지만 Claude Code가 토큰을 갱신할 때마다 다시 묻습니다.",
+        "es": "Ahora mismo Chrome no tiene abierta ninguna pestaña de claude.ai con sesión iniciada. Abrir una mantiene la lectura sin diálogos, o puedes leerlo con el llavero, que vuelve a pedir permiso cada vez que Claude Code renueva su token.",
+        "fr": "Aucun onglet claude.ai connecté n'est ouvert dans Chrome pour le moment. En ouvrir un permet de continuer sans autorisation, ou vous pouvez lire via le trousseau, qui redemande l'autorisation à chaque renouvellement de jeton.",
+    ],
+    "usage.ask.jsDisabled": [
+        "en": "Chrome is blocking scripted access, so turn on View ▸ Developer ▸ Allow JavaScript from Apple Events and try again. Or read usage through the Keychain instead, which asks for permission again every time Claude Code refreshes its token.",
+        "zh": "Chrome 挡住了脚本访问，到菜单栏打开「显示 ▸ 开发者 ▸ 允许通过 Apple 事件执行 JavaScript」再试一次。或者改走 Keychain 读取，但每次 Claude Code 刷新 token 之后系统都会再问你一次。",
+        "ja": "Chrome がスクリプトからのアクセスを拒否しています。「表示 ▸ デベロッパー ▸ Apple Events からの JavaScript を許可」をオンにしてもう一度お試しください。キーチェーン経由でも読めますが、Claude Code がトークンを更新するたびに許可を聞かれます。",
+        "ko": "Chrome가 스크립트 접근을 막고 있습니다. ‘보기 ▸ 개발자용 ▸ Apple Events의 JavaScript 허용’을 켜고 다시 시도하세요. 대신 키체인으로 읽을 수도 있지만, Claude Code가 토큰을 갱신할 때마다 다시 묻습니다.",
+        "es": "Chrome bloquea el acceso por script: activa Ver ▸ Desarrollador ▸ Permitir JavaScript desde Apple Events e inténtalo otra vez. O lee el uso con el llavero, que vuelve a pedir permiso cada vez que Claude Code renueva su token.",
+        "fr": "Chrome bloque l'accès par script : activez Affichage ▸ Développement ▸ Autoriser JavaScript depuis les Apple Events, puis réessayez. Ou lisez l'usage via le trousseau, qui redemande l'autorisation à chaque renouvellement de jeton.",
+    ],
+    "usage.ask.otherAccount": [
+        "en": "The claude.ai tab is signed in to a different account than Claude Code, so its numbers wouldn't be yours. Sign in with the same account, or read usage through the Keychain, which always uses Claude Code's own login but asks for permission after every token refresh.",
+        "zh": "claude.ai 标签页登录的账号和 Claude Code 用的不是同一个，那边的数字不是你这个额度。换成同一个账号登录，或者改走 Keychain——它读的一定是 Claude Code 自己的登录态，但每次 token 刷新后都会问一次授权。",
+        "ja": "claude.ai タブは Claude Code とは別のアカウントでログインしているため、その数字はあなたの使用量ではありません。同じアカウントでログインし直すか、キーチェーン経由にしてください（常に Claude Code 自身のログインを使いますが、トークン更新のたびに許可を求められます）。",
+        "ko": "claude.ai 탭이 Claude Code와 다른 계정으로 로그인되어 있어 그 수치는 내 사용량이 아닙니다. 같은 계정으로 로그인하거나 키체인으로 읽으세요. 키체인은 항상 Claude Code의 로그인을 쓰지만 토큰 갱신 때마다 권한을 묻습니다.",
+        "es": "La pestaña de claude.ai tiene iniciada una cuenta distinta a la de Claude Code, así que esos números no serían los tuyos. Inicia sesión con la misma cuenta o lee el uso con el llavero, que siempre usa la sesión de Claude Code pero pide permiso tras cada renovación del token.",
+        "fr": "L'onglet claude.ai est connecté à un compte différent de celui de Claude Code : ces chiffres ne seraient pas les vôtres. Connectez-vous au même compte, ou lisez l'usage via le trousseau, qui utilise toujours la session de Claude Code mais demande l'autorisation à chaque renouvellement de jeton.",
+    ],
+    "usage.ask.otherFailure": [
+        "en": "The claude.ai tab didn't return anything, so the sign-in may have expired — open Claude Web to check. Or read usage through the Keychain instead, which asks for permission again every time Claude Code refreshes its token.",
+        "zh": "claude.ai 标签页什么都没返回，可能是登录态过期了，打开 Claude Web 看一眼。或者改走 Keychain 读取，但每次 Claude Code 刷新 token 之后系统都会再问你一次。",
+        "ja": "claude.ai タブから何も返ってきませんでした。ログインが切れている可能性があるので、Claude Web を開いて確認してください。キーチェーン経由でも読めますが、トークン更新のたびに許可を聞かれます。",
+        "ko": "claude.ai 탭이 아무것도 반환하지 않았습니다. 로그인이 만료됐을 수 있으니 Claude Web을 열어 확인해 보세요. 대신 키체인으로 읽을 수도 있지만, 토큰이 갱신될 때마다 다시 묻습니다.",
+        "es": "La pestaña de claude.ai no devolvió nada, así que puede que la sesión haya caducado: abre Claude Web para comprobarlo. O lee el uso con el llavero, que vuelve a pedir permiso cada vez que Claude Code renueva su token.",
+        "fr": "L'onglet claude.ai n'a rien renvoyé, la connexion a peut-être expiré — ouvrez Claude Web pour vérifier. Ou lisez l'usage via le trousseau, qui redemande l'autorisation à chaque renouvellement de jeton.",
+    ],
+    "usage.ask.useChrome": [
+        "en": "Open Claude Web", "zh": "打开 Claude Web",
+        "ja": "Claude Web を開く", "ko": "Claude Web 열기",
+        "es": "Abrir Claude Web", "fr": "Ouvrir Claude Web",
+    ],
+    "usage.ask.useKeychain": [
+        "en": "Read via Keychain", "zh": "通过 Keychain 读取",
+        "ja": "キーチェーンで読み取る", "ko": "키체인으로 읽기",
+        "es": "Leer con el llavero", "fr": "Lire via le trousseau",
+    ],
+    "usage.ask.snooze": [
+        "en": "Skip usage for now", "zh": "暂不获取用量",
+        "ja": "今は取得しない", "ko": "지금은 가져오지 않기",
+        "es": "No leer el uso por ahora", "fr": "Ne pas lire l'usage pour l'instant",
+    ],
+    "usage.chromeNoTab": [
+        "en": "no signed-in claude.ai tab in Chrome", "zh": "Chrome 里没有已登录的 claude.ai 标签页",
+        "ja": "ログイン済みの claude.ai タブがありません", "ko": "Chrome에 로그인된 claude.ai 탭 없음",
+        "es": "sin pestaña de claude.ai con sesión en Chrome", "fr": "aucun onglet claude.ai connecté dans Chrome",
+    ],
+    "usage.chromeJSOff": [
+        "en": "Chrome blocks JavaScript from Apple Events", "zh": "Chrome 未允许通过 Apple 事件执行 JavaScript",
+        "ja": "Chrome が Apple Events からの JavaScript を拒否", "ko": "Chrome가 Apple Events의 JavaScript를 차단함",
+        "es": "Chrome bloquea JavaScript desde Apple Events", "fr": "Chrome bloque JavaScript depuis les Apple Events",
+    ],
+    "usage.chromeOtherAccount": [
+        "en": "browser signed in to a different account", "zh": "浏览器登录的是另一个账号",
+        "ja": "ブラウザは別アカウントでログイン中", "ko": "브라우저가 다른 계정으로 로그인됨",
+        "es": "el navegador tiene otra cuenta iniciada", "fr": "navigateur connecté à un autre compte",
+    ],
+    "usage.chromeFailed": [
+        "en": "claude.ai tab didn't return usage", "zh": "claude.ai 标签页没返回用量",
+        "ja": "claude.ai タブから取得できませんでした", "ko": "claude.ai 탭에서 사용량을 받지 못함",
+        "es": "la pestaña de claude.ai no devolvió el uso", "fr": "l'onglet claude.ai n'a rien renvoyé",
+    ],
+
+    "usage.codexNoSnapshot": [
+        "en": "no recent quota snapshot", "zh": "暂无最近的额度快照",
+        "ja": "最近のクォータ情報がありません", "ko": "최근 할당량 스냅샷 없음",
+        "es": "sin datos de cuota recientes", "fr": "aucun relevé de quota récent",
+    ],
+
+    "settings.usage.enable": [
+        "en": "Show AI CLI usage in the menu", "zh": "在菜单里显示 AI CLI 用量",
+        "ja": "メニューに AI CLI の使用量を表示", "ko": "메뉴에 AI CLI 사용량 표시",
+        "es": "Mostrar el uso de las CLI de IA en el menú", "fr": "Afficher l'usage des CLI IA dans le menu",
+    ],
+    "settings.usage.note": [
+        "en": "Only tools that are actually running are listed. Codex quota comes from local session files; for Claude Code, pick where to read it:",
+        "zh": "只列出真正在跑的工具。Codex 的额度直接读本地会话文件；Claude Code 的额度从哪里取由你决定：",
+        "ja": "実行中のツールのみ表示します。Codex のクォータはローカルのセッションファイルから取得します。Claude Code は取得元を選べます:",
+        "ko": "실행 중인 도구만 표시합니다. Codex 할당량은 로컬 세션 파일에서 읽고, Claude Code는 출처를 선택할 수 있습니다:",
+        "es": "Solo se listan las herramientas en ejecución. La cuota de Codex se lee de archivos locales; para Claude Code, elige de dónde leerla:",
+        "fr": "Seuls les outils réellement en cours sont listés. Le quota Codex provient des fichiers locaux ; pour Claude Code, choisissez la source :",
+    ],
+    "settings.usage.source": [
+        "en": "Claude Code usage from", "zh": "Claude Code 用量取自",
+        "ja": "Claude Code の使用量の取得元", "ko": "Claude Code 사용량 출처",
+        "es": "Uso de Claude Code desde", "fr": "Usage Claude Code depuis",
+    ],
+    "settings.usage.sourceAsk": [
+        "en": "Ask me", "zh": "问我",
+        "ja": "確認する", "ko": "물어보기",
+        "es": "Preguntarme", "fr": "Me demander",
+    ],
+    "settings.usage.sourceChrome": [
+        "en": "Chrome", "zh": "Chrome",
+        "ja": "Chrome", "ko": "Chrome",
+        "es": "Chrome", "fr": "Chrome",
+    ],
+    "settings.usage.sourceKeychain": [
+        "en": "Keychain", "zh": "钥匙串",
+        "ja": "キーチェーン", "ko": "키체인",
+        "es": "Llavero", "fr": "Trousseau",
+    ],
+    "settings.usage.snoozed": [
+        "en": "Not asking about usage for 24 hours.", "zh": "24 小时内不再主动询问用量。",
+        "ja": "24 時間は使用量について確認しません。", "ko": "24시간 동안 사용량을 묻지 않습니다.",
+        "es": "No se preguntará por el uso durante 24 horas.", "fr": "Aucune demande sur l'usage pendant 24 h.",
+    ],
+    "settings.usage.resume": [
+        "en": "Resume now", "zh": "立即恢复",
+        "ja": "今すぐ再開", "ko": "지금 다시 켜기",
+        "es": "Reanudar ahora", "fr": "Reprendre",
+    ],
+    "settings.usage.sourceNote": [
+        "en": "Chrome needs a signed-in claude.ai tab and never prompts; the Keychain route asks for permission again whenever Claude Code refreshes its token.",
+        "zh": "Chrome 需要开着已登录的 claude.ai 标签页，全程不弹授权框；钥匙串那条路每次 Claude Code 刷新 token 后都会再问一次授权。",
+        "ja": "Chrome はログイン済みの claude.ai タブが必要ですが、許可ダイアログは出ません。キーチェーンは Claude Code がトークンを更新するたびに許可を求められます。",
+        "ko": "Chrome는 로그인된 claude.ai 탭이 필요하지만 권한 창이 뜨지 않습니다. 키체인은 Claude Code가 토큰을 갱신할 때마다 권한을 다시 묻습니다.",
+        "es": "Chrome requiere una pestaña de claude.ai con sesión iniciada y nunca pide permiso; la vía del llavero lo pide otra vez cada vez que Claude Code renueva su token.",
+        "fr": "Chrome nécessite un onglet claude.ai connecté et ne demande jamais d'autorisation ; la voie du trousseau en redemande à chaque renouvellement de jeton.",
     ],
 
     // MARK: 审批日志窗口
@@ -741,6 +1199,110 @@ private let table: [String: [String: String]] = [
         "ko": "Claude와 Codex는 이미 스마트 hook을 갖추고 있어(모드 인식 / 물어봐야 할 때만 발동) 이 로컬 모델이 필요 없습니다. 주로 모든 도구 호출마다 발동하는 Gemini, Kimi 같은 CLI에 유용합니다.",
         "es": "Claude y Codex ya tienen un hook inteligente (según el modo / solo se activa cuando preguntarían), así que no necesitan este modelo local. Ayuda sobre todo a CLIs como Gemini y Kimi que se activan en cada llamada de herramienta.",
         "fr": "Claude et Codex disposent déjà d'un hook intelligent (selon le mode / ne se déclenche que s'ils demanderaient), ils n'ont donc pas besoin de ce modèle local. Utile surtout pour des CLI comme Gemini et Kimi qui se déclenchent à chaque appel d'outil.",
+    ],
+    // MARK: Agent 完成通知（Claude Code 的 Stop hook → 桌面横幅 + Remote Hub /events）
+    "settings.section.agentnotify": [
+        "en": "Agent finished alerts", "zh": "Agent 完成通知",
+        "ja": "エージェント完了通知", "ko": "에이전트 완료 알림",
+        "es": "Avisos de agente terminado", "fr": "Alertes de fin d'agent",
+    ],
+    "settings.agentnotify.desc": [
+        "en": "Get told the moment the agent finishes a turn. Installs a Stop hook (Claude Code: ~/.claude/settings.json · Codex: ~/.codex/config.toml). It only watches — it never blocks or changes what the agent does. Gemini and Kimi have no equivalent event.",
+        "zh": "Agent 跑完一轮的那一刻就告诉你。装的是 Stop hook（Claude Code 写 ~/.claude/settings.json，Codex 写 ~/.codex/config.toml）。它只旁观，绝不阻塞或改变 agent 的行为。Gemini、Kimi 没有对应事件。",
+        "ja": "エージェントが一区切りついた瞬間に知らせます。Stop hook を追加します（Claude Code は ~/.claude/settings.json、Codex は ~/.codex/config.toml）。監視するだけで、動作を止めたり変えたりしません。Gemini と Kimi には相当するイベントがありません。",
+        "ko": "에이전트가 한 턴을 마치는 순간 알려줍니다. Stop hook을 설치합니다(Claude Code는 ~/.claude/settings.json, Codex는 ~/.codex/config.toml). 관찰만 할 뿐 막거나 바꾸지 않습니다. Gemini와 Kimi에는 해당 이벤트가 없습니다.",
+        "es": "Te avisa en cuanto el agente termina un turno. Instala un hook Stop (Claude Code: ~/.claude/settings.json · Codex: ~/.codex/config.toml). Solo observa: nunca bloquea ni cambia lo que hace el agente. Gemini y Kimi no tienen un evento equivalente.",
+        "fr": "Vous prévient dès que l'agent termine un tour. Installe un hook Stop (Claude Code : ~/.claude/settings.json · Codex : ~/.codex/config.toml). Il se contente d'observer : il ne bloque ni ne modifie l'agent. Gemini et Kimi n'ont pas d'événement équivalent.",
+    ],
+    "settings.agentnotify.codexTrust": [
+        "en": "Codex asks once: next time you open it, the hooks review appears — press t (\"Trust all\") or the hook won't run. Your existing notify setting is left alone.",
+        "zh": "Codex 需要信任一次：下次打开它会弹 hooks 审阅，按 t（Trust all）即可，否则 hook 不会运行。你已有的 notify 配置不会被动。",
+        "ja": "Codex は一度だけ確認します：次回起動時に hooks レビューが出るので t（Trust all）を押してください。押さないと hook は動きません。既存の notify 設定には触れません。",
+        "ko": "Codex는 한 번 확인합니다: 다음에 열면 hooks 검토가 뜨니 t(Trust all)를 누르세요. 누르지 않으면 hook이 실행되지 않습니다. 기존 notify 설정은 건드리지 않습니다.",
+        "es": "Codex pregunta una vez: la próxima vez que lo abras aparecerá la revisión de hooks — pulsa t (\"Trust all\") o el hook no se ejecutará. Tu ajuste notify existente no se toca.",
+        "fr": "Codex demande une fois : à la prochaine ouverture, la revue des hooks apparaît — appuyez sur t (« Trust all ») sinon le hook ne s'exécutera pas. Votre réglage notify existant n'est pas touché.",
+    ],
+    "settings.agentnotify.desktop": [
+        "en": "Desktop notification (system banner)", "zh": "桌面通知（系统横幅）",
+        "ja": "デスクトップ通知（バナー）", "ko": "데스크톱 알림(배너)",
+        "es": "Notificación de escritorio (banner)", "fr": "Notification bureau (bannière)",
+    ],
+    "settings.agentnotify.hub": [
+        "en": "Push to the Remote Hub (visible on your phone)",
+        "zh": "推送到远程 Hub（手机上可见）",
+        "ja": "リモート Hub に送る（スマホで見える）",
+        "ko": "원격 Hub로 푸시(휴대폰에서 확인)",
+        "es": "Enviar al Hub remoto (visible en el móvil)",
+        "fr": "Envoyer au Hub distant (visible sur le téléphone)",
+    ],
+    "settings.agentnotify.hubNote": [
+        "en": "Devices read them from the Hub's GET /events long-poll; the Hub page shows the latest ones at the top.",
+        "zh": "设备走 Hub 的 GET /events 长轮询取；Hub 页面顶部也会显示最近几条。",
+        "ja": "デバイスは Hub の GET /events（ロングポーリング）で取得します。Hub のページ上部にも最近の分が並びます。",
+        "ko": "장치는 Hub의 GET /events 롱 폴링으로 가져옵니다. Hub 페이지 상단에도 최근 항목이 표시됩니다.",
+        "es": "Los dispositivos las leen con el long-poll GET /events del Hub; la página del Hub muestra las últimas arriba.",
+        "fr": "Les appareils les lisent via le long-poll GET /events du Hub ; la page du Hub affiche les dernières en haut.",
+    ],
+    // 专注状态权限：没有它，勿扰/专注时完成提示音照样会响
+    "settings.agentnotify.focusMissing": [
+        "en": "No Focus permission — the sound will still play during Do Not Disturb",
+        "zh": "未获得「专注模式」权限 —— 勿扰时提示音仍会响",
+        "ja": "「集中モード」の権限がありません —— おやすみ中でも音が鳴ります",
+        "ko": "「집중 모드」 권한 없음 — 방해 금지 중에도 소리가 납니다",
+        "es": "Sin permiso de Concentración: el sonido seguirá sonando en No molestar",
+        "fr": "Pas d'autorisation Concentration — le son se déclenchera même en Ne pas déranger",
+    ],
+    "settings.agentnotify.focusGrant": [
+        "en": "Grant…", "zh": "去授权…", "ja": "許可する…", "ko": "권한 부여…",
+        "es": "Conceder…", "fr": "Autoriser…",
+    ],
+    "focus.alert.title": [
+        "en": "Agent alerts need Focus permission",
+        "zh": "完成通知需要「专注模式」权限",
+        "ja": "完了通知には「集中モード」の権限が必要です",
+        "ko": "완료 알림에는 「집중 모드」 권한이 필요합니다",
+        "es": "Los avisos del agente necesitan permiso de Concentración",
+        "fr": "Les alertes d'agent nécessitent l'autorisation Concentration",
+    ],
+    "focus.alert.body": [
+        "en": "Without it GestureApprove can't tell whether a Focus is on, so the completion sound plays even during Do Not Disturb. macOS only asks once, so grant it in System Settings → Privacy & Security → Focus. It reads one thing — Focus on or off — and nothing leaves your Mac.",
+        "zh": "没有它，GestureApprove 无法判断你是否开着专注模式，勿扰时那声提示音照样会响。macOS 只会询问一次，所以请到「系统设置 → 隐私与安全性 → 专注模式」里打开。它只读一个状态——专注开着还是关着——不会离开这台 Mac。",
+        "ja": "これがないと集中モード中かどうか判別できず、おやすみ中でも完了音が鳴ります。macOS は一度しか尋ねないため「システム設定 → プライバシーとセキュリティ → 集中モード」で許可してください。読み取るのは集中モードのオン/オフだけで、Mac の外には出ません。",
+        "ko": "이 권한이 없으면 집중 모드 여부를 알 수 없어 방해 금지 중에도 완료음이 납니다. macOS는 한 번만 묻기 때문에 「시스템 설정 → 개인정보 보호 및 보안 → 집중 모드」에서 허용해 주세요. 집중 모드의 켜짐/꺼짐만 읽으며 Mac 밖으로 나가지 않습니다.",
+        "es": "Sin él, GestureApprove no sabe si hay una Concentración activa y el sonido suena incluso en No molestar. macOS solo pregunta una vez: concédelo en Ajustes del Sistema → Privacidad y seguridad → Concentración. Solo lee si la Concentración está activa; nada sale de tu Mac.",
+        "fr": "Sans elle, GestureApprove ignore si un mode Concentration est actif et le son se déclenche même en Ne pas déranger. macOS ne demande qu'une fois : accordez-la dans Réglages Système → Confidentialité et sécurité → Concentration. Elle lit uniquement l'état actif/inactif ; rien ne quitte votre Mac.",
+    ],
+    "focus.alert.open": [
+        "en": "Open System Settings", "zh": "打开系统设置",
+        "ja": "システム設定を開く", "ko": "시스템 설정 열기",
+        "es": "Abrir Ajustes del Sistema", "fr": "Ouvrir Réglages Système",
+    ],
+    "focus.alert.disable": [
+        "en": "Turn off agent alerts", "zh": "关闭完成通知",
+        "ja": "完了通知をオフにする", "ko": "완료 알림 끄기",
+        "es": "Desactivar los avisos", "fr": "Désactiver les alertes",
+    ],
+    "focus.alert.later": [
+        "en": "Later", "zh": "以后再说", "ja": "あとで", "ko": "나중에",
+        "es": "Más tarde", "fr": "Plus tard",
+    ],
+    "agent.notify.waiting": [
+        "en": "Waiting for your input", "zh": "在等你回话",
+        "ja": "あなたの入力を待っています", "ko": "당신의 입력을 기다리는 중",
+        "es": "Esperando tu respuesta", "fr": "En attente de votre réponse",
+    ],
+    "agent.notify.title": [
+        "en": "Agent finished", "zh": "Agent 已完成",
+        "ja": "エージェント完了", "ko": "에이전트 완료",
+        "es": "Agente terminado", "fr": "Agent terminé",
+    ],
+    "agent.notify.noSummary": [
+        "en": "This turn is done (no text reply to show).",
+        "zh": "这一轮结束了（没有可显示的文字回复）。",
+        "ja": "この一区切りが終わりました（表示できる返答テキストはありません）。",
+        "ko": "이번 턴이 끝났습니다(표시할 텍스트 응답 없음).",
+        "es": "Este turno terminó (sin respuesta de texto que mostrar).",
+        "fr": "Ce tour est terminé (aucune réponse textuelle à afficher).",
     ],
     "settings.section.deviceapi": [
         "en": "Remote approval devices", "zh": "远程审批设备",

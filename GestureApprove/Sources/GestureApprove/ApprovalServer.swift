@@ -12,6 +12,9 @@ struct ApprovalRequest {
     let operation: String
     let cwd: String
     let tool: String
+    var provider: String = ""
+    var requestKind: String = ""
+    var profileId: String = ""
     let session: String   // 会话 ID（Claude session_id；其它 CLI 可能为空）
 }
 
@@ -24,6 +27,15 @@ final class ApprovalServer {
     private var listeners: [NWListener] = []
     private let queue = DispatchQueue(label: "com.tankxu.gestureapprove.server")
 
+    /// 监听器代数。每次 startAll 递增；旧代 listener 的 .failed 一律忽略——
+    /// cancel 是异步的，重启期间旧 listener 还会吐 .failed，不隔离就会串成多条重启链。
+    private var generation: UInt64 = 0
+    /// 单飞：已有一条重启链在排队时不再排第二条。多条链会互相抢端口，
+    /// 把 EADDRINUSE 变成自我维持的风暴（每条链每轮再裂殖出新链，指数增长）。
+    private var restartPending = false
+    /// 连续失败次数 → 真指数退避 1→2→4→…→60s 封顶；startAll 全绑成功后清零。
+    private var failStreak = 0
+
     /// 当前应处于活动的绑定：loopback 始终有；设备口在配置且开关打开时才有。
     private func activeBinds() -> [Bind] {
         var b = [loopbackBind]
@@ -35,6 +47,8 @@ final class ApprovalServer {
     private let onApprove: (ApprovalRequest, @escaping (String, String) -> Void) -> Void
     /// 设备提交裁决：(id, decision) -> 异步回 是否生效（id 不匹配当前 pending 则 false）。
     private let onResolve: ((String, String, @escaping (Bool) -> Void) -> Void)?
+    /// agent 完成通知（Stop hook 打来的旁路事件，不参与审批）。
+    private let onAgentEvent: (([String: Any]) -> Void)?
     /// 设备下行状态源（长轮询）。
     private let deviceState: DeviceApprovalState?
     /// 设备口的 Bearer token；非 trusted 连接必须匹配。
@@ -46,6 +60,7 @@ final class ApprovalServer {
          deviceState: DeviceApprovalState? = nil,
          deviceEnabled: Bool = false,
          onResolve: ((String, String, @escaping (Bool) -> Void) -> Void)? = nil,
+         onAgentEvent: (([String: Any]) -> Void)? = nil,
          onApprove: @escaping (ApprovalRequest, @escaping (String, String) -> Void) -> Void) {
         self.loopbackBind = Bind(host: "127.0.0.1", port: port, trusted: true)
         self.deviceBind = devicePort.map { Bind(host: "0.0.0.0", port: $0, trusted: false) }
@@ -53,6 +68,7 @@ final class ApprovalServer {
         self.deviceToken = deviceToken
         self.deviceState = deviceState
         self.onResolve = onResolve
+        self.onAgentEvent = onAgentEvent
         self.onApprove = onApprove
     }
 
@@ -84,10 +100,11 @@ final class ApprovalServer {
 
     private func startAll() throws {
         cancelAll()
-        for bind in activeBinds() { try startOne(bind) }
+        generation &+= 1
+        for bind in activeBinds() { try startOne(bind, generation: generation) }
     }
 
-    private func startOne(_ bind: Bind) throws {
+    private func startOne(_ bind: Bind, generation gen: UInt64) throws {
         let params = NWParameters.tcp
         // 重启（唤醒/自愈）时旧 listener 端口可能还没释放，允许复用避免 "Address already in use"。
         params.allowLocalEndpointReuse = true
@@ -101,11 +118,18 @@ final class ApprovalServer {
             listener = try NWListener(using: params)
         }
         listener.stateUpdateHandler = { [weak self] state in
+            guard let self else { return }
             // 睡眠/网络栈重置后 listener 可能静默 .failed —— 自动重建，否则端口悄悄死掉。
             // .cancelled 只在主动 restart 时出现，不重启（避免循环）。
-            if case .failed(let err) = state {
+            switch state {
+            case .ready:
+                if gen == self.generation { self.failStreak = 0 }
+            case .failed(let err):
+                guard gen == self.generation else { return }   // 旧代残响，别再点火
                 GALog.log("监听失败(\(err)) \(bind.host):\(bind.port)，准备自愈重启")
-                self?.scheduleRestart()
+                self.scheduleRestart()
+            default:
+                break
             }
         }
         listener.newConnectionHandler = { [weak self] conn in
@@ -116,11 +140,16 @@ final class ApprovalServer {
         GALog.log("审批服务已监听 \(bind.host):\(bind.port) trusted=\(bind.trusted)")
     }
 
-    /// 延迟重启（带退避，避免端口未释放时疯狂重试）。
+    /// 延迟重启。单飞 + 指数退避：同时只允许一条重启链，连续失败 1→2→4→…→60s。
+    /// 都在 queue 上跑（.failed 回调、asyncAfter 均派发到 queue），无并发问题。
     private func scheduleRestart() {
-        queue.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+        guard !restartPending else { return }
+        restartPending = true
+        failStreak += 1
+        let delay = min(pow(2.0, Double(failStreak - 1)), 60.0)
+        queue.asyncAfter(deadline: .now() + delay) { [weak self] in
             guard let self else { return }
-            self.cancelAll()
+            self.restartPending = false
             do { try self.startAll() } catch { self.scheduleRestart() }
         }
     }
@@ -157,6 +186,14 @@ final class ApprovalServer {
         let rawPath = parts.count > 1 ? String(parts[1]) : "/"
         let (path, query) = Self.splitQuery(rawPath)
 
+        // agent 完成通知（Stop hook）：旁路事件，立刻回包不阻塞——hook 在等我们，别让它替 IO 买单。
+        if trusted, path == "/agent-event" {
+            let obj = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any] ?? [:]
+            respondJSON(conn, obj: ["ok": true])
+            onAgentEvent?(obj)
+            return
+        }
+
         // hook 的信任通道：只在 loopback 上提供，且保持原有"body 即审批请求"的宽松兼容
         // （老 hook 不带 path/固定 /approve 都照收）。
         if trusted, path == "/approve" || path == "/" {
@@ -190,6 +227,9 @@ final class ApprovalServer {
             operation: obj?["operation"] as? String ?? "",
             cwd: obj?["cwd"] as? String ?? "",
             tool: obj?["tool"] as? String ?? "",
+            provider: obj?["provider"] as? String ?? "",
+            requestKind: obj?["requestKind"] as? String ?? "",
+            profileId: obj?["profileId"] as? String ?? "",
             session: obj?["session"] as? String ?? "")
         onApprove(req) { [weak self] decision, reason in
             self?.respondJSON(conn, obj: ["decision": decision, "reason": reason])

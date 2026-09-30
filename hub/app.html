@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="__HUB_LANG__">
+<head>
+<meta charset="utf-8">
+<!-- viewport-fit=cover：iPhone 上让页面铺到刘海和 Home 条下面，再用 env(safe-area-inset-*) 把内容让回来。 -->
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f7f7f8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1116" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GA Hub">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="icon" href="/icons/icon-192.png">
+<title>GA Hub</title>
+<style>
+:root{
+  color-scheme:light dark;
+  --bg:#f7f7f8; --surface:#fff; --surface-2:#f0f1f3; --surface-3:#e8e9ed;
+  --line:#e3e5ea; --line-strong:#d2d5dc;
+  --text:#16181d; --text-2:#5a6270; --text-3:#8b93a1;
+  --accent:#e8792b; --accent-ink:#fff; --accent-weak:rgba(232,121,43,.12);
+  --green:#12a150; --green-weak:rgba(18,161,80,.12);
+  --amber:#c77700; --amber-weak:rgba(199,119,0,.13);
+  --red:#e5484d; --red-weak:rgba(229,72,77,.12);
+  --blue:#3b7ddd;
+  --r:14px; --r-sm:10px;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 2px 8px rgba(0,0,0,.05);
+  --shadow-lg:0 8px 30px rgba(0,0,0,.14);
+  --bar-h:52px; --tab-h:56px;
+  --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-l:env(safe-area-inset-left,0px); --safe-r:env(safe-area-inset-right,0px);
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0f1116; --surface:#171a21; --surface-2:#1e222b; --surface-3:#272c37;
+  --line:#272b35; --line-strong:#353b48;
+  --text:#eef1f6; --text-2:#a8b1bf; --text-3:#727d8d;
+  --accent:#ff8c3f; --accent-ink:#1a1206; --accent-weak:rgba(255,140,63,.16);
+  --green:#3ecf8e; --green-weak:rgba(62,207,142,.15);
+  --amber:#f0b429; --amber-weak:rgba(240,180,41,.15);
+  --red:#ff6369; --red-weak:rgba(255,99,105,.15);
+  --blue:#6ba4ff;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 2px 10px rgba(0,0,0,.25);
+  --shadow-lg:0 10px 40px rgba(0,0,0,.5);
+}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overscroll-behavior-y:none}
+body{
+  background:var(--bg);color:var(--text);
+  font:14px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,textarea,select{font:inherit;color:inherit}
+button{background:none;border:0;cursor:pointer;padding:0}
+a{color:var(--accent);text-underline-offset:2px}
+.mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
+.muted{color:var(--text-2)}.dim{color:var(--text-3)}
+.trunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hide{display:none!important}
+
+/* ── 外壳 ───────────────────────────────────────── */
+#app{display:flex;flex-direction:column;height:100dvh;height:100vh;overflow-x:hidden}
+@supports (height:100dvh){#app{height:100dvh}}
+
+.appbar{
+  flex:0 0 auto;display:flex;align-items:center;gap:10px;
+  height:calc(var(--bar-h) + var(--safe-t));padding:var(--safe-t) 14px 0;
+  padding-left:calc(14px + var(--safe-l));padding-right:calc(14px + var(--safe-r));
+  background:var(--surface);border-bottom:1px solid var(--line);
+  position:relative;z-index:30;
+}
+.appbar .logo{width:26px;height:26px;border-radius:7px;flex:0 0 auto}
+.appbar h1{font-size:15px;font-weight:650;margin:0;letter-spacing:-.01em}
+.appbar .sub{font-size:11.5px;color:var(--text-3);margin-top:-1px}
+.appbar .spacer{flex:1}
+.iconbtn{
+  width:34px;height:34px;border-radius:9px;display:grid;place-items:center;
+  color:var(--text-2);flex:0 0 auto;
+}
+.iconbtn:hover{background:var(--surface-2);color:var(--text)}
+.iconbtn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.iconbtn.spin svg{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.shell{flex:1;min-height:0;min-width:0;display:flex}
+.pane{min-height:0;min-width:0;display:flex;flex-direction:column}
+.pane-list{flex:0 0 300px;border-right:1px solid var(--line);background:var(--surface)}
+.pane-chat{flex:1;min-width:0;background:var(--bg)}
+.pane-side{flex:0 0 330px;border-left:1px solid var(--line);background:var(--surface);overflow-y:auto}
+.scroll{overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+
+/* ── 底部 tab（仅窄屏） ───────────────────────────── */
+.tabbar{display:none}
+
+/* ── 待办 / 侧栏卡片 ─────────────────────────────── */
+.sec{padding:14px 16px 4px;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-3)}
+.card{
+  margin:8px 12px;padding:12px 13px;border-radius:var(--r);
+  background:var(--surface-2);border:1px solid var(--line);
+}
+.pane-chat .card,.tabview .card{background:var(--surface)}
+.card.alert{border-color:var(--accent);background:var(--accent-weak);box-shadow:0 0 0 1px var(--accent) inset}
+.card h3{margin:0 0 3px;font-size:13.5px;font-weight:650;line-height:1.35}
+.card .path{font-size:11.5px;color:var(--text-3);word-break:break-all;margin-top:2px}
+.rowline{display:flex;align-items:center;gap:8px}
+.btnrow{display:flex;gap:8px;margin-top:11px}
+.btn{
+  flex:1;height:36px;border-radius:var(--r-sm);font-size:13.5px;font-weight:600;
+  background:var(--surface-3);color:var(--text);transition:filter .12s;
+}
+.btn:active{filter:brightness(.92)}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn.danger{background:var(--red-weak);color:var(--red)}
+.btn.ghost{background:transparent;border:1px solid var(--line-strong);color:var(--text-2)}
+.btn[disabled]{opacity:.45;pointer-events:none}
+
+.pill{
+  display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;
+  padding:2px 7px;border-radius:99px;font-size:10.5px;font-weight:650;
+  background:var(--surface-3);color:var(--text-2);
+}
+.pill.wait{background:var(--accent-weak);color:var(--accent)}
+.pill.work{background:var(--green-weak);color:var(--green)}
+.pill.idle{background:var(--surface-3);color:var(--text-3)}
+.dot{width:7px;height:7px;border-radius:99px;background:var(--text-3);flex:0 0 auto}
+.dot.work{background:var(--green);box-shadow:0 0 0 3px var(--green-weak)}
+.dot.wait{background:var(--accent);box-shadow:0 0 0 3px var(--accent-weak);animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+
+/* ── 会话列表 ───────────────────────────────────── */
+.listhead{
+  flex:0 0 auto;padding:10px 12px;border-bottom:1px solid var(--line);
+  display:flex;gap:8px;background:var(--surface);
+}
+.listhead input,.listhead select{
+  height:32px;border-radius:9px;border:1px solid var(--line-strong);
+  background:var(--bg);padding:0 9px;min-width:0;
+}
+.listhead input{flex:1}
+.listhead input:focus,.listhead select:focus{outline:2px solid var(--accent-weak);border-color:var(--accent)}
+.srow{
+  display:block;width:100%;text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);
+  display:flex;gap:9px;align-items:flex-start;
+}
+.srow:hover{background:var(--surface-2)}
+.srow.on{background:var(--accent-weak)}
+.srow .body{min-width:0;flex:1}
+.srow .t{font-size:13px;font-weight:600;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.srow .m{font-size:11px;color:var(--text-3);margin-top:3px;display:flex;gap:6px;align-items:center;white-space:nowrap}
+.srow .m .w{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.srow .dot{margin-top:5px}
+.more{display:block;width:100%;padding:13px;font-size:12.5px;color:var(--text-2);background:var(--surface-2)}
+/* 行和它的审批按钮是一块东西：中间不该有分隔线，底色也该连成一片。 */
+.srow:has(+ .srowact){background:var(--accent-weak);border-bottom:0}
+.srowact{display:flex;gap:8px;padding:0 14px 12px;border-bottom:1px solid var(--line);background:var(--accent-weak)}
+.srowact .btn{height:32px;font-size:12.5px}
+
+/* ── 聊天 ───────────────────────────────────────── */
+.chathead{
+  flex:0 0 auto;padding:11px 16px;border-bottom:1px solid var(--line);background:var(--surface);
+  display:flex;align-items:center;gap:10px;
+}
+.chathead .back{display:none}
+.chathead h2{margin:0;font-size:14px;font-weight:650;line-height:1.3}
+.chat{flex:1;padding:16px;display:flex;flex-direction:column;gap:12px}
+.msg{max-width:min(680px,88%);padding:10px 13px;border-radius:15px;font-size:13.5px;line-height:1.55;word-break:break-word}
+.msg.user{align-self:flex-end;background:var(--accent);color:var(--accent-ink);border-bottom-right-radius:5px}
+.msg.assistant{align-self:flex-start;background:var(--surface);border:1px solid var(--line);border-bottom-left-radius:5px}
+.msg .who{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;opacity:.65;margin-bottom:4px}
+.msg code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;font-size:.9em;background:var(--surface-3);padding:1px 5px;border-radius:5px}
+.msg pre{margin:8px 0;padding:10px 12px;background:var(--surface-3);border-radius:9px;overflow-x:auto;white-space:pre}
+.msg pre code{background:none;padding:0;font-size:12px;line-height:1.5}
+.msg.user code,.msg.user pre{background:rgba(0,0,0,.2)}
+.msg a{color:inherit;text-decoration:underline;text-underline-offset:2px;word-break:break-all}
+.msg h1,.msg h2,.msg h3,.msg h4{margin:12px 0 6px;line-height:1.3;font-weight:660}
+.msg h1{font-size:1.24em}.msg h2{font-size:1.14em}.msg h3{font-size:1.05em}.msg h4{font-size:1em}
+.msg>:first-child{margin-top:0}.msg>:last-child{margin-bottom:0}
+.msg p{margin:0 0 8px}
+.msg ul,.msg ol{margin:6px 0 8px;padding-left:1.35em}
+.msg li{margin:2px 0}
+.msg blockquote{margin:8px 0;padding:2px 0 2px 11px;border-left:3px solid var(--line-strong);color:var(--text-2)}
+.msg.user blockquote{border-left-color:rgba(0,0,0,.28);color:inherit;opacity:.85}
+.msg hr{border:0;border-top:1px solid var(--line-strong);margin:12px 0}
+.msg table{border-collapse:collapse;margin:8px 0;font-size:.94em;display:block;overflow-x:auto;max-width:100%}
+.msg th,.msg td{border:1px solid var(--line-strong);padding:5px 9px;text-align:left;white-space:nowrap}
+.msg th{background:var(--surface-3);font-weight:650}
+.msg.user th{background:rgba(0,0,0,.18)}
+.msg img{max-width:100%;max-height:420px;border-radius:9px;display:block;margin:8px 0;background:var(--surface-3)}
+.msg .imgref{display:inline-block;padding:2px 8px;border-radius:6px;background:var(--surface-3);color:var(--text-2);font-size:.92em}
+.msg.user .imgref{background:rgba(0,0,0,.2);color:inherit}
+.empty{margin:auto;text-align:center;color:var(--text-3);font-size:13px;padding:30px;max-width:340px;line-height:1.6}
+/* 还没真正发出去的那条：看得见、可撤回，底下一条进度线走完才投递。 */
+.msg.holding{opacity:.72;position:relative;overflow:hidden}
+.msg.holding .undo{
+  display:block;width:100%;margin-top:4px;text-align:right;
+  font-size:11.5px;font-weight:700;color:inherit;
+  text-decoration:underline;text-underline-offset:2px;opacity:.9;
+}
+.msg.holding::after{
+  content:'';position:absolute;left:0;bottom:0;height:2px;background:currentColor;opacity:.5;
+  animation:drain var(--hold) linear forwards;
+}
+@keyframes drain{from{width:100%}to{width:0}}
+
+.composer{
+  flex:0 0 auto;border-top:1px solid var(--line);background:var(--surface);
+  padding:10px 12px calc(10px + var(--safe-b));
+  padding-left:calc(12px + var(--safe-l));padding-right:calc(12px + var(--safe-r));
+}
+.composer .why{font-size:11.5px;color:var(--text-3);padding:0 2px 7px}
+.cbox{display:flex;gap:8px;align-items:flex-end}
+.cbox textarea{
+  flex:1;resize:none;max-height:120px;min-height:38px;padding:9px 12px;
+  border-radius:19px;border:1px solid var(--line-strong);background:var(--bg);
+  line-height:1.45;
+}
+.cbox textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-weak)}
+.circ{width:38px;height:38px;border-radius:99px;flex:0 0 auto;display:grid;place-items:center;background:var(--surface-3);color:var(--text-2)}
+.circ svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.circ.send{background:var(--accent);color:var(--accent-ink)}
+.circ.rec{background:var(--red);color:#fff;animation:pulse 1.1s ease-in-out infinite}
+.circ[disabled]{opacity:.4;pointer-events:none}
+
+/* ── 额度 ───────────────────────────────────────── */
+.q{padding:11px 13px}
+.q + .q{border-top:1px solid var(--line)}
+.qtop{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12.5px}
+.qtop b{font-size:13px;font-weight:650}
+.bar{height:5px;border-radius:99px;background:var(--surface-3);margin:6px 0 3px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px;background:var(--green);transition:width .4s}
+.bar i.warn{background:var(--amber)}.bar i.crit{background:var(--red)}
+.qmeta{font-size:11px;color:var(--text-3)}
+.big{font-size:23px;font-weight:680;letter-spacing:-.02em;line-height:1.2}
+
+.a2hs{
+  position:fixed;left:12px;right:12px;z-index:60;
+  bottom:calc(12px + var(--safe-b) + var(--tab-h));
+  background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r);
+  box-shadow:var(--shadow-lg);padding:12px 14px;display:none;gap:11px;align-items:center;
+}
+.a2hs.on{display:flex}
+.a2hs img{width:34px;height:34px;border-radius:9px;flex:0 0 auto}
+.a2hs p{margin:0;font-size:12.5px;line-height:1.45;flex:1}
+.a2hs .x{color:var(--text-3);font-size:12.5px;font-weight:600;padding:6px 2px;flex:0 0 auto}
+@media (min-width:860px){.a2hs{left:auto;right:18px;bottom:18px;max-width:380px}}
+.toast{
+  position:fixed;left:50%;transform:translateX(-50%);
+  bottom:calc(20px + var(--safe-b) + var(--tab-h));
+  background:var(--text);color:var(--bg);padding:9px 16px;border-radius:99px;
+  font-size:13px;font-weight:550;box-shadow:var(--shadow-lg);z-index:100;
+  opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;max-width:86vw;text-align:center;
+}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(-6px)}
+
+/* ── 窄屏：底部 tab + 单列 ─────────────────────────── */
+@media (max-width:859px){
+  .pane-list,.pane-side{flex:1 1 auto;width:100%;min-width:0;border:0}
+  /* 待办和额度在宽屏是同一根侧栏上下排开，在窄屏是两个 tab，各看各的。 */
+  body[data-tab="inbox"] #usageview{display:none}
+  body[data-tab="usage"] #inboxview{display:none}
+  .shell>.pane{display:none}
+  body[data-tab="inbox"] .pane-side,
+  body[data-tab="sessions"] .pane-list,
+  body[data-tab="usage"] .pane-side{display:flex}
+  /* 聊天在窄屏是覆盖整页的一层，不占 tab 的位置 */
+  .pane-chat{
+    display:none;position:fixed;inset:0;z-index:40;background:var(--bg);
+    padding-top:var(--safe-t);
+  }
+  body.chatting .pane-chat{display:flex}
+  body.chatting .tabbar{display:none}
+  .chathead .back{display:grid}
+  .tabbar{
+    display:flex;flex:0 0 auto;background:var(--surface);border-top:1px solid var(--line);
+    height:calc(var(--tab-h) + var(--safe-b));padding-bottom:var(--safe-b);
+    padding-left:var(--safe-l);padding-right:var(--safe-r);z-index:30;
+  }
+  .tabbar button{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    font-size:10.5px;font-weight:600;color:var(--text-3);position:relative;
+  }
+  .tabbar button svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .tabbar button.on{color:var(--accent)}
+  .tabbar .badge{
+    position:absolute;top:4px;left:calc(50% + 7px);min-width:16px;height:16px;padding:0 4px;
+    border-radius:99px;background:var(--accent);color:var(--accent-ink);
+    font-size:10px;font-weight:700;display:grid;place-items:center;
+  }
+  .appbar .sub{display:none}
+}
+@media (min-width:860px){
+  .toast{bottom:24px}
+  /* 左栏列表已经是「谁在等你」的答案（等待的排最前、带 pill），右栏只管额度。 */
+  #inboxview{display:none}
+  .pane-side .sec:first-child{padding-top:12px}
+}
+@media (min-width:860px) and (max-width:1099px){
+  .pane-list{flex:0 0 280px}
+  .pane-side{
+    position:fixed;top:calc(var(--bar-h) + var(--safe-t));right:0;bottom:0;width:340px;max-width:86vw;
+    transform:translateX(101%);transition:transform .22s ease;z-index:45;box-shadow:var(--shadow-lg);
+  }
+  body.drawer .pane-side{transform:none}
+  body.drawer #scrim{display:block}
+  #drawerbtn{display:grid}
+}
+#scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:44}
+#drawerbtn{display:none;position:relative}
+#drawerbtn .ibadge{
+  position:absolute;top:1px;right:1px;min-width:15px;height:15px;padding:0 3px;border-radius:99px;
+  background:var(--accent);color:var(--accent-ink);font-size:9.5px;font-weight:700;display:grid;place-items:center;
+}
+</style>
+</head>
+<body data-tab="inbox">
+<div id="app">
+
+  <header class="appbar">
+    <img class="logo" src="/icons/icon-192.png" alt="">
+    <div style="min-width:0">
+      <h1>GA Hub</h1>
+      <div class="sub" id="barsub">—</div>
+    </div>
+    <div class="spacer"></div>
+    <button class="iconbtn" id="drawerbtn" title="">
+      <svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>
+    </button>
+    <button class="iconbtn" id="refresh" title="">
+      <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+    </button>
+    <button class="iconbtn" id="cfg" title="">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5v.2a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg>
+    </button>
+  </header>
+
+  <div class="shell">
+
+    <!-- 会话列表（桌面左栏 / 窄屏 tab=sessions） -->
+    <aside class="pane pane-list">
+      <div class="listhead">
+        <input id="q" placeholder="">
+        <select id="filter"></select>
+      </div>
+      <div class="scroll" id="list" style="flex:1"></div>
+    </aside>
+
+    <!-- 聊天（桌面中栏 / 窄屏覆盖层） -->
+    <main class="pane pane-chat">
+      <div class="chathead" id="chathead">
+        <button class="iconbtn back" id="back">
+          <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div style="min-width:0;flex:1">
+          <h2 class="trunc" id="chattitle">—</h2>
+          <div class="sub dim trunc" id="chatsub" style="font-size:11.5px"></div>
+        </div>
+        <span class="pill" id="chatpill"></span>
+      </div>
+      <div class="scroll chat" id="chat"></div>
+      <div class="composer" id="composer">
+        <div class="why dim" id="why"></div>
+        <div class="cbox">
+          <button class="circ" id="mic" title="">
+            <svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>
+          </button>
+          <textarea id="input" rows="1" placeholder=""></textarea>
+          <button class="circ send" id="send">
+            <svg viewBox="0 0 24 24"><path d="M20 12L4 4l6 8-6 8z"/></svg>
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <!-- 待办 + 额度（桌面右栏 / 窄屏 tab=inbox|usage） -->
+    <aside class="pane pane-side scroll">
+      <div id="inboxview"></div>
+      <div id="usageview"></div>
+    </aside>
+
+  </div>
+
+  <nav class="tabbar">
+    <button data-go="inbox" class="on">
+      <svg viewBox="0 0 24 24"><path d="M4 5h16v9a3 3 0 0 1-3 3H7l-3 3z"/></svg>
+      <span id="t-inbox"></span><span class="badge hide" id="badge"></span>
+    </button>
+    <button data-go="sessions">
+      <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      <span id="t-sessions"></span>
+    </button>
+    <button data-go="usage">
+      <svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>
+      <span id="t-usage"></span>
+    </button>
+  </nav>
+
+</div>
+<div class="a2hs" id="a2hs">
+  <img src="/icons/icon-192.png" alt="">
+  <p id="a2hstext"></p>
+  <button class="btn primary hide" id="a2hsgo" style="flex:0 0 auto;padding:0 14px"></button>
+  <button class="x" id="a2hsno"></button>
+</div>
+<div id="scrim"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const TOKEN = '__HUB_TOKEN__';
+const LANG  = ('__HUB_LANG__' || 'en').startsWith('zh') ? 'zh' : 'en';
+
+/* ── 文案 ──────────────────────────────────────────── */
+const S = {
+  zh:{
+    inbox:'待办', sessions:'会话', usage:'额度',
+    search:'搜索标题或目录', all:'全部会话', active:'仅活跃', claude:'Claude Code', codex:'Codex',
+    needsYou:'需要你处理', nothingPending:'没有等你的事。有会话请求批准时会出现在这里。',
+    approveQ:'请求批准', allow:'允许', deny:'拒绝',
+    waitingInput:'等待输入', working:'工作中', idle:'空闲', unknown:'状态未知', done:'本轮已完成',
+    exited:'已退出', archived:'已归档',
+    pickSession:'选一个会话，看它的记录并回复。',
+    noMessages:'这个会话本地还没有可读的记录。',
+    reply:'回复这个会话…', open:'打开会话', send:'发送', sending:'发送中…', sent:'已送达',
+    quota:'额度', tokenDay:'今日 Token', tokenMonth:'本月 Token',
+    remaining:'剩余', resetIn:'%s 后重置', resetting:'正在重置…', observed:'%s 前观测到', observedNow:'刚刚观测到',
+    noQuota:'还没有额度快照',
+    apiValue:'API 等值', notBilling:'按价格表估算，不是订阅扣费',
+    recording:'录音中，再点一次结束', recognizing:'识别中…', recTooShort:'太短了，没录进东西',
+    micNoSecure:'浏览器只在 HTTPS 或本机打开时才给麦克风权限。局域网用 http:// 访问时语音不可用 —— 在 Mac 上本机打开这个页面可以用。',
+    micDenied:'麦克风被拒绝：', micUnsupported:'这个浏览器不支持录音',
+    asrNoKey:'语音没配置识别服务，去配置页填 key',
+    replyOffline:'这个会话没在跑，也没有网页入口，暂时回不了。',
+    replyResume:'会话已退出 —— 发送会用 claude --resume 续上它。',
+    replyLive:'直接送进正在运行的会话。',
+    replyQueue:'排进 Codex 队列，它下一轮读到就处理。',
+    undo:'撤销', unsent:'已撤销，内容放回输入框',
+    offline:'连不上 Mac 上的 Hub，正在重试…', online:'已重新连上',
+    loading:'读取中…', more:'还有 %d 个，点这里全部显示',
+    approved:'已允许', denied:'已拒绝', failed:'没成功：',
+    stale:'这条请求已经过期了', empty:'先写点什么',
+    sessionsN:'%d 个会话', install:'装到主屏', installed:'已装到主屏',
+    configLocalOnly:'配置页只在 Mac 本机打开 —— token、语音 key 这些不走局域网。',
+    a2hsIOS:'点下面的「分享」按钮，选「添加到主屏幕」，这个 Hub 就成了一个独立 app。',
+    a2hsBtn:'安装', later:'不用了',
+  },
+  en:{
+    inbox:'Inbox', sessions:'Sessions', usage:'Usage',
+    search:'Search title or folder', all:'All sessions', active:'Active only', claude:'Claude Code', codex:'Codex',
+    needsYou:'Needs you', nothingPending:'Nothing is waiting on you. Approval requests show up here.',
+    approveQ:'wants approval', allow:'Allow', deny:'Deny',
+    waitingInput:'waiting for input', working:'working', idle:'idle', unknown:'unknown', done:'turn done',
+    exited:'exited', archived:'archived',
+    pickSession:'Pick a session to read it and reply.',
+    noMessages:'No readable transcript for this session yet.',
+    reply:'Reply to this session…', open:'Open session', send:'Send', sending:'Sending…', sent:'Delivered',
+    quota:'Quota', tokenDay:'Tokens today', tokenMonth:'Tokens this month',
+    remaining:'left', resetIn:'resets in %s', resetting:'resetting…', observed:'observed %s ago', observedNow:'just observed',
+    noQuota:'no quota snapshot yet',
+    apiValue:'API equivalent', notBilling:'estimated from the price list, not what you are billed',
+    recording:'Recording — tap again to stop', recognizing:'Transcribing…', recTooShort:'Too short, nothing recorded',
+    micNoSecure:'Browsers only hand out the microphone over HTTPS or on localhost. Voice is unavailable over plain http:// on the LAN — open this page on the Mac itself and it works.',
+    micDenied:'Microphone denied: ', micUnsupported:'This browser cannot record',
+    asrNoKey:'No speech key configured — set one on the config page',
+    replyOffline:'This session is not running and has no web bridge, so it cannot be replied to.',
+    replyResume:'Session has exited — sending will resume it with claude --resume.',
+    replyLive:'Goes straight into the running session.',
+    replyQueue:'Queued for Codex — picked up on its next turn.',
+    undo:'Undo', unsent:'Unsent — put back in the box',
+    offline:'Cannot reach the Hub on your Mac, retrying…', online:'Back online',
+    loading:'Loading…', more:'%d more — show all',
+    approved:'Allowed', denied:'Denied', failed:'Failed: ',
+    stale:'That request has already expired', empty:'Write something first',
+    sessionsN:'%d sessions', install:'Add to Home Screen', installed:'Added',
+    configLocalOnly:'Settings open on the Mac itself — the token and speech key never travel over the LAN.',
+    a2hsIOS:'Tap Share below, then "Add to Home Screen" — this Hub becomes its own app.',
+    a2hsBtn:'Install', later:'Not now',
+  }
+}[LANG];
+const t = (k, ...a) => { let s = S[k] || k; for (const v of a) s = s.replace(/%[sd]/, v); return s; };
+
+/* ── 小工具 ────────────────────────────────────────── */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = (n) => (Number(n) || 0).toLocaleString();
+
+/** 6d20h / 3h30m / 45m —— 跟菜单栏用的是同一套刻度，两边读数才对得上。 */
+function compact(sec){
+  const m = Math.floor(sec / 60);
+  if (m < 60) return Math.max(m, 1) + 'm';
+  const h = Math.floor(m / 60);
+  if (h < 24) return m % 60 ? h + 'h' + (m % 60) + 'm' : h + 'h';
+  return h % 24 ? Math.floor(h / 24) + 'd' + (h % 24) + 'h' : Math.floor(h / 24) + 'd';
+}
+function ago(ts){
+  const s = Date.now() / 1000 - Number(ts || 0);
+  return s < 60 ? t('observedNow') : t('observed', compact(s));
+}
+function money(x){ return '$' + (Number(x) || 0).toFixed(2); }
+
+let toastTimer = null;
+function toast(msg){
+  const el = $('toast'); el.textContent = msg; el.classList.add('on');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('on'), 2600);
+}
+
+async function api(path, opts){
+  const o = Object.assign({ headers: {} }, opts || {});
+  o.headers = Object.assign({ Authorization: 'Bearer ' + TOKEN }, o.headers);
+  const r = await fetch(path, o);
+  const txt = await r.text();
+  let body; try { body = txt ? JSON.parse(txt) : {}; } catch { body = { error: txt.slice(0, 200) }; }
+  if (!r.ok) throw new Error(body.error || body.reason || r.status);
+  return body;
+}
+
+/* ── 状态 ──────────────────────────────────────────── */
+const st = {
+  sessions: [], quotas: [], day: null, month: null, coverage: '',
+  sel: null, messages: [], cursor: 0, limit: 60,
+  q: '', filter: 'active', busy: false, online: true, sending: false,
+  outbox: null,   // 已按发送、但还在撤回窗口里的那条
+};
+/** 撤回窗口。投递出去就收不回来了（Claude 的 inbox 写进 socket 即生效），
+ *  所以「取消」只能发生在我们自己这边还没发之前。 */
+const HOLD_MS = 4000;
+
+const ACT = {
+  waiting_approval: { pill: 'wait', dot: 'wait', key: 'approveQ',   rank: 0 },
+  waiting_input:    { pill: 'wait', dot: 'wait', key: 'waitingInput', rank: 1 },
+  working:          { pill: 'work', dot: 'work', key: 'working',    rank: 2 },
+  idle:             { pill: 'idle', dot: '',     key: 'idle',       rank: 3 },
+  unknown:          { pill: 'idle', dot: '',     key: 'unknown',    rank: 4 },
+};
+const act = (s) => ACT[s && s.activity] || ACT.unknown;
+const needsMe = (s) => s.activity === 'waiting_approval' || s.activity === 'waiting_input';
+
+/** 标题：会话自己的标题 > 目录名 > 短 id。绝不把整段 prompt 原样甩出来。 */
+function title(s){
+  const raw = (s.title || '').trim().replace(/\s+/g, ' ');
+  if (raw) return raw.length > 90 ? raw.slice(0, 90) + '…' : raw;
+  const cwd = (s.cwd || '').replace(/\/+$/, '');
+  if (cwd) return cwd.split('/').pop();
+  return (s.nativeSessionId || s.id || '').slice(0, 8);
+}
+/** 目录只留最后两级：整条绝对路径在手机上能占三行，而你要认的其实就是项目名。 */
+function where(s){
+  const parts = (s.cwd || '').split('/').filter(Boolean);
+  return parts.length ? parts.slice(-2).join('/') : '';
+}
+
+/* ── 取数 ──────────────────────────────────────────── */
+async function pull(){
+  if (st.busy) return;
+  st.busy = true;
+  $('refresh').classList.add('spin');
+  try{
+    const [s, q, d, m] = await Promise.all([
+      api('/v2/sessions?limit=1000'),
+      api('/v2/quotas'),
+      api('/v2/usage?period=day'),
+      api('/v2/usage?period=month'),
+    ]);
+    st.sessions = (s.sessions || []).sort((a, b) => {
+      const r = act(a).rank - act(b).rank;
+      return r || (Number(b.updatedAt || b.runtimeAt || 0) - Number(a.updatedAt || a.runtimeAt || 0));
+    });
+    st.cursor = Number(s.cursor || st.cursor);
+    st.quotas = (q.accounts || []).filter((a) => a.current);
+    st.day = d; st.month = m;
+    const cov = (m.coverage || {});
+    st.coverage = t('sessionsN', st.sessions.length) +
+      (cov.complete === false ? ' · ' + (LANG === 'zh' ? '正在索引' : 'indexing') : '');
+    if (!st.online){ st.online = true; toast(t('online')); }
+    render();
+    if (st.sel) await loadMessages(st.sel, true);
+  } catch(e){
+    if (st.online){ st.online = false; toast(t('offline')); }
+    $('barsub').textContent = t('offline');
+  } finally {
+    st.busy = false;
+    $('refresh').classList.remove('spin');
+  }
+}
+
+async function loadMessages(id, quiet){
+  try{
+    const r = await api('/v2/messages?session=' + encodeURIComponent(id));
+    if (st.sel !== id) return;
+    st.messages = r.messages || [];
+    renderChat();   // 里面会把还在撤回窗口里的那条一并画上
+  } catch(e){ if (!quiet) toast(t('failed') + e.message); }
+}
+
+/** 监控事件游标：有新事件才重拉，没事就一直安静着。 */
+async function watch(){
+  for(;;){
+    try{
+      const r = await api('/v2/events?since=' + st.cursor);
+      const latest = Number(r.latestCursor || 0);
+      if (latest > st.cursor){ st.cursor = latest; await pull(); }
+      else if (!st.online) await pull();
+    } catch(e){ st.online = false; }
+    await new Promise((r) => setTimeout(r, 2500));
+  }
+}
+
+/* ── Markdown ───────────────────────────────────────
+ * 渲染只在这一侧做：`/v2/messages` 始终回原始文本，别的客户端（设备、脚本）
+ * 拿到的还是原文。
+ *
+ * 先整段转义，再逐块解析，生成的 HTML 一律塞占位符 —— 顺序反过来就是个 XSS 洞，
+ * 而占位符保证后面的替换不会啃到前面生成的标签（比如裸 URL 匹配进 href 里）。 */
+
+/** 只放行能安全点开的协议。本地路径、`javascript:` 这类一概不生成链接。 */
+function safeURL(u){
+  return /^(https?:\/\/|mailto:)/i.test(u) ? u : null;
+}
+function linkHTML(text, url){
+  const safe = safeURL(url);
+  return safe ? `<a href="${safe}" target="_blank" rel="noreferrer">${text}</a>` : text;
+}
+function imgHTML(alt, url){
+  const safe = safeURL(url);
+  // 记录里的图片路径多半是 Mac 上的本地路径，浏览器打不开 —— 与其摆一张碎图，
+  // 不如老实说这儿有张图、它叫什么。
+  return safe ? `<img src="${safe}" alt="${alt}" loading="lazy">`
+              : `<span class="imgref">${alt || url}</span>`;
+}
+
+function inlineMD(src, bag){
+  const put = (html) => { bag.push(html); return '\u0001' + (bag.length - 1) + '\u0001'; };
+  let s = src;
+  s = s.replace(/`([^`]+)`/g, (_, c) => put('<code>' + c + '</code>'));
+  const URL_IN_PARENS = /\(\s*((?:[^()\s]|\([^()\s]*\))+)[^)]*\)/;
+  s = s.replace(new RegExp('!\\[([^\\]]*)\\]' + URL_IN_PARENS.source, 'g'), (_, alt, url) => put(imgHTML(alt, url)));
+  s = s.replace(new RegExp('\\[([^\\]]+)\\]' + URL_IN_PARENS.source, 'g'), (_, txt, url) => put(linkHTML(txt, url)));
+  s = s.replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)\]])/g, (u) => put(linkHTML(u, u)));
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+  s = s.replace(/(^|[^\w*])__([^_]+)__/g, '$1<b>$2</b>');
+  s = s.replace(/(^|[^*\w])\*([^*\n]+)\*/g, '$1<i>$2</i>');
+  s = s.replace(/~~([^~]+)~~/g, '<s>$1</s>');
+  return s;
+}
+
+function md(src){ return mdBlocks(esc(src)); }
+
+/** 解析已转义的文本。引用块递归走这里，不能再经过 md() —— 那会二次转义。 */
+function mdBlocks(source){
+  const fences = [], bag = [];
+  // 代码块先整块抽走：里面的 * ` # | 都是字面量，不能当标记解析。
+  let text = source.replace(/```[^\n`]*\n?([\s\S]*?)```/g, (_, body) => {
+    fences.push('<pre><code>' + body.replace(/\n$/, '') + '</code></pre>');
+    return '\u0002' + (fences.length - 1) + '\u0002';
+  });
+
+  const lines = text.split('\n'), out = [];
+  const isFence = (l) => /^\u0002\d+\u0002$/.test(l.trim());
+  const cell = (l) => l.replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
+  let i = 0;
+  while (i < lines.length){
+    const ln = lines[i];
+    if (!ln.trim()){ i++; continue; }
+    if (isFence(ln)){ out.push(ln.trim()); i++; continue; }
+    if (/^ {0,3}(-{3,}|\*{3,}|_{3,})\s*$/.test(ln)){ out.push('<hr>'); i++; continue; }
+
+    const head = /^ {0,3}(#{1,4})\s+(.*)$/.exec(ln);
+    if (head){
+      const n = head[1].length;
+      out.push(`<h${n}>${inlineMD(head[2].trim(), bag)}</h${n}>`);
+      i++; continue;
+    }
+
+    // 表格：一行单元格，紧跟一行 |---|---|
+    if (/^\s*\|/.test(ln) && i + 1 < lines.length && /^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/.test(lines[i + 1]) && lines[i + 1].includes('-')){
+      const head = cell(ln.trim());
+      i += 2;
+      const body = [];
+      while (i < lines.length && /^\s*\|/.test(lines[i])){ body.push(cell(lines[i].trim())); i++; }
+      out.push('<table><thead><tr>' + head.map((c) => `<th>${inlineMD(c, bag)}</th>`).join('') +
+               '</tr></thead><tbody>' +
+               body.map((r) => '<tr>' + r.map((c) => `<td>${inlineMD(c, bag)}</td>`).join('') + '</tr>').join('') +
+               '</tbody></table>');
+      continue;
+    }
+
+    // 走到这里文本已经转义过，所以引用标记是 &gt; 而不是 >。
+    if (/^ {0,3}&gt;\s?/.test(ln)){
+      const buf = [];
+      while (i < lines.length && /^ {0,3}&gt;\s?/.test(lines[i])){ buf.push(lines[i].replace(/^ {0,3}&gt;\s?/, '')); i++; }
+      out.push('<blockquote>' + mdBlocks(buf.join('\n')) + '</blockquote>');
+      continue;
+    }
+
+    const bullet = /^ {0,3}([-*+]|\d{1,3}[.)])\s+/;
+    if (bullet.test(ln)){
+      const ordered = /^\s*\d/.test(ln);
+      const items = [];
+      while (i < lines.length && bullet.test(lines[i])){
+        let item = lines[i].replace(bullet, '');
+        i++;
+        // 缩进的后续行属于同一个条目
+        while (i < lines.length && /^\s{2,}\S/.test(lines[i]) && !bullet.test(lines[i])){
+          item += '\n' + lines[i].trim(); i++;
+        }
+        items.push(`<li>${inlineMD(item, bag).replace(/\n/g, '<br>')}</li>`);
+      }
+      out.push((ordered ? '<ol>' : '<ul>') + items.join('') + (ordered ? '</ol>' : '</ul>'));
+      continue;
+    }
+
+    // 段落：攒到空行、或攒到下一个块级结构为止
+    const buf = [];
+    while (i < lines.length && lines[i].trim() && !isFence(lines[i]) &&
+           !/^ {0,3}(#{1,4}\s|&gt;|[-*+]\s|\d{1,3}[.)]\s|\|)/.test(lines[i]) &&
+           !/^ {0,3}(-{3,}|\*{3,}|_{3,})\s*$/.test(lines[i])){
+      buf.push(lines[i]); i++;
+    }
+    if (buf.length) out.push('<p>' + inlineMD(buf.join('\n'), bag).replace(/\n/g, '<br>') + '</p>');
+    else { out.push('<p>' + inlineMD(lines[i], bag) + '</p>'); i++; }
+  }
+
+  return out.join('')
+    .replace(/\u0001(\d+)\u0001/g, (_, n) => bag[n])
+    .replace(/\u0002(\d+)\u0002/g, (_, n) => fences[n]);
+}
+
+/* ── 渲染 ──────────────────────────────────────────── */
+function render(){
+  renderSide();
+  renderList();
+  renderChatHead();
+  const pending = st.sessions.filter(needsMe).length;
+  const b = $('badge');
+  b.textContent = pending; b.classList.toggle('hide', pending === 0);
+  $('barsub').textContent = st.online ? st.coverage : t('offline');
+  document.title = pending ? '(' + pending + ') GA Hub' : 'GA Hub';
+}
+
+function renderList(){
+  const q = st.q.toLowerCase();
+  let rows = st.sessions.filter((s) => {
+    if (st.filter === 'active' && !needsMe(s) && s.activity !== 'working' && s.lifecycle !== 'loaded') return false;
+    if (st.filter === 'claude' && s.provider !== 'claude') return false;
+    if (st.filter === 'codex' && s.provider !== 'codex') return false;
+    if (q && !(title(s) + ' ' + (s.cwd || '')).toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const total = rows.length;
+  rows = rows.slice(0, st.limit);
+  let html = rows.map((s) => {
+    const a = act(s);
+    return `<button class="srow ${s.id === st.sel ? 'on' : ''}" data-open="${esc(s.id)}">
+      <span class="dot ${a.dot}"></span>
+      <span class="body">
+        <span class="t">${esc(title(s))}</span>
+        <span class="m"><span>${esc(s.provider)}</span>${where(s) ? '<span class="w">· ' + esc(where(s)) + '</span>' : ''}
+          <span class="pill ${a.pill}" style="margin-left:auto">${esc(t(a.key))}</span></span>
+      </span></button>` + (s.pendingApproval ? `<div class="srowact">
+        <button class="btn primary" data-ok="${esc(s.id)}">${esc(t('allow'))}</button>
+        <button class="btn danger" data-no="${esc(s.id)}">${esc(t('deny'))}</button>
+      </div>` : '');
+  }).join('');
+  if (total > rows.length) html += `<button class="more" data-more="1">${esc(t('more', total - rows.length))}</button>`;
+  if (!total) html = `<div class="empty">${esc(t('nothingPending'))}</div>`;
+  $('list').innerHTML = html;
+}
+
+function renderSide(){ renderInbox(); renderUsage(); }
+
+function renderInbox(){
+  const pending = st.sessions.filter(needsMe);
+  let h = `<div class="sec">${esc(t('needsYou'))}</div>`;
+  if (!pending.length){
+    h += `<div class="card"><div class="dim" style="font-size:12.5px;line-height:1.6">${esc(t('nothingPending'))}</div></div>`;
+  }
+  for (const s of pending){
+    const ask = s.activity === 'waiting_approval';
+    const p = s.pendingApproval || {};
+    h += `<div class="card ${ask ? 'alert' : ''}">
+      <div class="rowline"><span class="dot wait"></span><h3 style="flex:1">${esc(title(s))}</h3></div>
+      <div class="path">${esc(s.cwd || '')}</div>
+      ${p.tool || p.operation ? `<div class="mono dim" style="font-size:11.5px;margin-top:7px;word-break:break-all">${esc(String(p.operation || p.tool).slice(0, 220))}</div>` : ''}
+      ${ask ? `<div class="btnrow">
+          <button class="btn primary" data-ok="${esc(s.id)}">${esc(t('allow'))}</button>
+          <button class="btn danger" data-no="${esc(s.id)}">${esc(t('deny'))}</button>
+        </div>` : `<div class="btnrow"><button class="btn ghost" data-open="${esc(s.id)}">${esc(t('open'))}</button></div>`}
+    </div>`;
+  }
+
+  const busy = st.sessions.filter((x) => x.activity === 'working');
+  if (busy.length){
+    h += `<div class="sec">${esc(t('working'))}</div>`;
+    for (const s of busy.slice(0, 8)){
+      h += `<div class="card"><div class="rowline">
+        <span class="dot work"></span>
+        <button class="trunc" data-open="${esc(s.id)}" style="flex:1;text-align:left;font-weight:600;font-size:13px">${esc(title(s))}</button>
+      </div><div class="path">${esc(where(s))}</div></div>`;
+    }
+  }
+  $('inboxview').innerHTML = h;
+}
+
+function renderUsage(){
+  let h = `<div class="sec">${esc(t('quota'))}</div>`;
+  if (!st.quotas.length){
+    h += `<div class="card"><div class="dim" style="font-size:12.5px">${esc(t('noQuota'))}</div></div>`;
+  }
+  for (const p of ['claude', 'codex']){
+    const pools = st.quotas.filter((a) => a.provider === p);
+    if (!pools.length) continue;
+    h += `<div class="card" style="padding:0">
+      <div style="padding:11px 13px 3px;font-weight:650;font-size:13px">${p === 'claude' ? 'Claude Code' : 'Codex'}</div>`;
+    for (const a of pools){
+      const named = pools.length > 1;
+      const poolName = a.limitName && a.limitName !== a.limitId && a.limitName !== 'subscription' ? a.limitName : null;
+      if (named) h += `<div style="padding:4px 13px 0;font-size:11.5px;color:var(--text-2);font-weight:600">${esc(poolName || (LANG === 'zh' ? '订阅额度' : 'Subscription'))}</div>`;
+      const ws = (a.windows || []).filter((w) => !w.expired)
+        .sort((x, y) => Number(x.windowMinutes) - Number(y.windowMinutes));
+      for (const w of ws){
+        const left = Math.round(Number(w.remainingPercent));
+        const mins = Number(w.windowMinutes);
+        const label = mins % 1440 === 0 ? (mins / 1440) + 'd' : mins % 60 === 0 ? (mins / 60) + 'h' : mins + 'm';
+        const cls = left <= 10 ? 'crit' : left <= 25 ? 'warn' : '';
+        const secs = Number(w.resetsAt) - Date.now() / 1000;
+        h += `<div class="q">
+          <div class="qtop"><b class="mono">${label}</b><span class="mono">${left}% ${esc(t('remaining'))}</span></div>
+          <div class="bar"><i class="${cls}" style="width:${Math.max(0, Math.min(100, left))}%"></i></div>
+          <div class="qmeta">${esc(secs > 0 ? t('resetIn', compact(secs)) : t('resetting'))}</div>
+        </div>`;
+      }
+      h += `<div style="padding:2px 13px 11px" class="qmeta">${esc(ago(a.lastChangedAt))}</div>`;
+    }
+    h += `</div>`;
+  }
+
+  for (const [key, u] of [['tokenDay', st.day], ['tokenMonth', st.month]]){
+    if (!u || !u.totals) continue;
+    h += `<div class="card">
+      <div class="qmeta" style="margin-bottom:2px">${esc(t(key))}</div>
+      <div class="big mono">${num(u.totals.total)}</div>
+      <div class="qmeta" style="margin-top:3px">${esc(t('apiValue'))} ${money(u.totals.pricedUSD)}</div>
+    </div>`;
+  }
+  h += `<div class="card" style="background:transparent;border:0;padding-top:2px"><div class="qmeta">${esc(t('notBilling'))}</div></div>`;
+  $('usageview').innerHTML = h;
+}
+
+function renderChatHead(){
+  const s = st.sessions.find((x) => x.id === st.sel);
+  $('chattitle').textContent = s ? title(s) : '—';
+  $('chatsub').textContent = s ? (s.provider + (where(s) ? ' · ' + where(s) : '')) : '';
+  const a = act(s);
+  const pill = $('chatpill');
+  pill.className = 'pill ' + (s ? a.pill : '');
+  pill.textContent = s ? t(a.key) : '';
+  $('chathead').classList.toggle('hide', !s);
+  $('composer').classList.toggle('hide', !s);
+
+  // 能不能回、怎么回，说在输入框上面 —— 按下去才发现发不出去最伤人。
+  let why = '', can = true;
+  if (s){
+    const cap = (s.capabilities || {}).reply || {};
+    if (cap.available) why = cap.transport === 'codex-queue' ? t('replyQueue') : t('replyLive');
+    else if (s.lifecycle === 'exited' || s.connection === 'unknown') why = t('replyResume');
+    else { why = t('replyOffline'); can = false; }
+  }
+  $('why').textContent = why;
+  $('send').disabled = !can || st.sending;
+  $('input').disabled = !can;
+}
+
+function renderChat(){
+  const box = $('chat');
+  if (!st.sel){
+    box.innerHTML = `<div class="empty">${esc(t('pickSession'))}</div>`;
+    return;
+  }
+  if (!st.messages.length){
+    box.innerHTML = `<div class="empty">${esc(t('noMessages'))}</div>`;
+    return;
+  }
+  const rows = st.messages.map((m) => {
+    // 图片不在消息 JSON 里，按引用现取；浏览器会缓存，重绘不会重复下载。
+    const pics = (m.images || []).map((im) => {
+      const u = `/v2/attachment?session=${encodeURIComponent(st.sel)}&message=${encodeURIComponent(m.id)}` +
+                `&index=${im.index}&token=${encodeURIComponent(TOKEN)}`;
+      return `<a href="${u}" target="_blank" rel="noreferrer"><img src="${u}" alt="" loading="lazy"></a>`;
+    }).join('');
+    return `<div class="msg ${m.role === 'user' ? 'user' : 'assistant'}">${md(m.text)}${pics}</div>`;
+  });
+  const out = st.outbox;
+  if (out && out.session === st.sel){
+    const left = Math.max(0, HOLD_MS - (Date.now() - out.at));
+    rows.push(`<div class="msg user holding" style="--hold:${left}ms">${md(out.text)}` +
+              `<button class="undo" data-undo="1">${esc(t('undo'))}</button></div>`);
+  }
+  box.innerHTML = rows.join('');
+  // 图片是后加载的，撑开后要重新贴到底部，否则最后一条会被顶出视野。
+  for (const img of box.querySelectorAll('img')){
+    img.addEventListener('load', () => { box.scrollTop = box.scrollHeight; }, { once: true });
+  }
+  box.scrollTop = box.scrollHeight;
+}
+
+/* ── 交互 ──────────────────────────────────────────── */
+function open(id, fromHistory){
+  st.sel = id; st.messages = [];
+  document.body.classList.add('chatting');
+  document.body.classList.remove('drawer');
+  renderList(); renderChatHead();
+  $('chat').innerHTML = `<div class="empty">${esc(t('loading'))}</div>`;
+  loadMessages(id);
+  if (!fromHistory) history.pushState({ sel: id }, '', '#s=' + encodeURIComponent(id));
+}
+function closeChat(fromHistory){
+  st.sel = null;
+  document.body.classList.remove('chatting');
+  renderList(); renderChatHead(); renderChat();
+  if (!fromHistory) history.pushState({}, '', location.pathname + location.search);
+}
+// 主屏 app 里没有浏览器后退按钮，靠的就是系统手势/返回键 —— 它必须先关掉聊天层。
+addEventListener('popstate', (e) => {
+  const id = (e.state && e.state.sel) || null;
+  if (id) open(id, true); else closeChat(true);
+});
+
+document.addEventListener('click', async (e) => {
+  const el = e.target.closest('[data-open],[data-ok],[data-no],[data-more],[data-go],[data-undo]');
+  if (!el) return;
+  if (el.dataset.go){ setTab(el.dataset.go); return; }
+  if (el.dataset.undo){ undoSend(); return; }
+  if (el.dataset.more){ st.limit += 200; renderList(); return; }
+  if (el.dataset.open){ open(el.dataset.open); return; }
+  const id = el.dataset.ok || el.dataset.no;
+  if (id) await decide(id, !!el.dataset.ok, el);
+});
+
+function setTab(name){
+  document.body.dataset.tab = name;
+  for (const b of document.querySelectorAll('.tabbar button')) b.classList.toggle('on', b.dataset.go === name);
+}
+
+async function decide(id, allow, btn){
+  const s = st.sessions.find((x) => x.id === id);
+  const p = s && s.pendingApproval;
+  if (!p){ toast(t('stale')); return; }
+  btn.disabled = true;
+  try{
+    const r = await api('/v2/actions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        idempotencyKey: crypto.randomUUID(), sessionId: id, action: 'approve',
+        requestId: p.id, decision: allow ? 'allow' : 'deny',
+      }),
+    });
+    if (r.status === 'delivered') toast(allow ? t('approved') : t('denied'));
+    else toast(t('failed') + (r.reason || r.reasonCode || ''));
+  } catch(err){ toast(t('failed') + err.message); }
+  finally { btn.disabled = false; pull(); }
+}
+
+function send(){
+  const box = $('input'), text = box.value.trim();
+  if (!text){ toast(t('empty')); return; }
+  if (!st.sel) return;
+  // 已经有一条在等着发了，就先把它送出去，别让两条抢同一个窗口。
+  if (st.outbox) deliver();
+  st.outbox = { text, session: st.sel, at: Date.now() };
+  st.outbox.timer = setTimeout(deliver, HOLD_MS);
+  box.value = ''; box.style.height = 'auto';
+  renderChat();
+}
+
+function undoSend(){
+  const out = st.outbox;
+  if (!out) return;
+  clearTimeout(out.timer);
+  st.outbox = null;
+  const box = $('input');
+  box.value = out.text; box.dispatchEvent(new Event('input')); box.focus();
+  renderChat();
+  toast(t('unsent'));
+}
+
+async function deliver(){
+  const job = st.outbox;
+  if (!job) return;
+  clearTimeout(job.timer);
+  st.outbox = null;
+  renderChat();
+  const s = st.sessions.find((x) => x.id === job.session);
+  if (!s) return;
+  const text = job.text;
+  st.sending = true; renderChatHead();
+  const cap = (s.capabilities || {}).reply || {};
+  try{
+    let r;
+    if (cap.available){
+      // 会话还活着：走 v2，直接送进那个正在跑的进程。
+      r = await api('/v2/actions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          idempotencyKey: crypto.randomUUID(), sessionId: s.id, action: 'reply',
+          expectedRunId: s.runId || '', text,
+        }),
+      });
+      if (r.status !== 'delivered' && r.status !== 'unconfirmed') throw new Error(r.reason || r.reasonCode || '');
+    } else {
+      // 会话已经退出：v1 的 /reply 会用 claude --resume 把它续起来。
+      r = await api('/reply', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: s.nativeSessionId || s.id, text, send: true }),
+      });
+    }
+    toast(t('sent'));
+    setTimeout(() => loadMessages(s.id, true), 900);
+  } catch(err){
+    toast(t('failed') + err.message);
+    // 没发出去的话不能让它就这么消失 —— 放回输入框，用户能改能重发。
+    const box = $('input');
+    if (!box.value.trim()){ box.value = text; box.dispatchEvent(new Event('input')); }
+  }
+  finally { st.sending = false; renderChatHead(); }
+}
+
+$('send').addEventListener('click', send);
+$('back').addEventListener('click', closeChat);
+$('refresh').addEventListener('click', () => pull());
+$('drawerbtn').addEventListener('click', () => document.body.classList.toggle('drawer'));
+$('scrim').addEventListener('click', () => document.body.classList.remove('drawer'));
+const onThisMac = /^(127\.0\.0\.1|localhost|\[::1\])$/.test(location.hostname);
+$('cfg').addEventListener('click', () => {
+  if (!onThisMac){ toast(t('configLocalOnly')); return; }
+  location.href = '/config';
+});
+$('q').addEventListener('input', (e) => { st.q = e.target.value; st.limit = 60; renderList(); });
+$('filter').addEventListener('change', (e) => { st.filter = e.target.value; st.limit = 60; renderList(); });
+$('input').addEventListener('input', (e) => {
+  e.target.style.height = 'auto';
+  e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+});
+$('input').addEventListener('keydown', (e) => {
+  // 桌面 Enter 直接发；手机上 Enter 是换行，发送靠按钮（拇指够不到修饰键）。
+  if (e.key === 'Enter' && !e.shiftKey && window.innerWidth >= 860){ e.preventDefault(); send(); }
+});
+
+/* ── 语音 → WAV(16k 单声道) → /asr ───────────────────
+ * 用 WebAudio 自己编 WAV，不用 MediaRecorder：后者在 Safari 上给的是
+ * 带专有封装的 mp4，识别服务并不总认。 */
+let actx = null, rec = { on: false, chunks: [], stream: null, node: null, src: null };
+$('mic').addEventListener('click', async () => {
+  const btn = $('mic');
+  if (!rec.on){
+    // getUserMedia 只在安全上下文里存在。局域网 http:// 打开时它压根不在，
+    // 与其让用户点了没反应，不如直接说清楚为什么。
+    if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      toast(t('micNoSecure')); return;
+    }
+    try { rec.stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch(e){ toast(t('micDenied') + e.name); return; }
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    try { await actx.resume(); } catch(e){}
+    rec.src = actx.createMediaStreamSource(rec.stream);
+    rec.node = actx.createScriptProcessor(4096, 1, 1);
+    rec.chunks = [];
+    rec.node.onaudioprocess = (e) => rec.chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+    rec.src.connect(rec.node); rec.node.connect(actx.destination);
+    rec.on = true; btn.classList.add('rec'); toast(t('recording'));
+    return;
+  }
+  rec.on = false; btn.classList.remove('rec');
+  const rate = actx.sampleRate;
+  try { rec.node.disconnect(); rec.src.disconnect(); } catch(e){}
+  rec.node.onaudioprocess = null;
+  rec.stream.getTracks().forEach((x) => x.stop());
+  const len = rec.chunks.reduce((a, c) => a + c.length, 0);
+  if (len < rate * 0.3){ toast(t('recTooShort')); return; }
+  const buf = new Float32Array(len);
+  let o = 0; for (const c of rec.chunks){ buf.set(c, o); o += c.length; }
+  toast(t('recognizing'));
+  try{
+    const r = await fetch('/asr', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'audio/wav' },
+      body: wav(downsample(buf, rate, 16000), 16000),
+    });
+    const j = await r.json();
+    if (j.text){
+      const box = $('input');
+      box.value = (box.value ? box.value + ' ' : '') + j.text;
+      box.focus(); box.dispatchEvent(new Event('input'));
+    } else toast(j.error === 'no_key' ? t('asrNoKey') : t('failed') + (j.error || ''));
+  } catch(e){ toast(t('failed') + e.message); }
+});
+function downsample(buf, from, to){
+  if (to >= from) return buf;
+  const ratio = from / to, out = new Float32Array(Math.floor(buf.length / ratio));
+  for (let i = 0; i < out.length; i++) out[i] = buf[Math.floor(i * ratio)];
+  return out;
+}
+function wav(s, rate){
+  const b = new ArrayBuffer(44 + s.length * 2), v = new DataView(b);
+  const w = (o, str) => { for (let i = 0; i < str.length; i++) v.setUint8(o + i, str.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + s.length * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true);
+  v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, s.length * 2, true);
+  for (let i = 0; i < s.length; i++){
+    const x = Math.max(-1, Math.min(1, s[i]));
+    v.setInt16(44 + i * 2, x < 0 ? x * 0x8000 : x * 0x7fff, true);
+  }
+  return new Blob([b], { type: 'audio/wav' });
+}
+
+/* ── 启动 ──────────────────────────────────────────── */
+$('t-inbox').textContent = t('inbox');
+$('t-sessions').textContent = t('sessions');
+$('t-usage').textContent = t('usage');
+$('q').placeholder = t('search');
+$('input').placeholder = t('reply');
+$('filter').innerHTML = [['active','active'],['all','all'],['claude','claude'],['codex','codex']]
+  .map(([v, k]) => `<option value="${v}">${esc(t(k))}</option>`).join('');
+$('filter').value = st.filter;
+renderChatHead();
+renderChat();
+
+if ('serviceWorker' in navigator && location.protocol !== 'file:'){
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+/* ── 装到主屏 ──────────────────────────────────────
+ * 局域网是 http://，不是安全上下文 —— Chrome 的安装提示不会来，service worker
+ * 也注册不上。iOS Safari 不管这些：分享菜单里的「添加到主屏幕」照样给你一个全屏 app，
+ * 所以那条路要手把手说清楚。 */
+const A2HS = 'ga-a2hs-off';
+const standalone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+let installEvent = null;
+function offerInstall(ios){
+  if (standalone) return;
+  try { if (localStorage.getItem(A2HS)) return; } catch(e){}
+  $('a2hstext').textContent = ios ? t('a2hsIOS') : t('install');
+  $('a2hsgo').textContent = t('a2hsBtn');
+  $('a2hsgo').classList.toggle('hide', ios);
+  $('a2hsno').textContent = t('later');
+  $('a2hs').classList.add('on');
+}
+addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvent = e; offerInstall(false); });
+$('a2hsgo').addEventListener('click', async () => {
+  $('a2hs').classList.remove('on');
+  if (installEvent){ installEvent.prompt(); installEvent = null; }
+});
+$('a2hsno').addEventListener('click', () => {
+  $('a2hs').classList.remove('on');
+  try { localStorage.setItem(A2HS, '1'); } catch(e){}
+});
+if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !standalone) setTimeout(() => offerInstall(true), 1800);
+
+// #s=<会话键> 直接落到某个会话，#tab=<名字> 直接落到某个标签页 —— 分享链接和排查都用得上。
+const deepTab = /#tab=(inbox|sessions|usage)/.exec(location.hash);
+if (deepTab) setTab(deepTab[1]);
+const deep = /#s=(.+)$/.exec(location.hash);
+pull().then(() => {
+  if (deep) open(decodeURIComponent(deep[1]), true);
+  watch();
+});
+</script>
+</body>
+</html>

@@ -149,11 +149,12 @@ final class ApprovalController {
     /// 发起一次审批。`completion(true)` 表示通过。线程：主线程。
     /// `offerAlwaysAllow`：是否在卡片上提供“总是允许”（测试审批时传 false，避免把测试操作写进白名单）。
     func requestApproval(operation: String, cwd: String = "", tool: String = "",
+                         session: String = "", provider: String = "", requestKind: String = "", profileId: String = "",
                          timeout: TimeInterval = 15,
                          offerAlwaysAllow: Bool = true,
                          completion: @escaping (ApprovalOutcome) -> Void) {
         if inFlight {
-            completion(.denied)  // 同一时刻只处理一个请求；并发请求直接拒绝
+            completion(.timedOut)  // 交回原客户端审批；不能因另一个会话占用卡片自动拒绝
             return
         }
         inFlight = true
@@ -175,11 +176,11 @@ final class ApprovalController {
         applyPanelSize()
 
         // 发布"审批动态"给网络设备：带一次性 id + 剩余时限，设备据此显示并回裁决。
-        currentApprovalID = String(UUID().uuidString.prefix(8))
+        currentApprovalID = UUID().uuidString
         deviceState?.setPending(id: currentApprovalID,
                                 operation: operation, tool: tool, cwd: cwd,
                                 expiresAt: Date().addingTimeInterval(timeout),
-                                dangerous: Allowlist.isDangerous(operation))
+                                dangerous: Allowlist.isDangerous(operation), session: session, provider: provider, requestKind: requestKind, profileId: profileId)
 
         engine.reset()   // 清掉上一次的画面/状态（previewImage 置 nil，首帧监听才可靠）
         engine.onStable = { [weak self] gesture in

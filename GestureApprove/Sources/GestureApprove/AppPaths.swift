@@ -11,6 +11,9 @@ enum AppPaths {
             let p = (r as NSString).appendingPathComponent(rel)
             if FileManager.default.fileExists(atPath: p) { return p }
         }
+        let developmentRoot = URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().path
+        let developmentPath = (developmentRoot as NSString).appendingPathComponent(rel)
+        if FileManager.default.fileExists(atPath:developmentPath) { return developmentPath }
         return (HookInstaller.repoRoot() as NSString).appendingPathComponent(rel)
     }
 

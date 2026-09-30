@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Combine
 import ServiceManagement
 
 extension Notification.Name {
@@ -12,6 +13,50 @@ extension Notification.Name {
 @MainActor
 final class SettingsState: ObservableObject {
     @Published var active = true   // 窗口可见时为 true；关闭时置 false 以停止摄像头预览
+    /// 两栏中较高那一栏的内容高度：窗口首次打开时据此收到刚好包住内容，不留一大片空白。
+    @Published var contentHeight: CGFloat = 0
+}
+
+/// 分区图标一律黑白（跟随外观的次要色）：图标只是分区的标记，不该染上任何"可以点"的颜色——
+/// 这个窗口里的彩色留给真正能操作的控件（勾选框、分段控件、链接按钮）。
+private let sectionIconColor = Color.secondary
+
+/// 量出一栏内容的自然高度（两栏取较大者）。
+private struct ContentHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+/// 说明文字收进一个「?」：设置窗打开时是一列干净的选项，想看解释再点开，
+/// 而不是每个开关下面都压着两行小字（那样整页看上去就是一堵文字墙）。
+///
+/// **点击**触发而不是 hover：hover 弹出的 popover，鼠标一移进去就判定"离开"把自己关掉，
+/// 长一点的文案根本读不完（旧的 Codex 提示就是这个毛病）。
+private struct HelpHint: View {
+    let keys: [String]
+    @State private var show = false
+
+    init(_ keys: String...) { self.keys = keys }
+    init(keys: [String]) { self.keys = keys }
+
+    var body: some View {
+        Button { show.toggle() } label: {
+            Image(systemName: "questionmark.circle")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .help(L(keys.first ?? ""))       // 悬停给系统 tooltip，点开才是完整文案
+        .popover(isPresented: $show, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(keys, id: \.self) { Text(L($0)) }
+            }
+            .font(.system(size: 11))
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(width: 260, alignment: .leading)   // 窄一点：靠左的「?」弹出时不至于探出窗口太多
+            .padding(12)
+        }
+    }
 }
 
 struct SettingsView: View {
@@ -51,7 +96,6 @@ struct SettingsView: View {
     @State private var trusted: [String] = Allowlist.trustedCommands()
     @State private var smartGate: Bool = Gatekeeper.isEnabled
     @State private var gateInstalled: Bool = Gatekeeper.isInstalled
-    @State private var hoverCodexNote = false
     @State private var launchAtLogin: Bool = LaunchAtLogin.isEnabled
     @State private var appLang: String = UserDefaults.standard.string(forKey: I18n.langKey) ?? "system"
     @State private var confirmRestore = false
@@ -63,6 +107,16 @@ struct SettingsView: View {
     @State private var updateNotes = ""           // 新版 changelog（弹窗正文用）
     @State private var installing = false
     @State private var deviceApiOn: Bool = DeviceApi.isEnabled
+    @State private var agentNotify: Bool = AgentNotify.claudeEnabled
+    @State private var agentNotifyCodex: Bool = AgentNotify.codexEnabled
+    @State private var focusAuth: Notifier.FocusAuth = Notifier.focusAuth
+    @State private var agentNotifyDesktop: Bool = AgentNotify.desktopEnabled
+    @State private var agentNotifyHub: Bool = AgentNotify.hubEnabled
+    @State private var usageInMenu: Bool = UsageMonitor.isEnabled
+    @State private var usageSource: UsageSource = UsageMonitor.source
+    @State private var usageSnoozed: Bool = UsageMonitor.isSnoozed
+    @State private var usageCollect: Bool = UsageMonitor.collecting
+    @State private var usageCollectors: [MObject] = MonitorHooks.status()
     let openFlash: () -> Void
     let onPrimeESP32: () -> Void
     let onEngineChanged: () -> Void
@@ -81,13 +135,24 @@ struct SettingsView: View {
     var body: some View {
         // 左右两栏各自独立滚动:每栏一个 ScrollView,窗口高度在 show() 里钳住,于是两栏分别在窗内滚。
         HStack(alignment: .top, spacing: 20) {
-            ScrollView { leftColumn.frame(width: columnWidth, alignment: .topLeading).padding(.vertical, 18) }
-                .frame(width: columnWidth)
+            ScrollView {
+                leftColumn.frame(width: columnWidth, alignment: .topLeading)
+                    .padding(.vertical, 18)
+                    .background(heightReporter)
+            }
+            .frame(width: columnWidth)
             Divider()
-            ScrollView { rightColumn.frame(width: columnWidth, alignment: .topLeading).padding(.vertical, 18) }
-                .frame(width: columnWidth)
+            ScrollView {
+                rightColumn.frame(width: columnWidth, alignment: .topLeading)
+                    .padding(.vertical, 18)
+                    .background(heightReporter)
+            }
+            .frame(width: columnWidth)
         }
         .padding(.horizontal, 18)
+        .onPreferenceChange(ContentHeightKey.self) { h in
+            MainActor.assumeIsolated { state.contentHeight = h }
+        }
         .alert(L("settings.alert.title"), isPresented: Binding(get: { errorText != nil },
                                                 set: { if !$0 { errorText = nil } })) {
             Button(L("settings.alert.ok"), role: .cancel) { errorText = nil }
@@ -108,6 +173,25 @@ struct SettingsView: View {
             launchAtLogin = LaunchAtLogin.isEnabled
             smartGate = Gatekeeper.isEnabled
             gateInstalled = Gatekeeper.isInstalled
+            // 开关开着但 hook 不在（换过 app 路径、手改过 settings.json）→ 补装一次，
+            // 让"开着"永远等于"真的会通知"。只在不一致时写文件，不会每次打开设置都改用户配置。
+            agentNotify = AgentNotify.claudeEnabled
+            agentNotifyCodex = AgentNotify.codexEnabled
+            if agentNotify, !HookInstaller.isClaudeStopInstalled() {
+                do { try HookInstaller.installClaudeStop() } catch { errorText = "\(error)" }
+            }
+            if agentNotifyCodex, !HookInstaller.isCodexStopInstalled() {
+                do { try HookInstaller.installCodexStop() } catch { errorText = "\(error)" }
+            }
+            // 采集同理：开着但配置不在位就补装一次，然后按补装后的真实状态刷新这几行。
+            usageCollect = UsageMonitor.collecting
+            UsageMonitor.repairIfNeeded()
+            usageCollectors = MonitorHooks.status()
+            agentNotifyDesktop = AgentNotify.desktopEnabled
+            agentNotifyHub = AgentNotify.hubEnabled
+            focusAuth = Notifier.focusAuth
+            // 功能开着却没这个权限 = 勿扰时会吵人，打开设置窗时再追一次（被拒过就只提示不弹系统框）
+            if agentNotify || agentNotifyCodex { demandFocusPermission(explainIfDenied: false) }
             // 旧的连续值（如 0.55）吸附到最近的档位，否则分段控件不高亮
             let snapped = [0.3, 0.6, 0.9].min(by: { abs($0 - minConf) < abs($1 - minConf) }) ?? 0.6
             if snapped != minConf { minConf = snapped; UserDefaults.standard.set(snapped, forKey: "gestureMinConf") }
@@ -119,7 +203,7 @@ struct SettingsView: View {
     private var leftColumn: some View {
         VStack(alignment: .leading, spacing: sectionSpacing) {
             // 通用
-            header("settings.section.general")
+            header("settings.section.general", icon: "gearshape")
             VStack(alignment: .leading, spacing: itemSpacing) {
                 Toggle(L("menu.launchAtLogin"), isOn: Binding(
                     get: { launchAtLogin },
@@ -142,9 +226,9 @@ struct SettingsView: View {
                     }
                     .labelsHidden()
                     .fixedSize()
+                    HelpHint("settings.language.note")
                     Spacer()
                 }
-                caption("settings.language.note")
 
                 // 版本 + 检查更新（走 GitHub Releases）
                 HStack(spacing: 8) {
@@ -173,7 +257,7 @@ struct SettingsView: View {
             Divider()
 
             // 接入 AI 工具
-            header("settings.section.connect")
+            header("settings.section.connect", icon: "terminal", "settings.connectDesc", "settings.hotkeyDesc")
             VStack(alignment: .leading, spacing: itemSpacing) {
                 // 四个接入开关横排一行，节约高度。
                 HStack(spacing: 14) {
@@ -196,17 +280,7 @@ struct SettingsView: View {
                                 } catch { errorText = "\(error)" }
                             }))
                             .fixedSize()
-                        // Codex 专属提示：? 图标，hover 即弹出具体文案。
-                        Image(systemName: "questionmark.circle")
-                            .foregroundStyle(.secondary)
-                            .onHover { hoverCodexNote = $0 }
-                            .popover(isPresented: $hoverCodexNote, arrowEdge: .bottom) {
-                                Text(L("settings.connectCodexNote"))
-                                    .font(.system(size: 11))
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .frame(width: 280)
-                                    .padding(12)
-                            }
+                        HelpHint("settings.connectCodexNote")   // Codex 要 /hooks 信任一次
                     }
                     Toggle("Gemini CLI", isOn: Binding(
                         get: { geminiInstalled },
@@ -228,14 +302,127 @@ struct SettingsView: View {
                         .fixedSize()
                     Spacer(minLength: 0)
                 }
-                caption("settings.connectDesc")
-                caption("settings.hotkeyDesc")
+
+                Divider().padding(.vertical, 2)
+                // 用量显示也属于「接入的 AI 工具」这件事：哪个在跑就显示哪个的额度。
+                HStack(spacing: 5) {
+                    Toggle(L("settings.usage.enable"), isOn: Binding(
+                        get: { usageInMenu },
+                        set: { v in
+                            usageInMenu = v
+                            UserDefaults.standard.set(v, forKey: UsageMonitor.enabledKey)
+                        }))
+                        .fixedSize()
+                    HelpHint("settings.usage.note")
+                    Spacer(minLength: 0)
+                }
+                if usageInMenu {
+                    // 弹窗里点过「临时关闭（24 小时）」——给条明路回来，不然只能干等。
+                    if usageSnoozed {
+                        HStack {
+                            caption("settings.usage.snoozed")
+                            Button(L("settings.usage.resume")) {
+                                UsageMonitor.endSnooze()
+                                usageSnoozed = false
+                            }
+                            .controlSize(.small)
+                        }
+                    }
+                    // 开关即安装：勾上就往本机各家 AI 工具的配置里注册采集器，关掉就还原。
+                    // 让「开着」等于「真的在采」——以前这个开关只管显示，数据得去 Hub 网页里另装。
+                    HStack(spacing: 5) {
+                        Toggle(L("settings.usage.collect"), isOn: Binding(
+                            get: { usageCollect },
+                            set: { on in
+                                let result = MonitorHooks.apply(uninstall: !on)
+                                usageCollectors = MonitorHooks.status()
+                                guard result["ok"] as? Bool == true else {
+                                    errorText = (result["results"] as? [MObject] ?? [])
+                                        .compactMap { $0["error"] as? String }.joined(separator: "\n")
+                                    return   // 失败就别把开关留在「开」上
+                                }
+                                UsageMonitor.collecting = on
+                                usageCollect = on
+                            }))
+                            .fixedSize()
+                        // 原理和边界进问号，不占正文：这一屏真正要给的是「现在采到没有」。
+                        HelpHint("settings.usage.collectNote", "settings.usage.collectPrivacy")
+                        Spacer(minLength: 0)
+                    }
+                    ForEach(usageCollectors.indices, id: \.self) { i in
+                        caption(verbatim: Self.collectorLine(usageCollectors[i]))
+                    }
+                }
+            }
+
+            Divider()
+
+            // Agent 完成通知（Claude Code 的 Stop hook —— 只旁观，不干预 agent）
+            header("settings.section.agentnotify", icon: "bell.badge", "settings.agentnotify.desc", "settings.agentnotify.codexTrust")
+            VStack(alignment: .leading, spacing: itemSpacing) {
+                // 两家各装各的 Stop hook（Claude: ~/.claude/settings.json；Codex: ~/.codex/config.toml）
+                HStack(spacing: 14) {
+                    Toggle("Claude Code", isOn: Binding(
+                        get: { agentNotify },
+                        set: { on in
+                            do {
+                                try on ? HookInstaller.installClaudeStop() : HookInstaller.uninstallClaudeStop()
+                                AgentNotify.claudeEnabled = on
+                                agentNotify = on
+                                if on { demandFocusPermission() }
+                            } catch {
+                                errorText = "\(error)"   // hook 没装成就别把开关点亮，否则显示与实际不符
+                                agentNotify = AgentNotify.claudeEnabled
+                            }
+                        }))
+                        .fixedSize()
+                    Toggle("Codex", isOn: Binding(
+                        get: { agentNotifyCodex },
+                        set: { on in
+                            do {
+                                try on ? HookInstaller.installCodexStop() : HookInstaller.uninstallCodexStop()
+                                AgentNotify.codexEnabled = on
+                                agentNotifyCodex = on
+                                if on { demandFocusPermission() }
+                            } catch {
+                                errorText = "\(error)"
+                                agentNotifyCodex = AgentNotify.codexEnabled
+                            }
+                        }))
+                        .fixedSize()
+                    Spacer(minLength: 0)
+                }
+                // 没这个权限，勿扰/专注时提示音照样响 —— 属于"开了但不好使"，得让人一眼看见。
+                if (agentNotify || agentNotifyCodex), focusAuth != .granted {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                        Text(L("settings.agentnotify.focusMissing"))
+                        Button(L("settings.agentnotify.focusGrant")) { demandFocusPermission() }
+                            .controlSize(.small)
+                    }
+                    .font(.system(size: 11))
+                }
+                if agentNotify || agentNotifyCodex {
+                    Toggle(L("settings.agentnotify.desktop"), isOn: Binding(
+                        get: { agentNotifyDesktop },
+                        set: { v in agentNotifyDesktop = v; AgentNotify.desktopEnabled = v }))
+                        .padding(.leading, 16)
+                    HStack(spacing: 5) {
+                        Toggle(L("settings.agentnotify.hub"), isOn: Binding(
+                            get: { agentNotifyHub },
+                            set: { v in agentNotifyHub = v; AgentNotify.hubEnabled = v }))
+                            .fixedSize()
+                        HelpHint("settings.agentnotify.hubNote")
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.leading, 16)
+                }
             }
 
             Divider()
 
             // 智能放行（本地 LLM 守门员）
-            header("settings.section.smartgate")
+            header("settings.section.smartgate", icon: "sparkles", "settings.smartgate.desc", "settings.smartgate.hookNote")
             VStack(alignment: .leading, spacing: itemSpacing) {
                 Toggle(L("settings.smartgate.enable"), isOn: Binding(
                     get: { smartGate },
@@ -258,15 +445,18 @@ struct SettingsView: View {
                     }
                     .font(.system(size: 11))
                 }
-                caption("settings.smartgate.desc")
-                caption("settings.smartgate.hookNote")
             }
 
             Divider()
 
             // 自动放行规则（正则）
-            HStack(alignment: .firstTextBaseline) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: "checkmark.shield")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(sectionIconColor)
+                    .frame(width: 16)
                 Text(L("settings.section.allowlist")).font(.headline)
+                HelpHint("settings.allowlist.desc")
                 Spacer()
                 Button(L("settings.allowlist.restore")) { confirmRestore = true }
                 .buttonStyle(.link)
@@ -280,7 +470,6 @@ struct SettingsView: View {
                     Button(L("settings.cancel"), role: .cancel) { }
                 }
             }
-            caption("settings.allowlist.desc")
             TextEditor(text: $allowlistText)
                 .font(.system(size: 11, design: .monospaced))
                 .frame(height: 56)
@@ -293,11 +482,8 @@ struct SettingsView: View {
                 }
 
             // 信任的命令（点“总是允许”写入，可逐条删除）
-            header("settings.section.trusted")
-            caption("settings.trusted.desc")
+            header("settings.section.trusted", icon: "checkmark.seal", "settings.trusted.desc")
             trustedList
-
-            Spacer(minLength: 0)
         }
     }
 
@@ -306,7 +492,7 @@ struct SettingsView: View {
     private var rightColumn: some View {
         VStack(alignment: .leading, spacing: sectionSpacing) {
             // 视频输入源
-            header("settings.section.video")
+            header("settings.section.video", icon: "video")
             HStack(spacing: 6) {
                 Picker("", selection: $selectedID) {
                     ForEach(inputs) { Text($0.name).tag($0.id) }
@@ -370,7 +556,7 @@ struct SettingsView: View {
             Divider()
 
             // 识别引擎
-            header("settings.section.engine")
+            header("settings.section.engine", icon: "cpu", "settings.engine.desc")
             VStack(alignment: .leading, spacing: itemSpacing) {
                 Picker("", selection: $engine) {
                     Text(L("settings.engine.vision")).tag("vision")
@@ -400,13 +586,12 @@ struct SettingsView: View {
                     }
                     .font(.system(size: 11))
                 }
-                caption("settings.engine.desc")
             }
 
             Divider()
 
             // 识别精准度：三档，控制几何判定的松紧
-            header("settings.section.precision")
+            header("settings.section.precision", icon: "target")
             Picker("", selection: $minConf) {
                 Text(L("settings.precision.loose")).tag(0.3)
                 Text(L("settings.precision.standard")).tag(0.6)
@@ -418,44 +603,39 @@ struct SettingsView: View {
 
             Divider()
 
-            // ESP32-CAM 入口：横条卡片，点击打开刷写弹窗
-            Button(action: openFlash) {
-                HStack(spacing: 14) {
-                    Image(systemName: "camera.aperture")
-                        .font(.system(size: 24))
-                        .foregroundStyle(.tint)
-                        .frame(width: 44, height: 44)
-                        .background(Color.primary.opacity(0.06),
-                                    in: RoundedRectangle(cornerRadius: 10))
-                    VStack(alignment: .leading, spacing: 3) {
+            // ESP32-CAM 入口：单行窄条（这是给少数人用的可选硬件，不该占掉一整块版面）。
+            // 说明挪进条子右侧的「?」——它在按钮**外面**，避免按钮套按钮点哪儿都触发刷写。
+            HStack(spacing: 5) {
+                Button(action: openFlash) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "camera.aperture")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.tint)
                         Text(L("settings.esp32card.title"))
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.system(size: 12))
                             .foregroundStyle(.primary)
-                        Text(L("settings.esp32card.desc"))
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .multilineTextAlignment(.leading)
+                        Spacer(minLength: 4)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.tertiary)
                     }
-                    Spacer(minLength: 4)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 6)
+                    .background(Color.primary.opacity(0.04),
+                                in: RoundedRectangle(cornerRadius: 8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
+                    .contentShape(RoundedRectangle(cornerRadius: 8))
                 }
-                .padding(12)
-                .background(Color.primary.opacity(0.04),
-                            in: RoundedRectangle(cornerRadius: 12))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
-                .contentShape(RoundedRectangle(cornerRadius: 12))
+                .buttonStyle(.plain)
+                HelpHint("settings.esp32card.desc")
             }
-            .buttonStyle(.plain)
 
             Divider()
 
             // 远程审批设备（ESP32 等经 HTTP API 审批）
-            header("settings.section.deviceapi")
+            header("settings.section.deviceapi", icon: "antenna.radiowaves.left.and.right", "settings.deviceapi.desc")
             VStack(alignment: .leading, spacing: itemSpacing) {
                 Toggle(L("settings.deviceapi.enable"), isOn: Binding(
                     get: { deviceApiOn },
@@ -464,7 +644,6 @@ struct SettingsView: View {
                         deviceApiOn = on
                         onDeviceApiChanged(on)   // 运行时起停设备监听，无需重启
                     }))
-                caption("settings.deviceapi.desc")
                 // 连接信息(地址/token/其它网卡)集中到 hub 的 /config 页展示,这里只放一个跳转按钮。
                 if deviceApiOn {
                     Button(L("settings.deviceapi.openConfig")) { openHubConfig() }
@@ -472,16 +651,31 @@ struct SettingsView: View {
                         .padding(.top, 2)
                 }
             }
-
-            Spacer(minLength: 0)
         }
     }
 
 
     // MARK: 复用小部件
 
-    @ViewBuilder private func header(_ key: String) -> some View {
-        Text(L(key)).font(.headline)
+    /// 内容高度上报（放在 background 里，不参与布局）。
+    private var heightReporter: some View {
+        GeometryReader { g in
+            Color.clear.preference(key: ContentHeightKey.self, value: g.size.height)
+        }
+    }
+
+    /// 分区标题：SF Symbol + 标题 +（可选）说明的「?」。
+    /// 图标只是分区的视觉锚点，让一长列开关有节奏、扫一眼能定位到自己要找的那节。
+    @ViewBuilder private func header(_ key: String, icon: String, _ help: String...) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(sectionIconColor)
+                .frame(width: 16)
+            Text(L(key)).font(.headline)
+            if !help.isEmpty { HelpHint(keys: help) }
+            Spacer(minLength: 0)
+        }
     }
 
     @ViewBuilder private func caption(_ key: String) -> some View {
@@ -489,6 +683,28 @@ struct SettingsView: View {
             .font(.system(size: 11))
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder private func caption(verbatim text: String) -> some View {
+        Text(text)
+            .font(.system(size: 11))
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// 「Claude Code — 采集中」。本机没装这家工具时说「本机未安装」，别让用户以为是接入失败。
+    static func collectorLine(_ row: MObject) -> String {
+        let name = row["name"] as? String ?? row["id"] as? String ?? ""
+        let state: String
+        if row["present"] as? Bool != true { state = L("settings.usage.state.missing") }
+        else {
+            switch row["state"] as? String {
+            case "installed": state = L("settings.usage.state.collecting")
+            case "stale": state = L("settings.usage.state.stale")
+            default: state = L("settings.usage.state.absent")
+            }
+        }
+        return name + " — " + state
     }
 
     @ViewBuilder private var trustedList: some View {
@@ -525,6 +741,10 @@ struct SettingsView: View {
                 .padding(.trailing, 4)   // 给滚动条留位
             }
             .frame(maxHeight: 156)       // 约 6 条；再多则内部滚动，窗口高度不变
+            // ScrollView 默认会把给它的空间吃满：只有一条命令时也照样撑满 156，
+            // 窗口按内容贴合高度就会白白多出一截。fixedSize 让它取内容高度，
+            // 上面的 maxHeight 仍然封顶（超过就恢复滚动）。
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -569,6 +789,16 @@ struct SettingsView: View {
         })
     }
 
+    /// 索要「专注状态」权限：没问过就弹系统框，被拒过就弹我们自己的说明框（并给关掉功能的出路）。
+    private func demandFocusPermission(explainIfDenied: Bool = true) {
+        Notifier.ensureFocusAuthorization(explainIfDenied: explainIfDenied) {
+            focusAuth = Notifier.focusAuth
+            agentNotify = AgentNotify.claudeEnabled       // 用户可能在弹窗里选了"关掉完成通知"
+            agentNotifyCodex = AgentNotify.codexEnabled
+        }
+        focusAuth = Notifier.focusAuth
+    }
+
     private func setLaunchAtLogin(_ on: Bool) {
         do {
             try LaunchAtLogin.set(on)
@@ -598,6 +828,11 @@ struct SettingsView: View {
 final class SettingsWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
     private let state = SettingsState()
+    /// 还等着按内容高度收一次窗口（收完置 false）。
+    private var fitToContent = false
+    /// 用户亲手拖过窗口高度 —— 从此不再自作主张改它。
+    private var userResized = false
+    private var heightObserver: AnyCancellable?
 
     func show(openFlash: @escaping () -> Void,
               onPrimeESP32: @escaping () -> Void,
@@ -626,7 +861,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             window?.contentViewController = hosting   // 复用窗口但换新视图，刷新所有 @State
         }
         // 锁宽 + 放开高度:拖右下角只调高度;高度上限不超过屏幕可视区(菜单栏/Dock 之外),避免盖住 Dock。
-        // 首次打开给个合适初值;之后复用窗口时保留用户拖过的高度(只在超出屏幕时回收)。
+        // 首次打开给个保守初值,等 SwiftUI 量出真实内容高度后再收紧(见 fitToContent)。
         if let w = window {
             let vf = (w.screen ?? NSScreen.main)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 820)
             let cw = max(hosting.view.fittingSize.width, 952)
@@ -637,10 +872,32 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             let newH = (creating || curH < 360 || curH > maxH) ? min(maxH, 900) : curH
             w.setContentSize(NSSize(width: cw, height: newH))
         }
+        // 内容高度是 SwiftUI 布局后才知道的，所以窗口"贴合内容"要等第一次上报回来再做。
+        // 每次打开都重新贴合（信任命令增删、语言切换都会改变内容高度）——
+        // 唯独用户自己拖过高度之后不再插手，那是他的选择。
+        fitToContent = !userResized
         state.active = true              // 重新打开 -> 恢复预览
+        heightObserver = state.$contentHeight.sink { [weak self] h in
+            MainActor.assumeIsolated { self?.applyContentHeight(h) }
+        }
         NSApp.activate(ignoringOtherApps: true)
         if creating { window?.center() }   // 只首次居中;之后保留用户挪动/调整过的位置与高度
         window?.makeKeyAndOrderFront(nil)
+    }
+
+    /// 把窗口收到刚好包住内容（上限仍是屏幕可视区）。内容比屏幕高时维持上限，两栏各自滚动。
+    private func applyContentHeight(_ h: CGFloat) {
+        guard fitToContent, h > 0, let w = window else { return }
+        fitToContent = false
+        let vf = (w.screen ?? NSScreen.main)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 820)
+        let target = min(vf.height - 28, max(360, h))
+        guard abs(target - w.contentLayoutRect.height) > 1 else { return }
+        w.setContentSize(NSSize(width: w.contentLayoutRect.width, height: target))
+        w.center()
+    }
+
+    func windowDidEndLiveResize(_ notification: Notification) {
+        userResized = true       // 只有用户拖动会走到这里；程序 setContentSize 不触发
     }
 
     func windowWillClose(_ notification: Notification) {

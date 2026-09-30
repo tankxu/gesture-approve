@@ -22,6 +22,10 @@ final class DeviceApprovalState: @unchecked Sendable {
         let cwd: String
         let expiresAt: Date
         let dangerous: Bool
+        let session: String
+        let provider: String
+        let requestKind: String
+        let profileId: String
     }
 
     private let lock = NSLock()
@@ -35,10 +39,10 @@ final class DeviceApprovalState: @unchecked Sendable {
     // MARK: 写入（主线程，审批生命周期驱动）
 
     func setPending(id: String, operation: String, tool: String, cwd: String,
-                    expiresAt: Date, dangerous: Bool) {
+                    expiresAt: Date, dangerous: Bool, session: String = "", provider: String = "", requestKind: String = "", profileId: String = "") {
         lock.lock()
         pending = Pending(id: id, operation: operation, tool: tool, cwd: cwd,
-                          expiresAt: expiresAt, dangerous: dangerous)
+                          expiresAt: expiresAt, dangerous: dangerous, session: session, provider: provider, requestKind: requestKind, profileId: profileId)
         version &+= 1
         let snap = Self.json(version: version, pending: pending)
         let woken = waiters; waiters = []
@@ -92,6 +96,7 @@ final class DeviceApprovalState: @unchecked Sendable {
             "cwd": p.cwd,
             "deadline_ms": remainingMs,
             "dangerous": p.dangerous,
+            "sessionId": p.session, "provider": p.provider, "requestKind": p.requestKind, "profileId": p.profileId,
         ]
     }
 }
