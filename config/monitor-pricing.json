@@ -1,5 +1,5 @@
 {
-  "version": "2026-09-12",
+  "version": "2026-10-02",
   "currency": "USD",
   "unit": "per million tokens",
   "sources": [
@@ -136,6 +136,18 @@
       "cacheWrite": 1.25,
       "cacheWrite1h": 2,
       "output": 5
+    },
+    "claude-opus-5-5": {
+      "input": 4,
+      "cacheRead": 0.2,
+      "cacheWrite": 5,
+      "cacheWrite1h": 8,
+      "output": 20,
+      "fastMultiplier": 2
     }
-  }
+  },
+  "internal": [
+    "codex-auto-review"
+  ],
+  "note": "Fallback only. At runtime the LiteLLM community map is fetched daily and overrides this; put manual prices in <data dir>/pricing.local.json (same schema)."
 }

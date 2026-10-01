@@ -77,8 +77,9 @@ Claude 下一次客户端响应后能产生额度快照。Codex 修改后的 hoo
 - Claude 按 requestId + message.id 去重；复制记录只计一次，归属冲突标 `ownershipAmbiguousRequests`。这类会话分摊仍有不确定性，账户总量不会重复计入。
 - Codex 使用累计 counter 差值，忽略重复快照。输入中的 cached token 不重复相加；推理 token 已包含在输出中。无明确继承边界的 fork 不计作新增消耗，公开缺口原因。
 - 日/月按请求发生时间与时区聚合。UI 使用本机时区，API 可指定 `timezone`。范围仅已配置本地记录，不含其他电脑或云端未落地数据。
-- 价格表 `config/monitor-pricing.json` 打包并在初次启动复制到数据目录 `pricing.json`。按精确 model ID、缓存读写与 TTL 计算当前 API 等值 USD；未知模型、无法确定的计费项独立计为未定价。它不是历史账单，也不是订阅实际扣费。
-- 价格来源：[OpenAI](https://developers.openai.com/api/docs/pricing)、[Anthropic](https://platform.claude.com/docs/en/about-claude/pricing)。表版本为 2026-09-12。长上下文超出已配置阈值时保守标未定价。
+- 价格表分三层按模型合并（后者覆盖前者）：包内 `config/monitor-pricing.json`（离线兜底）< 每日从 [LiteLLM 社区价格表](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json) 拉取并转换的数据目录 `pricing-remote.json`（带 ETag，失败每小时重试，保留旧缓存）< 用户手写的 `pricing.local.json`（同 schema）。新模型 LiteLLM 收录后即自动定价，无需发版；价格在出报表时计算，所以历史请求也会随之定价。远端只取 Anthropic/OpenAI 一方文本模型的数值字段，非有限、负数或超过 $1000/百万 token 的条目丢弃。
+- 匹配：先精确 model ID，再去掉部署包装（`[1m]`、`us.anthropic.`/`openai/` 前缀、`-v1:0`、`-YYYYMMDD` 快照）后精确匹配；不套相近型号。按缓存读写与 TTL、fast/priority/flex 倍率、长上下文档（`longAbove` 以上整单用 long 价）计算当前 API 等值 USD。0 token 记录计 0；无公开价的服务商内部模型（表中 `internal`，如 `codex-auto-review`）计入 `internalRequests`，与缺价的 `unpricedRequests` 分开。它不是历史账单，也不是订阅实际扣费。
+- 价格来源：LiteLLM（其条目链接 [OpenAI](https://developers.openai.com/api/docs/pricing)、[Anthropic](https://platform.claude.com/docs/en/about-claude/pricing) 官方页）。超过阈值但缺长上下文价时保守标未定价。旧版本复制的数据目录 `pricing.json` 已不再读取。
 
 可在数据目录 `settings.json` 增加记录根：
 

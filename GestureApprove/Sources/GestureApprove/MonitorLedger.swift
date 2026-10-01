@@ -179,13 +179,16 @@ final class MonitorLedger {
         var sql = "SELECT body FROM usage WHERE at>=? AND at<=?"
         if let session, !session.isEmpty { sql += " AND session=?"; args.append(session) }
         var groups: [String:MObject] = [:], total: MObject = [:]
-        let pricing = MonitorIO.read(MonitorIO.root + "/pricing.json")
+        let pricing = MonitorPricing.table(), internalModels = Set(pricing["internal"] as? [String] ?? [])
         for r in db.rows(sql,args) {
             let u = MonitorIO.object(r["body"] as? String ?? ""), model = u["model"] as? String ?? "unknown"
             var g = groups[model] ?? ["model":model]
             for field in ["input","cacheRead","cacheWrite","output","reasoning","total"] { let n = MonitorIO.number(u[field]); total[field] = MonitorIO.number(total[field])+n; g[field] = MonitorIO.number(g[field])+n }
             let cost = Self.cost(u, prices:pricing["models"] as? MObject ?? [:])
-            for field in ["requests","unpricedRequests","ownershipAmbiguousRequests"] { let n = field == "requests" ? 1.0 : field == "ownershipAmbiguousRequests" ? (u["ownershipAmbiguous"] as? Bool == true ? 1.0 : 0.0) : cost == nil ? 1.0 : 0.0; total[field] = MonitorIO.number(total[field])+n; g[field] = MonitorIO.number(g[field])+n }
+            // Provider-internal models (no public price) are reported apart from models we simply lack a price for.
+            let isInternal = cost == nil && internalModels.contains(model)
+            let counts: [String:Double] = ["requests":1,"unpricedRequests":cost == nil && !isInternal ? 1 : 0,"internalRequests":isInternal ? 1 : 0,"ownershipAmbiguousRequests":u["ownershipAmbiguous"] as? Bool == true ? 1 : 0]
+            for (field,n) in counts { total[field] = MonitorIO.number(total[field])+n; g[field] = MonitorIO.number(g[field])+n }
             total["pricedUSD"] = MonitorIO.number(total["pricedUSD"]) + (cost ?? 0); g["pricedUSD"] = MonitorIO.number(g["pricedUSD"]) + (cost ?? 0)
             groups[model] = g
         }
@@ -194,16 +197,27 @@ final class MonitorLedger {
             "coverage":["scope":"configured local roots only; cloud and other hosts excluded","filesDiscovered":discovered,"filesComplete":scanned,"errors":errors,"complete":discovered == scanned && errors == 0 && !db.all("file").contains { $0["unaccountedReason"] != nil },"gaps":db.all("file").compactMap { $0["unaccountedReason"] as? String },"forksUnpriced":db.all("file").filter { $0["ambiguousFork"] as? Bool == true }.count]]
     }
     static func cost(_ u: MObject, prices: MObject) -> Double? {
-        guard let p = prices[u["model"] as? String ?? ""] as? MObject, u["cacheTTLUnknown"] as? Bool != true else { return nil }
+        let input = MonitorIO.number(u["input"]), read = MonitorIO.number(u["cacheRead"]), write = MonitorIO.number(u["cacheWrite"]), hour = MonitorIO.number(u["cacheWrite1h"]), output = MonitorIO.number(u["output"])
+        // Zero-token rows (e.g. Claude Code `<synthetic>` messages) cost nothing whatever the model is.
+        if input+read+write+output == 0 { return 0 }
+        guard let p = MonitorPricing.lookup(u["model"] as? String ?? "", prices), u["cacheTTLUnknown"] as? Bool != true else { return nil }
         let tier = u["tier"] as? String ?? "standard"
         let multiplier: Double
         if ["standard","default","auto",""].contains(tier) { multiplier=1 }
         else if ["priority","fast"].contains(tier), let fast=p["fastMultiplier"] { multiplier=MonitorIO.number(fast) }
+        else if tier == "flex", let flex=p["flexMultiplier"] { multiplier=MonitorIO.number(flex) }
         else { return nil }
-        let input = MonitorIO.number(u["input"]), read = MonitorIO.number(u["cacheRead"]), write = MonitorIO.number(u["cacheWrite"]), hour = MonitorIO.number(u["cacheWrite1h"]), output = MonitorIO.number(u["output"])
-        if let threshold = p["maxInput"], input+read+write > MonitorIO.number(threshold) { return nil }
-        if write > 0 && p["cacheWrite"] == nil { return nil }
-        if hour > 0 && p["cacheWrite1h"] == nil { return nil }
-        return (input*MonitorIO.number(p["input"])+read*MonitorIO.number(p["cacheRead"])+max(0,write-hour)*MonitorIO.number(p["cacheWrite"])+hour*MonitorIO.number(p["cacheWrite1h"])+output*MonitorIO.number(p["output"]))/1e6 * multiplier
+        // Above the long-context threshold every token uses the long tier; a missing long price is unpriced, never the short price.
+        var prefix = ""
+        let threshold: Any? = p["longAbove"] != nil ? p["longAbove"] : p["maxInput"]
+        if let threshold, input+read+write > MonitorIO.number(threshold) {
+            guard p["longAbove"] != nil, p["longInput"] != nil, p["longOutput"] != nil else { return nil }
+            prefix = "long"
+        }
+        func price(_ k: String) -> Any? { prefix.isEmpty ? p[k] : p[prefix + k.prefix(1).uppercased() + k.dropFirst()] }
+        if read > 0 && price("cacheRead") == nil { return nil }
+        if write > hour && price("cacheWrite") == nil { return nil }
+        if hour > 0 && price("cacheWrite1h") == nil { return nil }
+        return (input*MonitorIO.number(price("input"))+read*MonitorIO.number(price("cacheRead"))+max(0,write-hour)*MonitorIO.number(price("cacheWrite"))+hour*MonitorIO.number(price("cacheWrite1h"))+output*MonitorIO.number(price("output")))/1e6 * multiplier
     }
 }

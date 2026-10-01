@@ -237,6 +237,36 @@ enum GALog { static func log(_ s:String) {} }
   r=MonitorHooks.apply(providers:["claude"],uninstall:true,executable:execB)
   check(MonitorIO.json(MonitorIO.read(settingsPath))==MonitorIO.json(cfg),"uninstall restores original Claude settings")
   check(ClaudeCollector.state(execB) == .absent,"uninstall leaves no collector behind")
+
+  // 价格表：新模型靠 LiteLLM 远端表自动定价，不靠发版。
+  let lite:MObject=[
+   "claude-new-9":["litellm_provider":"anthropic","mode":"chat","input_cost_per_token":4e-6,"output_cost_per_token":2e-5,"cache_read_input_token_cost":2e-7,"cache_creation_input_token_cost":5e-6,"cache_creation_input_token_cost_above_1hr":8e-6,"provider_specific_entry":["fast":2.0]],
+   "gpt-new":["litellm_provider":"openai","mode":"responses","input_cost_per_token":2e-6,"output_cost_per_token":1.2e-5,"cache_read_input_token_cost":2e-7,"input_cost_per_token_priority":4e-6,
+    "input_cost_per_token_above_272k_tokens":4e-6,"output_cost_per_token_above_272k_tokens":1.8e-5,"cache_read_input_token_cost_above_272k_tokens":4e-7],
+   "bedrock/claude-new-9":["litellm_provider":"anthropic","mode":"chat","input_cost_per_token":1,"output_cost_per_token":1],
+   "gpt-image-x":["litellm_provider":"openai","mode":"image_generation","input_cost_per_token":1e-6,"output_cost_per_token":1e-6],
+   "absurd":["litellm_provider":"openai","mode":"chat","input_cost_per_token":5.0,"output_cost_per_token":1e-6]]
+  let conv=MonitorPricing.convert(lite)
+  check(Set(conv.keys)==["claude-new-9","gpt-new"],"LiteLLM import keeps first-party text models and drops absurd prices")
+  let cn=conv["claude-new-9"] as! MObject, gn=conv["gpt-new"] as! MObject
+  check(abs(MonitorIO.number(cn["cacheWrite1h"])-8)<1e-9 && MonitorIO.number(cn["fastMultiplier"])==2,"LiteLLM per-token prices become per-million with 1h write and fast mode")
+  check(MonitorIO.number(gn["longAbove"])==272000 && abs(MonitorIO.number(gn["longOutput"])-18)<1e-9 && abs(MonitorIO.number(gn["fastMultiplier"])-2)<1e-9,"LiteLLM long-context and priority tiers imported")
+  let pm:MObject=["claude-haiku-4-5":["input":1,"output":5],"claude-opus-5-5":["input":4,"output":20]]
+  check(MonitorPricing.lookup("claude-opus-5-5[1m]",pm) != nil && MonitorPricing.lookup("us.anthropic.claude-haiku-4-5-20251001-v1:0",pm) != nil && MonitorPricing.lookup("anthropic/claude-opus-5-5",pm) != nil,"deployment wrappers and snapshot dates map to the base model")
+  check(MonitorPricing.lookup("claude-opus-5-6",pm) == nil && MonitorPricing.lookup("claude-haiku-4",pm) == nil,"unknown model is never priced as a similar one")
+  check(MonitorLedger.cost(["model":"<synthetic>","input":0,"output":0],prices:pm)==0,"zero-token row is free, not unpriced")
+  check(abs((MonitorLedger.cost(["model":"gpt-new","input":300000,"output":1000],prices:conv) ?? -1)-(300000*4+1000*18)/1e6)<1e-12,"long-context request priced at the long tier")
+  check(MonitorLedger.cost(["model":"gpt-6-astra","input":300000,"output":1],prices:["gpt-6-astra":["input":10,"output":50,"maxInput":272000]]) == nil,"long context without long prices stays unpriced")
+  check(MonitorLedger.cost(["model":"gpt-6-astra","input":1000,"output":1],prices:["gpt-6-astra":["input":10,"output":50,"maxInput":272000]]) != nil,"short request under maxInput is priced")
+  try MonitorIO.atomic(["version":"t","models":["claude-mine-1":["input":1,"output":2]]],MonitorPricing.overridePath)
+  try MonitorIO.atomic(["version":"t","fetchedAt":now,"models":conv],MonitorPricing.remotePath)
+  let merged=MonitorPricing.table()["models"] as! MObject
+  check(merged["claude-mine-1"] != nil && merged["claude-new-9"] != nil && merged["claude-sonnet-5"] != nil,"bundled, remote and local price layers merge")
+  check(MonitorPricing.valid(["input":10,"output":50,"maxInput":272000]) && !MonitorPricing.valid(["input":5000,"output":1]),"token thresholds are not mistaken for absurd prices")
+  var ar:MObject=["sid":"ar","model":"codex-auto-review","turn":"t"]
+  l.ingest("codex","ar.jsonl",MonitorIO.codex,codex(500,5,0),ordinal:0,state:&ar)
+  let arTotals=l.report(period:"all",session:LocalMonitor.sessionKey("codex",MonitorIO.codex,"ar"))["totals"] as! MObject
+  check(MonitorIO.number(arTotals["internalRequests"])==1 && MonitorIO.number(arTotals["unpricedRequests"])==0,"provider-internal model reported apart from missing prices")
   print("ALL MONITOR REGRESSIONS PASSED")
  }
 }

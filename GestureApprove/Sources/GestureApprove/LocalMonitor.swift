@@ -14,11 +14,6 @@ final class LocalMonitor {
     init(root: String = MonitorIO.root) {
         // A failed store must be visible and must never silently overwrite history.
         do { db = try MonitorDB(root + "/monitor.sqlite") } catch { fatalError("Cannot open monitor database: \(error)") }
-        let pricingPath = root + "/pricing.json"
-        if !FileManager.default.fileExists(atPath:pricingPath) {
-            let bundled = MonitorIO.read(AppPaths.resource("config/monitor-pricing.json"))
-            if !bundled.isEmpty { try? MonitorIO.atomic(bundled,pricingPath) }
-        }
         ledger = MonitorLedger(db)
         ledger.onSession = { [weak self] in self?.merge($0) }
         ledger.onQuota = { [weak self] in self?.quota($0,$1,$2,$3) }
@@ -41,6 +36,7 @@ final class LocalMonitor {
     }
     func tick() {
         drain()
+        MonitorPricing.refreshIfDue()
         if Date() >= nextLive { discoverLive(); nextLive = Date().addingTimeInterval(5) }
         if Date() >= nextLedger { ledger.tick(budget:0.65); nextLedger = Date().addingTimeInterval(ledger.scanned < ledger.discovered ? 0 : 3) }
     }
